@@ -1,0 +1,1 @@
+"use strict";(self.rspackChunkshirine_docs=self.rspackChunkshirine_docs||[]).push([[695],{2242(){}}]);

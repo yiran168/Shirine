@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="zh">
+  <head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shirine 迁移指南 (v0.3.0) - Shirine</title>
+<script>{;var defaultLang = "zh", langs = ["en","zh"];if (!/bot|spider|crawl|lighthouse/i.test(window.navigator.userAgent)) {;var firstVisitKey = 'rspress-visited', visited = localStorage.getItem(firstVisitKey);if (!visited) {;localStorage.setItem(firstVisitKey, '1');var targetLang = window.navigator.language.split('-')[0], { pathname, search } = window.location, base = "/Shirine", cleanPathname = pathname.startsWith(base) ? pathname.slice(base.length) || '/' : pathname, pathSegments = cleanPathname.split('/').filter(Boolean), currentLang = langs.includes(pathSegments[0]) ? pathSegments[0] : defaultLang;if (langs.includes(targetLang) && targetLang !== currentLang) {;var newPathSegments = pathSegments.slice();if (targetLang === defaultLang) {;newPathSegments.splice(0, 1);} else if (currentLang === defaultLang) {;newPathSegments.splice(0, 0, targetLang);} else {;newPathSegments[0] = targetLang;};;var newPathname = '/' + newPathSegments.join('/'), trailingSlash = newPathname !== '/' && cleanPathname.endsWith('/') ? '/' : '';window.location['replace'](base + newPathname + trailingSlash + search);};};};}</script>
+<script>{;const saved = localStorage.getItem('rspress-theme-appearance');const preferDark = window.matchMedia('(prefers-color-scheme: dark)').matches;const defaultTheme = 'auto';const theme = saved === 'light' || saved === 'dark' || saved === 'auto' ? saved : defaultTheme;const isDark = theme === 'auto' ? preferDark : theme === 'dark';document.documentElement.classList.toggle('dark', isDark);document.documentElement.classList.toggle('rp-dark', isDark);document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';}</script>
+<link href="/Shirine/static/css/styles.04e542d6f7.css" rel="stylesheet">
+<link rel="preload" href="/Shirine/static/js/async/route-82b359ac70bc.80c3d0db94.js" as="script">
+<script defer src="/Shirine/static/js/styles.cfdced4062.js"></script>
+<script defer src="/Shirine/static/js/lib-react.b07fbc04ff.js"></script>
+<script defer src="/Shirine/static/js/lib-router.39a7b4234e.js"></script>
+<script defer src="/Shirine/static/js/679.913fe203b1.js"></script>
+<script defer src="/Shirine/static/js/index.d00e116ddb.js"></script>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="generator" content="Rspress v2.0.21">
+<link rel="alternate" hreflang="en" href="/Shirine/en/guide/migration.html">
+<link rel="alternate" hreflang="zh" href="/Shirine/guide/migration.html">
+<link rel="icon" href="/Shirine/shirine-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Shirine 迁移指南 (v0.3.0) - Shirine">
+<meta name="description" content="本指南帮助现有 Shirine 用户迁移到最新版本。">
+<meta property="og:description" content="本指南帮助现有 Shirine 用户迁移到最新版本。"></head>
+
+  <body>
+    <div id="__rspress_root"><link rel="preload" as="image" href="/Shirine/shirine-logo.png"/><link rel="preload" as="image" href="/Shirine/cloudflare-api-key-cn.png"/><header class="rp-nav"><div class="rp-nav__left"><div class="rp-nav__title"><a href="/Shirine/" class="rp-nav__title__link rp-link"><div class="rp-nav__title__logo"><img src="/Shirine/shirine-logo.png" alt="logo" id="logo" class="rspress-logo rp-nav__title__logo-image"/></div></a></div></div><div class="rp-nav__right"><button class="rp-search-button"><div class="rp-search-button__content"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" viewBox="0 0 20 21" class="rp-search-button__icon"><path fill="currentColor" d="M8.333 1.913A6.667 6.667 0 0 1 15 8.58c0 1.54-.525 2.957-1.402 4.085l4.49 4.492a.834.834 0 0 1-1.177 1.178l-4.491-4.49a6.64 6.64 0 0 1-4.087 1.402 6.667 6.667 0 0 1 0-13.334m0 1.667a5 5 0 1 0 0 10 5 5 0 0 0 0-10"></path></svg><span class="rp-search-button__word">搜索</span></div><div class="rp-search-button__hotkey" style="opacity:0"><span></span><span>K</span></div></button><div class="rp-search-button--mobile"><svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" fill="none" viewBox="0 0 20 21"><path fill="currentColor" d="M8.333 1.913A6.667 6.667 0 0 1 15 8.58c0 1.54-.525 2.957-1.402 4.085l4.49 4.492a.834.834 0 0 1-1.177 1.178l-4.491-4.49a6.64 6.64 0 0 1-4.087 1.402 6.667 6.667 0 0 1 0-13.334m0 1.667a5 5 0 1 0 0 10 5 5 0 0 0 0-10"></path></svg></div><ul class="rp-nav-menu rp-nav-menu--right"><li class="rp-nav-menu__item"><div class="rp-nav-menu__item__container">指南<svg width="1em" height="1em" viewBox="0 0 32 32" class="rp-nav-menu__item__icon"><path fill="currentColor" d="M16 22 6 12l1.4-1.4 8.6 8.6 8.6-8.6L26 12z"></path></svg></div><ul class="rp-hover-group rp-hover-group--hidden rp-hover-group--center"><li class="rp-hover-group__item rp-hover-group__item--active" style="padding-left:8px" data-depth="0"><a href="/Shirine/guide/index.html" class="rp-hover-group__item__link rp-link" aria-label="简介">简介</a></li><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/guide/deploy.html" class="rp-hover-group__item__link rp-link" aria-label="快速部署">快速部署</a></li><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/guide/development.html" class="rp-hover-group__item__link rp-link" aria-label="本地开发">本地开发</a></li><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/guide/permissions.html" class="rp-hover-group__item__link rp-link" aria-label="权限与积分体系">权限与积分体系</a></li><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/guide/admin.html" class="rp-hover-group__item__link rp-link" aria-label="管理后台">管理后台</a></li><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/guide/live2d.html" class="rp-hover-group__item__link rp-link" aria-label="Live2D 看板娘">Live2D 看板娘</a></li><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/guide/turnstile.html" class="rp-hover-group__item__link rp-link" aria-label="Turnstile 防护">Turnstile 防护</a></li><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/guide/api.html" class="rp-hover-group__item__link rp-link" aria-label="API 接口文档">API 接口文档</a></li><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/guide/webhook.html" class="rp-hover-group__item__link rp-link" aria-label="Webhook 通知">Webhook 通知</a></li><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/guide/rss.html" class="rp-hover-group__item__link rp-link" aria-label="RSS 订阅">RSS 订阅</a></li><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/guide/testing.html" class="rp-hover-group__item__link rp-link" aria-label="测试指南">测试指南</a></li><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/guide/commit-convention.html" class="rp-hover-group__item__link rp-link" aria-label="提交规范">提交规范</a></li><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/guide/contribution.html" class="rp-hover-group__item__link rp-link" aria-label="贡献指南">贡献指南</a></li><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/guide/release.html" class="rp-hover-group__item__link rp-link" aria-label="发布流程">发布流程</a></li></ul></li><li class="rp-nav-menu__item"><div class="rp-nav-menu__item__container">配置<svg width="1em" height="1em" viewBox="0 0 32 32" class="rp-nav-menu__item__icon"><path fill="currentColor" d="M16 22 6 12l1.4-1.4 8.6 8.6 8.6-8.6L26 12z"></path></svg></div><ul class="rp-hover-group rp-hover-group--hidden rp-hover-group--center"><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/env.html" class="rp-hover-group__item__link rp-link" aria-label="环境变量">环境变量</a></li></ul></li></ul><div class="rp-nav__others"><div class="rp-nav-menu__divider"></div><li class="rp-nav-menu__item"><div class="rp-nav-menu__item__container">简体中文<svg width="1em" height="1em" viewBox="0 0 32 32" class="rp-nav-menu__item__icon"><path fill="currentColor" d="M16 22 6 12l1.4-1.4 8.6 8.6 8.6-8.6L26 12z"></path></svg></div><ul class="rp-hover-group rp-hover-group--hidden rp-hover-group--center"><li class="rp-hover-group__item" style="padding-left:8px" data-depth="0"><a href="/Shirine/en/guide/migration.html" class="rp-hover-group__item__link rp-link" aria-label="English" lang="en" hrefLang="en" rel="alternate">English</a></li><li class="rp-hover-group__item rp-hover-group__item--active" style="padding-left:8px" data-depth="0"><div class="rp-hover-group__item__link" lang="zh">简体中文</div></li></ul></li><div class="rp-switch-appearance"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 24 24" class="rp-switch-appearance__icon rp-switch-appearance__icon--sun"><path fill="currentColor" d="m7.001 15.848-1.226 1.226a.58.58 0 0 0 0 .818.58.58 0 0 0 .818 0l1.226-1.226a.58.58 0 0 0 0-.818.58.58 0 0 0-.818 0m-.352-8.735a.584.584 0 0 0 .825-.825L6.237 5.051a.584.584 0 0 0-.825.825zM5.011 11.07h-1.75a.584.584 0 0 0 0 1.167h1.75c.324 0 .584-.26.584-.583a.585.585 0 0 0-.584-.584m7.003-5.835c.324 0 .584-.26.584-.584V2.9a.58.58 0 0 0-.584-.584.58.58 0 0 0-.583.583V4.65c0 .323.262.584.583.584m5.616 1.621 1.226-1.225a.58.58 0 0 0 0-.818.58.58 0 0 0-.818 0l-1.226 1.225a.58.58 0 0 0 0 .818.576.576 0 0 0 .818 0m3.138 4.214h-1.75a.58.58 0 0 0-.584.584c0 .324.26.584.583.584h1.751a.584.584 0 1 0 0-1.167m-3.389 5.124a.584.584 0 0 0-.825.825l1.238 1.238a.584.584 0 0 0 .825-.826zm-5.365-9.795a5.256 5.256 0 0 0-5.257 5.258 5.256 5.256 0 0 0 5.257 5.257 5.256 5.256 0 0 0 5.257-5.257 5.256 5.256 0 0 0-5.257-5.258m0 11.675a.58.58 0 0 0-.583.583v1.751a.582.582 0 1 0 1.167 0v-1.75a.584.584 0 0 0-.584-.584"></path></svg><svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" fill="currentColor" viewBox="0 0 19 19" class="rp-switch-appearance__icon rp-switch-appearance__icon--moon"><path fill="currentColor" d="M9.166 0a9.2 9.2 0 0 1 1.857.188.834.834 0 0 1 .042 1.623 4.47 4.47 0 1 0 5.457 5.457l.048-.135a.834.834 0 0 1 1.575.177q.186.902.188 1.856A9.168 9.168 0 1 1 9.166 0"></path></svg></div><div class="rp-social-links"><a href="https://github.com/yiran168/Shirine" target="_blank" rel="noopener noreferrer" class="rp-social-links__item"><div class="rp-social-links__icon"><div class="rp-social-links__icon"><svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12c0 5.303 3.438 9.8 8.205 11.385c.6.113.82-.258.82-.577c0-.285-.01-1.04-.015-2.04c-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729c1.205.084 1.838 1.236 1.838 1.236c1.07 1.835 2.809 1.305 3.495.998c.108-.776.417-1.305.76-1.605c-2.665-.3-5.466-1.332-5.466-5.93c0-1.31.465-2.38 1.235-3.22c-.135-.303-.54-1.523.105-3.176c0 0 1.005-.322 3.3 1.23c.96-.267 1.98-.399 3-.405c1.02.006 2.04.138 3 .405c2.28-1.552 3.285-1.23 3.285-1.23c.645 1.653.24 2.873.12 3.176c.765.84 1.23 1.91 1.23 3.22c0 4.61-2.805 5.625-5.475 5.92c.42.36.81 1.096.81 2.22c0 1.606-.015 2.896-.015 3.286c0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></div></div></a><ul class="rp-hover-group rp-hover-group--hidden rp-hover-group--right"></ul></div></div><button aria-label="mobile hamburger" class="rp-nav-hamburger rp-nav-hamburger__sm"><svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" fill="none" viewBox="0 0 21 21"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.667" d="M3.645 5.225h13.333M3.645 10.225h13.333M3.645 15.225h13.333"></path></svg></button><button aria-label="mobile hamburger" class="rp-nav-hamburger rp-nav-hamburger__md"><svg xmlns="http://www.w3.org/2000/svg" width="21" height="21" fill="none" viewBox="0 0 21 21"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.667" d="M3.645 5.225h13.333M3.645 10.225h13.333M3.645 15.225h13.333"></path></svg><ul class="rp-hover-group rp-hover-group--hidden rp-hover-group--right"><div class="rp-nav-menu__others-mobile__container"><div class="rp-nav-hamburger__md__hover-group"><div class="rp-nav-screen-appearance"><div class="rp-nav-screen-appearance__left">主题</div><div class="rp-nav-screen-appearance__right"></div></div><div class="rp-nav-screen-langs"><div class="rp-nav-screen-langs__left">语言</div><div class="rp-nav-screen-langs__right">简体中文<svg width="1em" height="1em" viewBox="0 0 32 32" class="rp-nav-screen-langs__icon "><path fill="currentColor" d="M16 22 6 12l1.4-1.4 8.6 8.6 8.6-8.6L26 12z"></path></svg></div></div><div class="rp-nav-screen-langs-group" style="display:grid;grid-template-rows:0fr;transition:grid-template-rows 0.2s ease-out"><div class="rp-nav-screen-langs-group__inner"><a href="/Shirine/en/guide/migration.html" class="rp-nav-screen-langs-group__item rp-link" hrefLang="en" lang="en" rel="alternate">English</a><span class="rp-nav-screen-langs-group__item rp-nav-screen-langs-group__item--active" aria-current="page" aria-disabled="true">简体中文</span></div></div><div class="rp-nav-screen-divider"></div><div class="rp-social-links"><a href="https://github.com/yiran168/Shirine" target="_blank" rel="noopener noreferrer" class="rp-social-links__item"><div class="rp-social-links__icon"><div class="rp-social-links__icon"><svg xmlns="http://www.w3.org/2000/svg" width="100%" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12c0 5.303 3.438 9.8 8.205 11.385c.6.113.82-.258.82-.577c0-.285-.01-1.04-.015-2.04c-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729c1.205.084 1.838 1.236 1.838 1.236c1.07 1.835 2.809 1.305 3.495.998c.108-.776.417-1.305.76-1.605c-2.665-.3-5.466-1.332-5.466-5.93c0-1.31.465-2.38 1.235-3.22c-.135-.303-.54-1.523.105-3.176c0 0 1.005-.322 3.3 1.23c.96-.267 1.98-.399 3-.405c1.02.006 2.04.138 3 .405c2.28-1.552 3.285-1.23 3.285-1.23c.645 1.653.24 2.873.12 3.176c.765.84 1.23 1.91 1.23 3.22c0 4.61-2.805 5.625-5.475 5.92c.42.36.81 1.096.81 2.22c0 1.606-.015 2.896-.015 3.286c0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg></div></div></a><ul class="rp-hover-group rp-hover-group--hidden rp-hover-group--right"></ul></div></div></div></ul></button></div></header><div class="rp-doc-layout__menu"><div class="rp-sidebar-menu"><button type="button" class="rp-sidebar-menu__left"><svg width="1em" height="1em" viewBox="0 0 32 32"><path fill="currentColor" d="M4 6h24v2H4zm0 18h24v2H4zm0-12h24v2H4zm0 6h24v2H4z"></path></svg><span>菜单</span></button><button type="button" class="rp-sidebar-menu__right"><span class="rp-sidebar-menu__right__text">大纲</span><svg width="14" height="14" class="rp-progress-circle"><circle cx="7" cy="7" r="6" stroke-linecap="round" fill="none" stroke="var(--rp-c-divider-light)" stroke-width="2"></circle><circle cx="7" cy="7" r="6" stroke-linecap="round" fill="none" stroke="var(--rp-c-brand)" stroke-width="2" stroke-dasharray="37.69911184307752" stroke-dashoffset="37.69911184307752" transform="rotate(-90 7 7)" style="transition:stroke-dashoffset 0.3s"></circle></svg><svg width="1em" height="1em" viewBox="0 0 32 32" class="rp-sidebar-menu__right__icon" style="transform:rotate(0deg);transition:transform 0.2s ease-out"><path fill="currentColor" d="M22 16 12 26l-1.4-1.4 8.6-8.6-8.6-8.6L12 6z"></path></svg></button></div></div><div class="rp-doc-layout__container"><aside class="rp-doc-layout__sidebar rp-scrollbar"><a href="/Shirine/guide/index.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">简介</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/deploy.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">Shirine 部署指南</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/development.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">本地开发指南</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/permissions.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">用户、权限与积分体系</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/admin.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">管理后台与即写即看</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/live2d.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">Live2D 看板娘集成</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/turnstile.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">Cloudflare Turnstile 人机防护</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/api.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">REST API 接口文档</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/webhook.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">Webhook 指南</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/rss.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">RSS 配置</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/testing.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">测试指南</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/contribution.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">贡献</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/commit-convention.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">提交规范</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/release.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">发布流程</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/migration.html" class="rp-sidebar-item rp-sidebar-item--active rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">Shirine 迁移指南 (v0.3.0)</span></div><div class="rp-sidebar-item__right"></div></a><a href="/Shirine/guide/changelog.html" class="rp-sidebar-item rp-link" style="padding-left:12px" data-depth="0"><div class="rp-sidebar-item__left"><span class="rp-doc">更新日志</span></div><div class="rp-sidebar-item__right"></div></a></aside><div class="rp-doc-layout__doc"><main class="rp-doc-layout__doc-container"><div class="rp-doc rspress-doc"><!--$--><h1 class="rp-toc-include" id="shirine-迁移指南-v030"><a href="#shirine-迁移指南-v030" class="rp-header-anchor rp-link" aria-hidden="true">#</a>Shirine 迁移指南 (v0.3.0)<!-- --> </h1>
+<p>本指南帮助现有 Shirine 用户迁移到最新版本。</p>
+<h2 class="rp-toc-include" id="变更概览"><a href="#变更概览" class="rp-header-anchor rp-link" aria-hidden="true">#</a>变更概览</h2>
+<p>v0.3.0 版本包含重大的架构变更：</p>
+<ol>
+<li><strong>框架迁移</strong>: 用自定义轻量级框架替代 ElysiaJS</li>
+<li><strong>API 变更</strong>: 新的 API 客户端接口</li>
+<li><strong>登录方式</strong>: 新增账号密码登录支持</li>
+<li><strong>OAuth 变更</strong>: GitHub OAuth 变量名更新</li>
+<li><strong>性能提升</strong>: 显著的性能改进</li>
+</ol>
+<h2 class="rp-toc-include" id="迁移步骤"><a href="#迁移步骤" class="rp-header-anchor rp-link" aria-hidden="true">#</a>迁移步骤</h2>
+<h3 class="rp-toc-include" id="第一步同步-fork"><a href="#第一步同步-fork" class="rp-header-anchor rp-link" aria-hidden="true">#</a>第一步：同步 Fork</h3>
+<ol>
+<li>进入您在 GitHub 上 fork 的仓库</li>
+<li>点击 <strong>&quot;Sync fork&quot;</strong> 按钮</li>
+<li>点击 <strong>&quot;Update branch&quot;</strong> 合并变更</li>
+</ol>
+<h3 class="rp-toc-include" id="第二步更新环境变量"><a href="#第二步更新环境变量" class="rp-header-anchor rp-link" aria-hidden="true">#</a>第二步：更新环境变量</h3>
+<h4 class="rp-toc-include" id="必需变更"><a href="#必需变更" class="rp-header-anchor rp-link" aria-hidden="true">#</a>必需变更</h4>
+<p><strong>GitHub OAuth 变量（如果使用 GitHub 登录）</strong></p>
+<p>旧变量名已弃用：</p>
+<div class="rp-codeblock language-txt"><div class="rp-codeblock__content"><div class="rp-codeblock__content__scroll-container rp-scrollbar rp-scrollbar--always"><pre class="shiki css-variables" style="background-color:var(--shiki-background);color:var(--shiki-foreground)" tabindex="0" data-lang="txt"><code><span class="line"><span>GITHUB_CLIENT_ID      → RIN_GITHUB_CLIENT_ID</span></span>
+<span class="line"><span>GITHUB_CLIENT_SECRET  → RIN_GITHUB_CLIENT_SECRET</span></span></code></pre></div><div class="rp-code-button-group"><button class="rp-code-button-group__button rp-code-wrap-button" title="切换代码换行" aria-label="切换代码换行"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" class="rp-code-button-group__icon rp-code-button-group__icon--wrapped"><path fill="currentColor" d="M21 5H3v2h18zM3 19h7v-2H3zm0-6h15c1 0 2 .43 2 2s-1 2-2 2h-2v-2l-4 3 4 3v-2h2c2.95 0 4-1.27 4-4 0-2.72-1-4-4-4H3z"></path></svg><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" class="rp-code-button-group__icon rp-code-button-group__icon--wrap"><path fill="currentColor" d="M16 7H3V5h13zM3 19h13v-2H3zm19-7-4-3v2H3v2h15v2z"></path></svg></button><button class="rp-code-button-group__button rp-code-copy-button" title="复制代码"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" class="rp-code-button-group__icon rp-code-copy-button__icon rp-code-copy-button__icon--copy"><path fill="currentColor" d="M20 8v12H8V8zm0-2H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2"></path><path fill="currentColor" d="M4 16H2V4a2 2 0 0 1 2-2h12v2H4Z"></path></svg><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" class="rp-code-button-group__icon rp-code-copy-button__icon rp-code-copy-button__icon--success"><path fill="currentColor" d="m9.55 18-5.7-5.7 1.425-1.425L9.55 15.15l9.175-9.175L20.15 7.4z"></path></svg></button></div></div></div>
+<p><strong>操作步骤</strong>：</p>
+<ol>
+<li>进入 Settings → Secrets and variables → Actions</li>
+<li>添加带 <code>RIN_</code> 前缀的新 Secrets</li>
+<li>（可选）删除旧 Secrets</li>
+</ol>
+<h4 class="rp-toc-include" id="可选添加账号密码登录"><a href="#可选添加账号密码登录" class="rp-header-anchor rp-link" aria-hidden="true">#</a>可选：添加账号密码登录</h4>
+<p>如果您更喜欢简单的账号密码登录而非 GitHub OAuth：</p>
+<ol>
+<li>添加以下 Secrets：
+<ul>
+<li><code>ADMIN_USERNAME</code>: 您想要的用户名</li>
+<li><code>ADMIN_PASSWORD</code>: 您想要的密码</li>
+</ul>
+</li>
+</ol>
+<h3 class="rp-toc-include" id="第三步移除-pages可选但推荐"><a href="#第三步移除-pages可选但推荐" class="rp-header-anchor rp-link" aria-hidden="true">#</a>第三步：移除 Pages（可选但推荐）</h3>
+<p>自 0.3.0 开始，Shirine 改为使用 Workers 托管静态资源，不再依赖 Cloudflare Pages。建议按以下步骤迁移：</p>
+<ol>
+<li>
+<p><strong>解绑 Pages 域名</strong></p>
+<ul>
+<li>进入 Cloudflare Dashboard → Pages</li>
+<li>选择您的 Pages 项目 → 自定义域</li>
+<li>删除绑定的域名</li>
+</ul>
+</li>
+<li>
+<p><strong>将域名绑定到 Worker</strong></p>
+<ul>
+<li>进入 Cloudflare Dashboard → Workers &amp; Pages</li>
+<li>选择您的 Worker (<code>shirine-server</code>)</li>
+<li>点击&quot;触发器&quot; → &quot;添加自定义域&quot;</li>
+<li>输入您的域名并保存</li>
+</ul>
+</li>
+<li>
+<p><strong>清理多余的域名绑定</strong></p>
+<ul>
+<li>检查 Worker 的自定义域列表</li>
+<li>删除不需要的绑定（如 <code>seo/*</code>、<code>sub/*</code> 等）</li>
+</ul>
+</li>
+<li>
+<p><strong>更新 GitHub OAuth Callback</strong></p>
+<ul>
+<li>进入 GitHub → Settings → Developer settings → OAuth Apps</li>
+<li>找到您的 OAuth App</li>
+<li>将 Authorization callback URL 从：
+<ul>
+<li><code>https://&lt;worker-domain&gt;/user/github/callback</code></li>
+</ul>
+</li>
+<li>修改为：
+<ul>
+<li><code>https://&lt;your-domain&gt;/api/user/github/callback</code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
+<h3 class="rp-toc-include" id="第四步更新-cloudflare-api-key-权限"><a href="#第四步更新-cloudflare-api-key-权限" class="rp-header-anchor rp-link" aria-hidden="true">#</a>第四步：更新 Cloudflare API Key 权限</h3>
+<p>确保您的 Cloudflare API Token 具有以下权限：</p>
+<ul>
+<li><strong>D1</strong>:Edit</li>
+<li><strong>Workers R2 存储</strong>:Edit (如果使用 R2 存储)</li>
+<li><strong>Workers 脚本</strong>:Edit</li>
+</ul>
+<p><img src="/Shirine/cloudflare-api-key-cn.png" alt="1000000663"/></p>
+<h3 class="rp-toc-include" id="第五步重命名分支名"><a href="#第五步重命名分支名" class="rp-header-anchor rp-link" aria-hidden="true">#</a>第五步：重命名分支名</h3>
+<ol>
+<li>若先前 fork 仓库的分支为 <code>dev</code>，需手动重命名为 <code>main</code> 或 <code>master</code></li>
+</ol>
+<h3 class="rp-toc-include" id="第六步部署"><a href="#第六步部署" class="rp-header-anchor rp-link" aria-hidden="true">#</a>第六步：部署</h3>
+<ol>
+<li>进入仓库的 Actions 标签</li>
+<li>选择 <strong>&quot;Build&quot;</strong> 工作流</li>
+<li>点击 <strong>&quot;Run workflow&quot;</strong></li>
+<li>在构建成功后会自动触发 <code>Deploy</code> 工作流自动部署到 workers</li>
+</ol>
+<h3 class="rp-toc-include" id="第七步验证部署"><a href="#第七步验证部署" class="rp-header-anchor rp-link" aria-hidden="true">#</a>第七步：验证部署</h3>
+<ol>
+<li>访问您的前端 URL</li>
+<li>测试登录功能</li>
+<li>检查现有文章是否可访问</li>
+<li>验证图片是否正确加载</li>
+</ol>
+<h2 class="rp-toc-include" id="破坏性变更汇总"><a href="#破坏性变更汇总" class="rp-header-anchor rp-link" aria-hidden="true">#</a>破坏性变更汇总</h2>
+<h3 class="rp-toc-include" id="api-客户端接口"><a href="#api-客户端接口" class="rp-header-anchor rp-link" aria-hidden="true">#</a>API 客户端接口</h3>
+<p><strong>旧代码</strong>（不再支持）：</p>
+<div class="rp-codeblock language-typescript"><div class="rp-codeblock__content"><div class="rp-codeblock__content__scroll-container rp-scrollbar rp-scrollbar--always"><pre class="shiki css-variables" style="background-color:var(--shiki-background);color:var(--shiki-foreground)" tabindex="0" data-lang="typescript"><code><span class="line"><span style="color:var(--shiki-token-keyword)">const</span><span style="color:var(--shiki-token-constant)"> feeds</span><span style="color:var(--shiki-token-keyword)"> =</span><span style="color:var(--shiki-token-keyword)"> await</span><span style="color:var(--shiki-token-constant)"> client</span><span style="color:var(--shiki-token-function)">.</span><span style="color:var(--shiki-token-constant)">feed</span><span style="color:var(--shiki-token-function)">.</span><span style="color:var(--shiki-token-constant)">index</span><span style="color:var(--shiki-token-function)">.get</span><span style="color:var(--shiki-foreground)">({ query</span><span style="color:var(--shiki-token-keyword)">:</span><span style="color:var(--shiki-foreground)"> { page</span><span style="color:var(--shiki-token-keyword)">:</span><span style="color:var(--shiki-token-constant)"> 1</span><span style="color:var(--shiki-foreground)"> } });</span></span></code></pre></div><div class="rp-code-button-group"><button class="rp-code-button-group__button rp-code-wrap-button" title="切换代码换行" aria-label="切换代码换行"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" class="rp-code-button-group__icon rp-code-button-group__icon--wrapped"><path fill="currentColor" d="M21 5H3v2h18zM3 19h7v-2H3zm0-6h15c1 0 2 .43 2 2s-1 2-2 2h-2v-2l-4 3 4 3v-2h2c2.95 0 4-1.27 4-4 0-2.72-1-4-4-4H3z"></path></svg><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" class="rp-code-button-group__icon rp-code-button-group__icon--wrap"><path fill="currentColor" d="M16 7H3V5h13zM3 19h13v-2H3zm19-7-4-3v2H3v2h15v2z"></path></svg></button><button class="rp-code-button-group__button rp-code-copy-button" title="复制代码"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" class="rp-code-button-group__icon rp-code-copy-button__icon rp-code-copy-button__icon--copy"><path fill="currentColor" d="M20 8v12H8V8zm0-2H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2"></path><path fill="currentColor" d="M4 16H2V4a2 2 0 0 1 2-2h12v2H4Z"></path></svg><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" class="rp-code-button-group__icon rp-code-copy-button__icon rp-code-copy-button__icon--success"><path fill="currentColor" d="m9.55 18-5.7-5.7 1.425-1.425L9.55 15.15l9.175-9.175L20.15 7.4z"></path></svg></button></div></div></div>
+<p><strong>新代码</strong>：</p>
+<div class="rp-codeblock language-typescript"><div class="rp-codeblock__content"><div class="rp-codeblock__content__scroll-container rp-scrollbar rp-scrollbar--always"><pre class="shiki css-variables" style="background-color:var(--shiki-background);color:var(--shiki-foreground)" tabindex="0" data-lang="typescript"><code><span class="line"><span style="color:var(--shiki-token-keyword)">const</span><span style="color:var(--shiki-token-constant)"> feeds</span><span style="color:var(--shiki-token-keyword)"> =</span><span style="color:var(--shiki-token-keyword)"> await</span><span style="color:var(--shiki-token-constant)"> client</span><span style="color:var(--shiki-token-function)">.</span><span style="color:var(--shiki-token-constant)">feed</span><span style="color:var(--shiki-token-function)">.list</span><span style="color:var(--shiki-foreground)">({ page</span><span style="color:var(--shiki-token-keyword)">:</span><span style="color:var(--shiki-token-constant)"> 1</span><span style="color:var(--shiki-foreground)"> });</span></span></code></pre></div><div class="rp-code-button-group"><button class="rp-code-button-group__button rp-code-wrap-button" title="切换代码换行" aria-label="切换代码换行"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" class="rp-code-button-group__icon rp-code-button-group__icon--wrapped"><path fill="currentColor" d="M21 5H3v2h18zM3 19h7v-2H3zm0-6h15c1 0 2 .43 2 2s-1 2-2 2h-2v-2l-4 3 4 3v-2h2c2.95 0 4-1.27 4-4 0-2.72-1-4-4-4H3z"></path></svg><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" class="rp-code-button-group__icon rp-code-button-group__icon--wrap"><path fill="currentColor" d="M16 7H3V5h13zM3 19h13v-2H3zm19-7-4-3v2H3v2h15v2z"></path></svg></button><button class="rp-code-button-group__button rp-code-copy-button" title="复制代码"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" class="rp-code-button-group__icon rp-code-copy-button__icon rp-code-copy-button__icon--copy"><path fill="currentColor" d="M20 8v12H8V8zm0-2H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2"></path><path fill="currentColor" d="M4 16H2V4a2 2 0 0 1 2-2h12v2H4Z"></path></svg><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" class="rp-code-button-group__icon rp-code-copy-button__icon rp-code-copy-button__icon--success"><path fill="currentColor" d="m9.55 18-5.7-5.7 1.425-1.425L9.55 15.15l9.175-9.175L20.15 7.4z"></path></svg></button></div></div></div>
+<p>如果您有使用旧 API 的自定义前端代码，请相应更新。</p>
+<h3 class="rp-toc-include" id="认证流程"><a href="#认证流程" class="rp-header-anchor rp-link" aria-hidden="true">#</a>认证流程</h3>
+<ul>
+<li><strong>旧</strong>: 后端重定向到前端 callback URL</li>
+<li><strong>新</strong>: 独立的 <code>/login</code> 页面，专用登录流程</li>
+</ul>
+<h3 class="rp-toc-include" id="环境变量变化"><a href="#环境变量变化" class="rp-header-anchor rp-link" aria-hidden="true">#</a>环境变量变化</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="rp-table-scroll-container rp-scrollbar"><table><thead><tr><th>旧名称</th><th>新名称</th><th>必需</th></tr></thead><tbody><tr><td><code>GITHUB_CLIENT_ID</code></td><td><code>RIN_GITHUB_CLIENT_ID</code></td><td>可选*</td></tr><tr><td><code>GITHUB_CLIENT_SECRET</code></td><td><code>RIN_GITHUB_CLIENT_SECRET</code></td><td>可选*</td></tr><tr><td>-</td><td><code>ADMIN_USERNAME</code></td><td>可选*</td></tr><tr><td>-</td><td><code>ADMIN_PASSWORD</code></td><td>可选*</td></tr></tbody></table></div>
+<p>*必须配置至少一种登录方式</p>
+<h2 class="rp-toc-include" id="迁移后"><a href="#迁移后" class="rp-header-anchor rp-link" aria-hidden="true">#</a>迁移后</h2>
+<h3 class="rp-toc-include" id="尝试新功能"><a href="#尝试新功能" class="rp-header-anchor rp-link" aria-hidden="true">#</a>尝试新功能</h3>
+<ol>
+<li><strong>个人资料管理</strong>: 访问 <code>/profile</code> 更新头像和用户名</li>
+<li><strong>性能提升</strong>: 体验更快的冷启动和更低的 CPU 使用率</li>
+<li><strong>更好的登录体验</strong>: 新的独立登录页面，改进焦点处理</li>
+</ol>
+<h3 class="rp-toc-include" id="清理可选"><a href="#清理可选" class="rp-header-anchor rp-link" aria-hidden="true">#</a>清理（可选）</h3>
+<p>成功迁移后，您可以：</p>
+<ol>
+<li>删除已弃用的环境变量</li>
+<li>如不再需要，删除旧的预览部署</li>
+<li>更新自定义脚本以使用新的 API 接口</li>
+</ol>
+<h2 class="rp-toc-include" id="故障排除"><a href="#故障排除" class="rp-header-anchor rp-link" aria-hidden="true">#</a>故障排除</h2>
+<h3 class="rp-toc-include" id="版本不匹配-错误"><a href="#版本不匹配-错误" class="rp-header-anchor rp-link" aria-hidden="true">#</a>&quot;版本不匹配&quot; 错误</h3>
+<p><strong>解决方案</strong>: 确保 git 标签与 package.json 版本匹配。同步应该会自动处理。</p>
+<h3 class="rp-toc-include" id="无法登录"><a href="#无法登录" class="rp-header-anchor rp-link" aria-hidden="true">#</a>&quot;无法登录&quot;</h3>
+<p><strong>解决方案</strong>：</p>
+<ol>
+<li>验证至少配置了一种登录方式（GitHub OAuth 或 账号密码）</li>
+<li>检查 Secrets 是否正确设置</li>
+<li>尝试清除浏览器缓存</li>
+</ol>
+<h3 class="rp-toc-include" id="图片无法加载"><a href="#图片无法加载" class="rp-header-anchor rp-link" aria-hidden="true">#</a>&quot;图片无法加载&quot;</h3>
+<p><strong>解决方案</strong>：</p>
+<ol>
+<li>检查 S3/R2 配置</li>
+<li>验证 <code>S3_ACCESS_HOST</code> 是否正确设置</li>
+<li>检查 R2 存储桶权限</li>
+</ol>
+<h2 class="rp-toc-include" id="回滚如需要"><a href="#回滚如需要" class="rp-header-anchor rp-link" aria-hidden="true">#</a>回滚（如需要）</h2>
+<p>如果迁移失败需要回滚：</p>
+<ol>
+<li>恢复之前的 git 标签：<code>git checkout v0.2.x</code></li>
+<li>强制推送到 main（⚠️ 破坏性）：<code>git push origin HEAD:main --force</code></li>
+<li>从 Actions 重新部署</li>
+</ol>
+<h2 class="rp-toc-include" id="需要帮助"><a href="#需要帮助" class="rp-header-anchor rp-link" aria-hidden="true">#</a>需要帮助？</h2>
+<ul>
+<li>📖 <a href="https://rin-docs.xeu.life" target="_blank" rel="noopener noreferrer" class="rp-link">完整文档</a></li>
+<li>🐛 <a href="https://github.com/yiran168/Shirine/issues" target="_blank" rel="noopener noreferrer" class="rp-link">GitHub Issues</a></li>
+<li>💬 <a href="https://github.com/yiran168/Shirine/discussions" target="_blank" rel="noopener noreferrer" class="rp-link">GitHub Discussions</a></li>
+</ul>
+<hr/>
+<p><em>最后更新：2025-02-08</em></p><!--/$--></div><footer class="rp-doc-footer"><div class="rp-doc-footer__edit"></div><div class="rp-doc-footer__divider"></div><div class="rp-prev-next-page"><a href="/Shirine/guide/release.html" class="rp-prev-next-page__item rp-prev-next-page__prev rp-link"><span class="rp-prev-next-page__item__desc">上一页</span><span class="rp-prev-next-page__item__title"><svg width="1em" height="1em" viewBox="0 0 32 32" class="rp-prev-next-page__icon rp-prev-next-page__rotate_180"><path fill="currentColor" d="M22 16 12 26l-1.4-1.4 8.6-8.6-8.6-8.6L12 6z"></path></svg><span>发布流程</span></span></a><a href="/Shirine/guide/changelog.html" class="rp-prev-next-page__item rp-prev-next-page__next rp-link"><span class="rp-prev-next-page__item__desc">下一页</span><span class="rp-prev-next-page__item__title"><span>更新日志</span><svg width="1em" height="1em" viewBox="0 0 32 32" class="rp-prev-next-page__icon"><path fill="currentColor" d="M22 16 12 26l-1.4-1.4 8.6-8.6-8.6-8.6L12 6z"></path></svg></span></a></div></footer></main></div><aside class="rp-doc-layout__outline rp-scrollbar"><div class="rp-outline"><div class="rp-outline__title">大纲<svg width="14" height="14" class="rp-progress-circle"><circle cx="7" cy="7" r="6" stroke-linecap="round" fill="none" stroke="var(--rp-c-divider-light)" stroke-width="2"></circle><circle cx="7" cy="7" r="6" stroke-linecap="round" fill="none" stroke="var(--rp-c-brand)" stroke-width="2" stroke-dasharray="37.69911184307752" stroke-dashoffset="37.69911184307752" transform="rotate(-90 7 7)" style="transition:stroke-dashoffset 0.3s"></circle></svg></div><nav class="rp-outline__toc rp-scrollbar"><a href="#变更概览" class="rp-toc-item rp-link" title="变更概览" style="padding-left:0" data-depth="0"><span class="rp-toc-item__text rp-doc">变更概览</span></a><a href="#迁移步骤" class="rp-toc-item rp-link" title="迁移步骤" style="padding-left:0" data-depth="0"><span class="rp-toc-item__text rp-doc">迁移步骤</span></a><a href="#第一步同步-fork" class="rp-toc-item rp-link" title="第一步：同步 Fork" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">第一步：同步 Fork</span></a><a href="#第二步更新环境变量" class="rp-toc-item rp-link" title="第二步：更新环境变量" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">第二步：更新环境变量</span></a><a href="#必需变更" class="rp-toc-item rp-link" title="必需变更" style="padding-left:24px" data-depth="2"><span class="rp-toc-item__text rp-doc">必需变更</span></a><a href="#可选添加账号密码登录" class="rp-toc-item rp-link" title="可选：添加账号密码登录" style="padding-left:24px" data-depth="2"><span class="rp-toc-item__text rp-doc">可选：添加账号密码登录</span></a><a href="#第三步移除-pages可选但推荐" class="rp-toc-item rp-link" title="第三步：移除 Pages（可选但推荐）" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">第三步：移除 Pages（可选但推荐）</span></a><a href="#第四步更新-cloudflare-api-key-权限" class="rp-toc-item rp-link" title="第四步：更新 Cloudflare API Key 权限" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">第四步：更新 Cloudflare API Key 权限</span></a><a href="#第五步重命名分支名" class="rp-toc-item rp-link" title="第五步：重命名分支名" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">第五步：重命名分支名</span></a><a href="#第六步部署" class="rp-toc-item rp-link" title="第六步：部署" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">第六步：部署</span></a><a href="#第七步验证部署" class="rp-toc-item rp-link" title="第七步：验证部署" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">第七步：验证部署</span></a><a href="#破坏性变更汇总" class="rp-toc-item rp-link" title="破坏性变更汇总" style="padding-left:0" data-depth="0"><span class="rp-toc-item__text rp-doc">破坏性变更汇总</span></a><a href="#api-客户端接口" class="rp-toc-item rp-link" title="API 客户端接口" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">API 客户端接口</span></a><a href="#认证流程" class="rp-toc-item rp-link" title="认证流程" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">认证流程</span></a><a href="#环境变量变化" class="rp-toc-item rp-link" title="环境变量变化" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">环境变量变化</span></a><a href="#迁移后" class="rp-toc-item rp-link" title="迁移后" style="padding-left:0" data-depth="0"><span class="rp-toc-item__text rp-doc">迁移后</span></a><a href="#尝试新功能" class="rp-toc-item rp-link" title="尝试新功能" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">尝试新功能</span></a><a href="#清理可选" class="rp-toc-item rp-link" title="清理（可选）" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">清理（可选）</span></a><a href="#故障排除" class="rp-toc-item rp-link" title="故障排除" style="padding-left:0" data-depth="0"><span class="rp-toc-item__text rp-doc">故障排除</span></a><a href="#版本不匹配-错误" class="rp-toc-item rp-link" title="&quot;版本不匹配&quot; 错误" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">&quot;版本不匹配&quot; 错误</span></a><a href="#无法登录" class="rp-toc-item rp-link" title="&quot;无法登录&quot;" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">&quot;无法登录&quot;</span></a><a href="#图片无法加载" class="rp-toc-item rp-link" title="&quot;图片无法加载&quot;" style="padding-left:12px" data-depth="1"><span class="rp-toc-item__text rp-doc">&quot;图片无法加载&quot;</span></a><a href="#回滚如需要" class="rp-toc-item rp-link" title="回滚（如需要）" style="padding-left:0" data-depth="0"><span class="rp-toc-item__text rp-doc">回滚（如需要）</span></a><a href="#需要帮助" class="rp-toc-item rp-link" title="需要帮助？" style="padding-left:0" data-depth="0"><span class="rp-toc-item__text rp-doc">需要帮助？</span></a></nav><div class="rp-outline__divider"></div><div class="rp-outline__bottom"></div></div></aside></div></div>
+    <div id="__rspress_modal_container"></div>
+  </body>
+</html>
