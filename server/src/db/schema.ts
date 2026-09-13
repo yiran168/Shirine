@@ -1,0 +1,201 @@
+import { sql } from "drizzle-orm";
+import { index, integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+
+const createdAt = integer("created_at", { mode: "timestamp" })
+  .default(sql`(unixepoch())`)
+  .notNull();
+
+const updatedAt = integer("updated_at", { mode: "timestamp" })
+  .default(sql`(unixepoch())`)
+  .notNull();
+
+// Users Table
+export const users = sqliteTable("users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  username: text("username").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  salt: text("salt").notNull(),
+  role: text("role", { enum: ["superadmin", "user"] }).default("user").notNull(),
+  avatar: text("avatar").default(""),
+  nickname: text("nickname").default(""),
+  points: integer("points").default(0).notNull(),
+  status: text("status", { enum: ["active", "banned"] }).default("active").notNull(),
+  lastCheckinDate: text("last_checkin_date"), // YYYY-MM-DD
+  checkinStreak: integer("checkin_streak").default(0).notNull(),
+  createdAt,
+  updatedAt,
+}, (table) => ({
+  usernameIdx: index("users_username_idx").on(table.username),
+}));
+
+// Check-in Records
+export const checkinRecords = sqliteTable("checkin_records", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  checkinDate: text("checkin_date").notNull(), // YYYY-MM-DD
+  pointsAwarded: integer("points_awarded").notNull(),
+  createdAt,
+}, (table) => ({
+  userDateUnique: unique().on(table.userId, table.checkinDate),
+  userIdx: index("checkin_user_idx").on(table.userId),
+}));
+
+// Blog Posts
+export const posts = sqliteTable("posts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  slug: text("slug").notNull().unique(),
+  alias: text("alias"),
+  permalink: text("permalink"),
+  title: text("title").notNull(),
+  description: text("description").default("").notNull(),
+  content: text("content").notNull(),
+  image: text("image").default("").notNull(),
+  category: text("category").default("").notNull(),
+  tags: text("tags").default("[]").notNull(), // JSON Array
+  pinned: integer("pinned").default(0).notNull(),
+  draft: integer("draft").default(0).notNull(),
+  commentEnabled: integer("comment_enabled").default(1).notNull(),
+  permissionType: text("permission_type", { enum: ["public", "login_required", "points_required"] })
+    .default("public")
+    .notNull(),
+  requiredPoints: integer("required_points").default(0).notNull(),
+  encrypted: integer("encrypted").default(0).notNull(),
+  password: text("password").default(""),
+  passwordHint: text("password_hint").default(""),
+  hideHomeContent: integer("hide_home_content").default(1).notNull(),
+  uid: integer("uid").references(() => users.id).notNull(),
+  createdAt,
+  updatedAt,
+}, (table) => ({
+  slugIdx: index("posts_slug_idx").on(table.slug),
+  permIdx: index("posts_perm_idx").on(table.permissionType),
+  dateIdx: index("posts_date_idx").on(table.createdAt),
+}));
+
+// Post Unlocks
+export const postUnlocks = sqliteTable("post_unlocks", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  postId: integer("post_id").references(() => posts.id, { onDelete: "cascade" }).notNull(),
+  pointsSpent: integer("points_spent").notNull(),
+  createdAt,
+}, (table) => ({
+  userPostUnique: unique().on(table.userId, table.postId),
+}));
+
+// Albums
+export const albums = sqliteTable("albums", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  description: text("description").default("").notNull(),
+  cover: text("cover").default("").notNull(),
+  permissionType: text("permission_type", { enum: ["public", "login_required", "points_required"] })
+    .default("public")
+    .notNull(),
+  requiredPoints: integer("required_points").default(0).notNull(),
+  draft: integer("draft").default(0).notNull(),
+  uid: integer("uid").references(() => users.id).notNull(),
+  createdAt,
+  updatedAt,
+});
+
+// Album Photos
+export const albumPhotos = sqliteTable("album_photos", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  albumId: integer("album_id").references(() => albums.id, { onDelete: "cascade" }).notNull(),
+  url: text("url").notNull(),
+  title: text("title").default(""),
+  description: text("description").default(""),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt,
+}, (table) => ({
+  albumIdx: index("album_photos_album_idx").on(table.albumId),
+}));
+
+// Album Unlocks
+export const albumUnlocks = sqliteTable("album_unlocks", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  albumId: integer("album_id").references(() => albums.id, { onDelete: "cascade" }).notNull(),
+  pointsSpent: integer("points_spent").notNull(),
+  createdAt,
+}, (table) => ({
+  userAlbumUnique: unique().on(table.userId, table.albumId),
+}));
+
+// Moments (动态)
+export const moments = sqliteTable("moments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  content: text("content").notNull(),
+  location: text("location").default(""),
+  mood: text("mood").default(""),
+  images: text("images").default("[]").notNull(), // JSON [{ src, alt }]
+  tags: text("tags").default("[]").notNull(),
+  pinned: integer("pinned").default(0).notNull(),
+  draft: integer("draft").default(0).notNull(),
+  uid: integer("uid").references(() => users.id).notNull(),
+  createdAt,
+  updatedAt,
+});
+
+// Independent Custom Pages
+export const pages = sqliteTable("pages", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  draft: integer("draft").default(0).notNull(),
+  uid: integer("uid").references(() => users.id).notNull(),
+  createdAt,
+  updatedAt,
+});
+
+// Friends Links
+export const friends = sqliteTable("friends", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  desc: text("desc").default(""),
+  avatar: text("avatar").notNull(),
+  url: text("url").notNull(),
+  accepted: integer("accepted").default(1).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  uid: integer("uid").references(() => users.id).notNull(),
+  createdAt,
+  updatedAt,
+});
+
+// Site Configuration
+export const siteConfigs = sqliteTable("site_configs", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(), // JSON
+  updatedAt,
+});
+
+// System Configuration
+export const systemConfigs = sqliteTable("system_configs", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(), // JSON
+  updatedAt,
+});
+
+// Comments
+export const comments = sqliteTable("comments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  postId: integer("post_id").references(() => posts.id, { onDelete: "cascade" }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  guestName: text("guest_name").default(""),
+  guestEmail: text("guest_email").default(""),
+  guestWebsite: text("guest_website").default(""),
+  status: text("status").default("approved").notNull(),
+  createdAt,
+});
+
+// Visits / Analytics
+export const visits = sqliteTable("visits", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  path: text("path").notNull(),
+  ip: text("ip").notNull(),
+  userAgent: text("user_agent").default(""),
+  createdAt,
+});

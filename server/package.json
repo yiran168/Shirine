@@ -1,0 +1,25 @@
+{
+  "name": "shirine-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 11498",
+    "build": "wrangler deploy --dry-run --outdir=dist",
+    "deploy": "wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 execute shirine-db --local --file=./src/db/schema.sql",
+    "db:migrate:remote": "wrangler d1 execute shirine-db --remote --file=./src/db/schema.sql"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.35.3",
+    "hono": "^4.6.9",
+    "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241106.0",
+    "drizzle-kit": "^0.28.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^3.86.0"
+  }
+}

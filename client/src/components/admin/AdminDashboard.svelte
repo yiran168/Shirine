@@ -1,0 +1,1448 @@
+<script lang="ts">
+  import { onMount } from "svelte";
+  import { authStore } from "../../stores/auth";
+  import {
+    adminApi,
+    authApi,
+    postsApi,
+    albumsApi,
+    momentsApi,
+    pagesApi,
+    friendsApi,
+    configApi,
+    uploadFile,
+  } from "../../services/api";
+
+  type TabType = "overview" | "posts" | "albums" | "moments" | "pages" | "friends" | "users" | "settings";
+
+  let currentTab = $state<TabType>("overview");
+  let loading = $state(true);
+  let errorMsg = $state("");
+  let successMsg = $state("");
+
+  // Auth & Permissions
+  let isAdmin = $derived(
+    authStore.user && (authStore.user.role === "superadmin" || authStore.user.role === "admin")
+  );
+
+  // Quick login state if visitor not admin
+  let loginUsername = $state("");
+  let loginPassword = $state("");
+  let loginLoading = $state(false);
+
+  // Overview Stats
+  let stats = $state<{
+    totalPosts: number;
+    totalAlbums: number;
+    totalMoments: number;
+    totalUsers: number;
+    totalPoints: number;
+  }>({
+    totalPosts: 0,
+    totalAlbums: 0,
+    totalMoments: 0,
+    totalUsers: 0,
+    totalPoints: 0,
+  });
+
+  // Posts State
+  let posts = $state<any[]>([]);
+  let postModalOpen = $state(false);
+  let editingPost = $state<any>(null);
+  let postForm = $state({
+    id: 0,
+    title: "",
+    slug: "",
+    content: "",
+    description: "",
+    category: "",
+    tags: "",
+    image: "",
+    pinned: false,
+    permissionType: "public",
+    requiredPoints: 0,
+  });
+
+  // Albums State
+  let albums = $state<any[]>([]);
+  let albumModalOpen = $state(false);
+  let editingAlbum = $state<any>(null);
+  let albumForm = $state({
+    id: 0,
+    title: "",
+    slug: "",
+    description: "",
+    cover: "",
+    layout: "masonry",
+    columns: 3,
+    permissionType: "public",
+    requiredPoints: 0,
+    photosText: "", // JSON or newline separated URLs
+  });
+
+  // Moments State
+  let moments = $state<any[]>([]);
+  let momentContent = $state("");
+  let momentMood = $state("✨");
+  let momentLocation = $state("");
+  let momentPhotos = $state<string[]>([]);
+
+  // Friends State
+  let friends = $state<any[]>([]);
+  let friendModalOpen = $state(false);
+  let friendForm = $state({
+    id: 0,
+    name: "",
+    url: "",
+    avatar: "",
+    desc: "",
+    status: "approved",
+  });
+
+  // Users State
+  let users = $state<any[]>([]);
+  let userPointsModalOpen = $state(false);
+  let targetUser = $state<any>(null);
+  let adjustPointsDelta = $state(0);
+
+  // Settings State
+  let siteConfigState = $state({
+    title: "Shirine",
+    subtitle: "A Material 3 anime blog",
+    lang: "zh_CN",
+    themeHue: 315,
+    themeStyle: "tonalSpot",
+    topAppBarAlign: "center",
+  });
+
+  let systemConfigState = $state({
+    checkinMode: "random", // "fixed" | "random"
+    checkinFixedPoints: 10,
+    checkinRandomMin: 5,
+    checkinRandomMax: 20,
+    turnstileEnable: false,
+    turnstileSiteKey: "",
+    turnstileSecretKey: "",
+    live2dGuestEnable: true,
+    live2dAdminEnable: true,
+    live2dModel: "pio",
+  });
+
+  function showMessage(msg: string, isError = false) {
+    if (isError) {
+      errorMsg = msg;
+      setTimeout(() => (errorMsg = ""), 5000);
+    } else {
+      successMsg = msg;
+      setTimeout(() => (successMsg = ""), 4000);
+    }
+  }
+
+  async function handleAdminLogin() {
+    loginLoading = true;
+    errorMsg = "";
+    try {
+      const res = await authApi.login({ username: loginUsername, password: loginPassword });
+      if (res.success && res.user) {
+        if (res.user.role !== "superadmin" && res.user.role !== "admin") {
+          showMessage("该账户不是管理员角色，无法进入后台控制台", true);
+        } else {
+          authStore.setUser(res.user);
+          loadDashboardData();
+        }
+      } else {
+        showMessage(res.error || "登录失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message || "登录请求异常", true);
+    } finally {
+      loginLoading = false;
+    }
+  }
+
+  async function loadDashboardData() {
+    loading = true;
+    try {
+      // 1. Stats
+      const statsRes = await adminApi.getStats();
+      if (statsRes.success) {
+        stats = statsRes.data;
+      }
+
+      // 2. Load tab specific data
+      await loadTabData(currentTab);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function loadTabData(tab: TabType) {
+    if (!isAdmin) return;
+    try {
+      if (tab === "posts") {
+        const res = await postsApi.list({ pageSize: 100 });
+        if (res.success) posts = res.data || [];
+      } else if (tab === "albums") {
+        const res = await albumsApi.list();
+        if (res.success) albums = res.data || [];
+      } else if (tab === "moments") {
+        const res = await momentsApi.list();
+        if (res.success) moments = res.data || [];
+      } else if (tab === "friends") {
+        const res = await friendsApi.list();
+        if (res.success) friends = res.data || [];
+      } else if (tab === "users") {
+        const res = await adminApi.getUsers({ pageSize: 100 });
+        if (res.success) users = res.data || [];
+      } else if (tab === "settings") {
+        const [siteRes, sysRes] = await Promise.all([
+          configApi.getSite(),
+          configApi.getAdminSystem(),
+        ]);
+        if (siteRes.success && siteRes.data) {
+          siteConfigState = { ...siteConfigState, ...siteRes.data };
+        }
+        if (sysRes.success && sysRes.data) {
+          systemConfigState = { ...systemConfigState, ...sysRes.data };
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function switchTab(tab: TabType) {
+    currentTab = tab;
+    loadTabData(tab);
+  }
+
+  // --- Posts Operations ---
+  function openNewPostModal() {
+    editingPost = null;
+    postForm = {
+      id: 0,
+      title: "",
+      slug: "",
+      content: "",
+      description: "",
+      category: "Default",
+      tags: "",
+      image: "",
+      pinned: false,
+      permissionType: "public",
+      requiredPoints: 0,
+    };
+    postModalOpen = true;
+  }
+
+  function openEditPostModal(post: any) {
+    editingPost = post;
+    postForm = {
+      id: post.id,
+      title: post.title,
+      slug: post.slug,
+      content: post.content || "",
+      description: post.description || "",
+      category: post.category || "Default",
+      tags: Array.isArray(post.tags) ? post.tags.join(", ") : post.tags || "",
+      image: post.image || "",
+      pinned: Boolean(post.pinned),
+      permissionType: post.permissionType || "public",
+      requiredPoints: post.requiredPoints || 0,
+    };
+    postModalOpen = true;
+  }
+
+  async function savePost() {
+    if (!postForm.title.trim()) return showMessage("请输入文章标题", true);
+    const tagsArr = postForm.tags
+      .split(/[,，]/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    const payload = {
+      ...postForm,
+      tags: tagsArr,
+      requiredPoints: Number(postForm.requiredPoints) || 0,
+    };
+
+    try {
+      let res;
+      if (editingPost) {
+        res = await postsApi.update(editingPost.id, payload);
+      } else {
+        res = await postsApi.create(payload);
+      }
+      if (res.success) {
+        showMessage("文章保存成功！刷新前台即可看到最新内容");
+        postModalOpen = false;
+        loadTabData("posts");
+      } else {
+        showMessage(res.error || "保存失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message || "请求异常", true);
+    }
+  }
+
+  async function deletePost(id: number) {
+    if (!confirm("确定要删除这篇博文吗？删除后无法恢复。")) return;
+    try {
+      const res = await postsApi.delete(id);
+      if (res.success) {
+        showMessage("文章已删除");
+        loadTabData("posts");
+      } else {
+        showMessage(res.error || "删除失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  // --- Albums Operations ---
+  function openNewAlbumModal() {
+    editingAlbum = null;
+    albumForm = {
+      id: 0,
+      title: "",
+      slug: "",
+      description: "",
+      cover: "",
+      layout: "masonry",
+      columns: 3,
+      permissionType: "public",
+      requiredPoints: 0,
+      photosText: "",
+    };
+    albumModalOpen = true;
+  }
+
+  function openEditAlbumModal(album: any) {
+    editingAlbum = album;
+    albumForm = {
+      id: album.id,
+      title: album.title,
+      slug: album.slug,
+      description: album.description || "",
+      cover: album.cover || "",
+      layout: album.layout || "masonry",
+      columns: album.columns || 3,
+      permissionType: album.permissionType || "public",
+      requiredPoints: album.requiredPoints || 0,
+      photosText: Array.isArray(album.photos)
+        ? album.photos.map((p: any) => p.url || p).join("\n")
+        : "",
+    };
+    albumModalOpen = true;
+  }
+
+  async function saveAlbum() {
+    if (!albumForm.title.trim()) return showMessage("请输入相册标题", true);
+    const photos = albumForm.photosText
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((url) => ({ url }));
+
+    const payload = {
+      ...albumForm,
+      photos,
+      requiredPoints: Number(albumForm.requiredPoints) || 0,
+    };
+
+    try {
+      let res;
+      if (editingAlbum) {
+        res = await albumsApi.update(editingAlbum.id, payload);
+      } else {
+        res = await albumsApi.create(payload);
+      }
+      if (res.success) {
+        showMessage("相册保存成功！");
+        albumModalOpen = false;
+        loadTabData("albums");
+      } else {
+        showMessage(res.error || "保存失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  async function deleteAlbum(id: number) {
+    if (!confirm("确定要删除此相册吗？")) return;
+    try {
+      const res = await albumsApi.delete(id);
+      if (res.success) {
+        showMessage("相册已删除");
+        loadTabData("albums");
+      } else {
+        showMessage(res.error || "删除失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  // --- Moments Operations ---
+  async function publishMoment() {
+    if (!momentContent.trim()) return showMessage("请输入动态内容", true);
+    try {
+      const res = await momentsApi.create({
+        content: momentContent,
+        mood: momentMood,
+        location: momentLocation,
+        photos: momentPhotos,
+      });
+      if (res.success) {
+        showMessage("动态日记发布成功！");
+        momentContent = "";
+        momentLocation = "";
+        momentPhotos = [];
+        loadTabData("moments");
+      } else {
+        showMessage(res.error || "发布失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  async function deleteMoment(id: number) {
+    if (!confirm("确定要删除这条动态吗？")) return;
+    try {
+      const res = await momentsApi.delete(id);
+      if (res.success) {
+        showMessage("动态已删除");
+        loadTabData("moments");
+      } else {
+        showMessage(res.error || "删除失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  // --- Friends Operations ---
+  async function approveFriend(id: number) {
+    try {
+      const res = await friendsApi.update(id, { status: "approved" });
+      if (res.success) {
+        showMessage("已批准该友链申请");
+        loadTabData("friends");
+      } else {
+        showMessage(res.error || "操作失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  async function deleteFriend(id: number) {
+    if (!confirm("确定要删除该友链吗？")) return;
+    try {
+      const res = await friendsApi.delete(id);
+      if (res.success) {
+        showMessage("友链已删除");
+        loadTabData("friends");
+      } else {
+        showMessage(res.error || "删除失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  // --- Users Operations ---
+  function openAdjustPoints(user: any) {
+    targetUser = user;
+    adjustPointsDelta = 0;
+    userPointsModalOpen = true;
+  }
+
+  async function saveAdjustPoints() {
+    if (!targetUser) return;
+    try {
+      const res = await adminApi.updateUserPoints(targetUser.id, { delta: adjustPointsDelta });
+      if (res.success) {
+        showMessage(`已成功为用户 ${targetUser.username} 调整积分`);
+        userPointsModalOpen = false;
+        loadTabData("users");
+      } else {
+        showMessage(res.error || "调整失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  async function toggleUserRole(user: any) {
+    const newRole = user.role === "admin" ? "user" : "admin";
+    if (!confirm(`确定要将用户 ${user.username} 的身份变更为 ${newRole} 吗？`)) return;
+    try {
+      const res = await adminApi.updateUserRole(user.id, newRole);
+      if (res.success) {
+        showMessage("用户角色变更成功");
+        loadTabData("users");
+      } else {
+        showMessage(res.error || "变更失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  async function toggleUserStatus(user: any) {
+    const newStatus = user.status === "banned" ? "active" : "banned";
+    const actionText = newStatus === "banned" ? "封禁" : "解封";
+    if (!confirm(`确定要${actionText}用户 ${user.username} 吗？`)) return;
+    try {
+      const res = await adminApi.updateUserStatus(user.id, newStatus);
+      if (res.success) {
+        showMessage(`用户已${actionText}`);
+        loadTabData("users");
+      } else {
+        showMessage(res.error || "操作失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  // --- Settings Save ---
+  async function saveAllSettings() {
+    try {
+      const [siteRes, sysRes] = await Promise.all([
+        configApi.updateSite(siteConfigState),
+        configApi.updateSystem(systemConfigState),
+      ]);
+      if (siteRes.success && sysRes.success) {
+        showMessage("全站配置与系统设置已保存生效！");
+      } else {
+        showMessage(siteRes.error || sysRes.error || "保存失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  // --- Image Upload Helper ---
+  async function handleFileUpload(e: Event, targetField: "postCover" | "albumCover" | "momentPhoto") {
+    const input = e.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+
+    showMessage("正在上传图片至 R2 存储...");
+    const res = await uploadFile(file);
+    if (res.success && res.url) {
+      showMessage("图片上传成功！");
+      if (targetField === "postCover") postForm.image = res.url;
+      else if (targetField === "albumCover") albumForm.cover = res.url;
+      else if (targetField === "momentPhoto") momentPhotos = [...momentPhotos, res.url];
+    } else {
+      showMessage(res.error || "上传失败", true);
+    }
+  }
+
+  onMount(async () => {
+    // Check current auth status
+    const meRes = await authApi.me();
+    if (meRes.success && meRes.user) {
+      authStore.setUser(meRes.user);
+    }
+    if (isAdmin) {
+      loadDashboardData();
+    } else {
+      loading = false;
+    }
+  });
+</script>
+
+<div class="min-h-screen bg-[var(--surface-container-lowest)] text-[var(--on-surface)] flex flex-col font-sans transition-colors duration-200">
+  <!-- Toast Messages -->
+  {#if errorMsg}
+    <div class="fixed top-4 right-4 z-50 px-5 py-3 rounded-2xl bg-error text-on-error shadow-2xl flex items-center gap-3 animate-fade-in">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span class="text-sm font-medium">{errorMsg}</span>
+    </div>
+  {/if}
+  {#if successMsg}
+    <div class="fixed top-4 right-4 z-50 px-5 py-3 rounded-2xl bg-emerald-600 text-white shadow-2xl flex items-center gap-3 animate-fade-in">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+      <span class="text-sm font-medium">{successMsg}</span>
+    </div>
+  {/if}
+
+  <!-- Admin Header -->
+  <header class="h-16 px-6 border-b border-[var(--outline-variant)]/20 bg-[var(--surface)]/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-30">
+    <div class="flex items-center gap-4">
+      <a href="/" class="flex items-center gap-2 text-primary font-bold text-lg hover:opacity-80 transition-opacity">
+        <span class="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">S</span>
+        <span>Shirine Admin</span>
+      </a>
+      <span class="text-xs px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium hidden sm:inline-block">
+        管理控制台
+      </span>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <a
+        href="/"
+        class="text-xs font-medium px-3.5 py-1.5 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] transition-all flex items-center gap-1.5"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+        <span>返回前台</span>
+      </a>
+
+      {#if authStore.user}
+        <div class="flex items-center gap-2 pl-2 border-l border-[var(--outline-variant)]/20">
+          <img src={authStore.user.avatar || "/assets/avatars/avatar-1.webp"} alt="Admin" class="w-8 h-8 rounded-full ring-2 ring-primary/20 object-cover" />
+          <div class="hidden md:flex flex-col text-left">
+            <span class="text-xs font-semibold">{authStore.user.nickname || authStore.user.username}</span>
+            <span class="text-[10px] text-primary capitalize font-medium">{authStore.user.role}</span>
+          </div>
+          <button
+            onclick={() => authStore.logout()}
+            class="text-xs text-[var(--on-surface-variant)] hover:text-error ml-2 p-1.5 rounded-lg hover:bg-[var(--surface-container)]"
+            title="退出登录"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          </button>
+        </div>
+      {/if}
+    </div>
+  </header>
+
+  <!-- Content Container -->
+  {#if !isAdmin}
+    <!-- Auth Gate / Admin Login -->
+    <div class="flex-1 flex items-center justify-center p-6">
+      <div class="w-full max-w-md p-8 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-2xl text-center">
+        <div class="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4">
+          <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        </div>
+        <h2 class="text-2xl font-bold mb-2">需要管理员登录</h2>
+        <p class="text-sm text-[var(--on-surface-variant)] mb-6">
+          当前后台仅对超级管理员或管理员开放。首位注册者已自动获取超级管理员权限。
+        </p>
+        <form onsubmit={(e) => { e.preventDefault(); handleAdminLogin(); }} class="space-y-4 text-left">
+          <div>
+            <label class="text-xs font-medium block mb-1.5">用户名 / 邮箱</label>
+            <input
+              type="text"
+              bind:value={loginUsername}
+              placeholder="请输入管理员账号"
+              required
+              class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none"
+            />
+          </div>
+          <div>
+            <label class="text-xs font-medium block mb-1.5">登录密码</label>
+            <input
+              type="password"
+              bind:value={loginPassword}
+              placeholder="请输入密码"
+              required
+              class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loginLoading}
+            class="w-full py-3 rounded-full bg-primary text-on-primary font-semibold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all disabled:opacity-50 mt-4"
+          >
+            {loginLoading ? "验证中..." : "进入管理面板"}
+          </button>
+        </form>
+      </div>
+    </div>
+  {:else}
+    <!-- Main Admin Layout -->
+    <div class="flex-1 flex flex-col md:flex-row">
+      <!-- Sidebar Navigation -->
+      <aside class="w-full md:w-64 border-r border-[var(--outline-variant)]/20 bg-[var(--surface-container-lowest)] p-4 flex md:flex-col gap-1 overflow-x-auto shrink-0">
+        <button
+          onclick={() => switchTab("overview")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'overview' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+          <span>概览与数据</span>
+        </button>
+
+        <button
+          onclick={() => switchTab("posts")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'posts' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+          <span>博文管理</span>
+        </button>
+
+        <button
+          onclick={() => switchTab("albums")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'albums' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <span>相册图库</span>
+        </button>
+
+        <button
+          onclick={() => switchTab("moments")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'moments' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          <span>动态日记</span>
+        </button>
+
+        <button
+          onclick={() => switchTab("friends")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'friends' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+          <span>友链申请</span>
+        </button>
+
+        <button
+          onclick={() => switchTab("users")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'users' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          <span>用户管理</span>
+        </button>
+
+        <button
+          onclick={() => switchTab("settings")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'settings' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span>系统与设置</span>
+        </button>
+      </aside>
+
+      <!-- Main Workspace -->
+      <main class="flex-1 p-6 md:p-8 overflow-y-auto">
+        {#if currentTab === "overview"}
+          <!-- Overview Cards -->
+          <div class="mb-8">
+            <h1 class="text-2xl font-bold mb-2">仪表盘概览</h1>
+            <p class="text-sm text-[var(--on-surface-variant)]">
+              欢迎回来，{authStore.user?.nickname || authStore.user?.username}！当前系统运行在 Cloudflare Workers + D1 架构上。
+            </p>
+          </div>
+
+          <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+            <div class="p-5 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/30">
+              <span class="text-xs text-[var(--on-surface-variant)] block mb-1">文章总数</span>
+              <span class="text-2xl font-bold text-primary">{stats.totalPosts}</span>
+            </div>
+            <div class="p-5 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/30">
+              <span class="text-xs text-[var(--on-surface-variant)] block mb-1">相册总数</span>
+              <span class="text-2xl font-bold text-secondary">{stats.totalAlbums}</span>
+            </div>
+            <div class="p-5 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/30">
+              <span class="text-xs text-[var(--on-surface-variant)] block mb-1">动态日记</span>
+              <span class="text-2xl font-bold text-tertiary">{stats.totalMoments}</span>
+            </div>
+            <div class="p-5 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/30">
+              <span class="text-xs text-[var(--on-surface-variant)] block mb-1">注册用户</span>
+              <span class="text-2xl font-bold text-amber-500">{stats.totalUsers}</span>
+            </div>
+            <div class="p-5 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 col-span-2 lg:col-span-1">
+              <span class="text-xs text-[var(--on-surface-variant)] block mb-1">流通总积分</span>
+              <span class="text-2xl font-bold text-purple-500">{stats.totalPoints}</span>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30">
+            <h2 class="text-lg font-bold mb-4">快捷操作</h2>
+            <div class="flex flex-wrap gap-3">
+              <button
+                onclick={openNewPostModal}
+                class="px-5 py-2.5 rounded-xl bg-primary text-on-primary font-medium text-sm shadow hover:brightness-105 transition-all flex items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                <span>发布新博文</span>
+              </button>
+              <button
+                onclick={openNewAlbumModal}
+                class="px-5 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] font-medium text-sm transition-all flex items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <span>新建相册</span>
+              </button>
+              <button
+                onclick={() => switchTab("settings")}
+                class="px-5 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] font-medium text-sm transition-all flex items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/></svg>
+                <span>配置签到积分与系统</span>
+              </button>
+            </div>
+          </div>
+
+        {:else if currentTab === "posts"}
+          <!-- Posts List & Controls -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl font-bold">博文管理</h1>
+              <p class="text-xs text-[var(--on-surface-variant)] mt-1">支持实时 Markdown 编辑、置顶、及 3 级权限限制（公开 / 需登录 / 积分解锁）</p>
+            </div>
+            <button
+              onclick={openNewPostModal}
+              class="px-5 py-2.5 rounded-full bg-primary text-on-primary text-sm font-semibold shadow hover:brightness-105 flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>撰写新文章</span>
+            </button>
+          </div>
+
+          <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/30 rounded-2xl overflow-hidden shadow-sm">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-[var(--surface-container-low)] border-b border-[var(--outline-variant)]/20 text-xs text-[var(--on-surface-variant)] uppercase">
+                <tr>
+                  <th class="px-6 py-3.5">标题</th>
+                  <th class="px-4 py-3.5">分类 / 标签</th>
+                  <th class="px-4 py-3.5">权限类型</th>
+                  <th class="px-4 py-3.5">发布时间</th>
+                  <th class="px-6 py-3.5 text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[var(--outline-variant)]/10">
+                {#each posts as post}
+                  <tr class="hover:bg-[var(--surface-container-lowest)] transition-colors">
+                    <td class="px-6 py-4">
+                      <div class="font-semibold text-[var(--on-surface)] flex items-center gap-2">
+                        {#if post.pinned}<span class="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">置顶</span>{/if}
+                        <span>{post.title}</span>
+                      </div>
+                      <span class="text-xs text-[var(--on-surface-variant)]">{post.slug}</span>
+                    </td>
+                    <td class="px-4 py-4 text-xs">
+                      <span class="px-2 py-0.5 rounded-md bg-[var(--surface-container)] font-medium">{post.category || "默认"}</span>
+                    </td>
+                    <td class="px-4 py-4 text-xs">
+                      {#if post.permissionType === 'login_required'}
+                        <span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 font-medium">需登录</span>
+                      {:else if post.permissionType === 'points_required'}
+                        <span class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-500 font-medium">{post.requiredPoints} 积分解锁</span>
+                      {:else}
+                        <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-medium">公开</span>
+                      {/if}
+                    </td>
+                    <td class="px-4 py-4 text-xs text-[var(--on-surface-variant)]">
+                      {new Date(post.createdAt).toLocaleDateString()}
+                    </td>
+                    <td class="px-6 py-4 text-right space-x-2">
+                      <button onclick={() => openEditPostModal(post)} class="text-primary hover:underline text-xs font-medium">编辑</button>
+                      <button onclick={() => deletePost(post.id)} class="text-error hover:underline text-xs font-medium">删除</button>
+                    </td>
+                  </tr>
+                {/each}
+                {#if posts.length === 0}
+                  <tr>
+                    <td colspan="5" class="py-8 text-center text-xs text-[var(--on-surface-variant)]">暂无博文，点击右上角撰写新文章</td>
+                  </tr>
+                {/if}
+              </tbody>
+            </table>
+          </div>
+
+        {:else if currentTab === "albums"}
+          <!-- Albums Management -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl font-bold">相册图库</h1>
+              <p class="text-xs text-[var(--on-surface-variant)] mt-1">管理瀑布流、网格相册，支持按相册设置登录或积分解锁</p>
+            </div>
+            <button
+              onclick={openNewAlbumModal}
+              class="px-5 py-2.5 rounded-full bg-primary text-on-primary text-sm font-semibold shadow hover:brightness-105 flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>新建相册</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {#each albums as album}
+              <div class="rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface)] overflow-hidden shadow-sm flex flex-col">
+                <div class="h-40 bg-[var(--surface-container)] relative overflow-hidden">
+                  {#if album.cover}
+                    <img src={album.cover} alt={album.title} class="w-full h-full object-cover" />
+                  {:else}
+                    <div class="w-full h-full flex items-center justify-center text-[var(--on-surface-variant)] text-xs">无封面</div>
+                  {/if}
+                  {#if album.permissionType !== 'public'}
+                    <span class="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-md {album.permissionType === 'login_required' ? 'bg-amber-500/80 text-white' : 'bg-purple-600/80 text-white'}">
+                      {album.permissionType === 'login_required' ? '需登录' : `${album.requiredPoints} 积分`}
+                    </span>
+                  {/if}
+                </div>
+                <div class="p-4 flex-1 flex flex-col justify-between">
+                  <div>
+                    <h3 class="font-bold text-base mb-1">{album.title}</h3>
+                    <p class="text-xs text-[var(--on-surface-variant)] line-clamp-2">{album.description || "暂无描述"}</p>
+                  </div>
+                  <div class="mt-4 pt-3 border-t border-[var(--outline-variant)]/10 flex items-center justify-between text-xs">
+                    <span class="text-[var(--on-surface-variant)]">照片数: {Array.isArray(album.photos) ? album.photos.length : 0}</span>
+                    <div class="space-x-2">
+                      <button onclick={() => openEditAlbumModal(album)} class="text-primary font-medium hover:underline">编辑</button>
+                      <button onclick={() => deleteAlbum(album.id)} class="text-error font-medium hover:underline">删除</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {/each}
+          </div>
+
+        {:else if currentTab === "moments"}
+          <!-- Moments Management -->
+          <div class="mb-6">
+            <h1 class="text-2xl font-bold">动态日记</h1>
+            <p class="text-xs text-[var(--on-surface-variant)] mt-1">发布短动态日记，支持心情、位置与多图</p>
+          </div>
+
+          <!-- Quick Moment Publisher -->
+          <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm mb-8 max-w-2xl">
+            <textarea
+              bind:value={momentContent}
+              rows="3"
+              placeholder="分享今天的灵感与日常..."
+              class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none resize-none"
+            ></textarea>
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <input
+                  type="text"
+                  bind:value={momentMood}
+                  placeholder="心情 (如 ✨/🌸)"
+                  class="w-24 px-3 py-1.5 text-xs rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] outline-none"
+                />
+                <input
+                  type="text"
+                  bind:value={momentLocation}
+                  placeholder="地点 (可选)"
+                  class="w-32 px-3 py-1.5 text-xs rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] outline-none"
+                />
+                <label class="text-xs px-3 py-1.5 rounded-xl border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] cursor-pointer flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  <span>添加图片</span>
+                  <input type="file" accept="image/*" class="hidden" onchange={(e) => handleFileUpload(e, "momentPhoto")} />
+                </label>
+              </div>
+              <button
+                onclick={publishMoment}
+                class="px-6 py-2 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105 transition-all"
+              >
+                发布动态
+              </button>
+            </div>
+            {#if momentPhotos.length > 0}
+              <div class="flex gap-2 mt-3 overflow-x-auto">
+                {#each momentPhotos as photo}
+                  <img src={photo} alt="Upload" class="w-14 h-14 rounded-xl object-cover ring-1 ring-primary/30" />
+                {/each}
+              </div>
+            {/if}
+          </div>
+
+          <!-- Moments List -->
+          <div class="space-y-4 max-w-2xl">
+            {#each moments as moment}
+              <div class="p-5 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 flex items-start justify-between">
+                <div>
+                  <div class="flex items-center gap-2 mb-2 text-xs">
+                    <span class="text-base">{moment.mood || "✨"}</span>
+                    <span class="font-semibold text-[var(--on-surface)]">{new Date(moment.createdAt).toLocaleString()}</span>
+                    {#if moment.location}<span class="text-[var(--on-surface-variant)]">· {moment.location}</span>{/if}
+                  </div>
+                  <p class="text-sm leading-relaxed whitespace-pre-wrap">{moment.content}</p>
+                </div>
+                <button onclick={() => deleteMoment(moment.id)} class="text-xs text-error hover:underline shrink-0 ml-4">删除</button>
+              </div>
+            {/each}
+          </div>
+
+        {:else if currentTab === "friends"}
+          <!-- Friends Links Management -->
+          <div class="mb-6">
+            <h1 class="text-2xl font-bold">友链管理与申请</h1>
+            <p class="text-xs text-[var(--on-surface-variant)] mt-1">审核访客提交的友链申请，或直接添加新的友链</p>
+          </div>
+
+          <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/30 rounded-2xl overflow-hidden shadow-sm">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-[var(--surface-container-low)] border-b border-[var(--outline-variant)]/20 text-xs text-[var(--on-surface-variant)]">
+                <tr>
+                  <th class="px-6 py-3.5">站点名称与描述</th>
+                  <th class="px-4 py-3.5">网址</th>
+                  <th class="px-4 py-3.5">状态</th>
+                  <th class="px-6 py-3.5 text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[var(--outline-variant)]/10">
+                {#each friends as friend}
+                  <tr class="hover:bg-[var(--surface-container-lowest)] transition-colors">
+                    <td class="px-6 py-4 flex items-center gap-3">
+                      <img src={friend.avatar} alt={friend.name} class="w-8 h-8 rounded-full object-cover bg-surface" />
+                      <div>
+                        <span class="font-semibold text-[var(--on-surface)] block">{friend.name}</span>
+                        <span class="text-xs text-[var(--on-surface-variant)]">{friend.desc || "无描述"}</span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-4 text-xs">
+                      <a href={friend.url} target="_blank" class="text-primary hover:underline">{friend.url}</a>
+                    </td>
+                    <td class="px-4 py-4 text-xs">
+                      {#if friend.status === 'approved'}
+                        <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-medium">已批准</span>
+                      {:else}
+                        <span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 font-medium">待审核</span>
+                      {/if}
+                    </td>
+                    <td class="px-6 py-4 text-right space-x-2">
+                      {#if friend.status !== 'approved'}
+                        <button onclick={() => approveFriend(friend.id)} class="text-emerald-600 font-medium text-xs hover:underline">批准通过</button>
+                      {/if}
+                      <button onclick={() => deleteFriend(friend.id)} class="text-error font-medium text-xs hover:underline">删除</button>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+
+        {:else if currentTab === "users"}
+          <!-- Users Management -->
+          <div class="mb-6">
+            <h1 class="text-2xl font-bold">注册用户管理</h1>
+            <p class="text-xs text-[var(--on-surface-variant)] mt-1">查看所有用户账户、调整积分余额、晋升管理员或封禁/解封</p>
+          </div>
+
+          <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/30 rounded-2xl overflow-hidden shadow-sm">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-[var(--surface-container-low)] border-b border-[var(--outline-variant)]/20 text-xs text-[var(--on-surface-variant)]">
+                <tr>
+                  <th class="px-6 py-3.5">用户</th>
+                  <th class="px-4 py-3.5">角色</th>
+                  <th class="px-4 py-3.5">当前积分</th>
+                  <th class="px-4 py-3.5">签到天数</th>
+                  <th class="px-4 py-3.5">状态</th>
+                  <th class="px-6 py-3.5 text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[var(--outline-variant)]/10">
+                {#each users as user}
+                  <tr class="hover:bg-[var(--surface-container-lowest)] transition-colors">
+                    <td class="px-6 py-4 flex items-center gap-3">
+                      <img src={user.avatar || "/assets/avatars/avatar-1.webp"} alt={user.username} class="w-8 h-8 rounded-full object-cover" />
+                      <div>
+                        <span class="font-semibold block">{user.nickname || user.username}</span>
+                        <span class="text-xs text-[var(--on-surface-variant)]">{user.email || user.username}</span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-4 text-xs">
+                      <span class="px-2 py-0.5 rounded-full font-bold {user.role === 'superadmin' ? 'bg-purple-500/15 text-purple-600' : user.role === 'admin' ? 'bg-primary/15 text-primary' : 'bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}">
+                        {user.role}
+                      </span>
+                    </td>
+                    <td class="px-4 py-4 text-xs font-bold text-purple-600 dark:text-purple-400">
+                      {user.points} 点
+                    </td>
+                    <td class="px-4 py-4 text-xs text-[var(--on-surface-variant)]">
+                      {user.checkinCount || 0} 天
+                    </td>
+                    <td class="px-4 py-4 text-xs">
+                      {#if user.status === 'banned'}
+                        <span class="px-2 py-0.5 rounded bg-error/10 text-error font-medium">已封禁</span>
+                      {:else}
+                        <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-medium">正常</span>
+                      {/if}
+                    </td>
+                    <td class="px-6 py-4 text-right space-x-2">
+                      <button onclick={() => openAdjustPoints(user)} class="text-primary font-medium text-xs hover:underline">调整积分</button>
+                      {#if user.role !== 'superadmin'}
+                        <button onclick={() => toggleUserRole(user)} class="text-indigo-600 font-medium text-xs hover:underline">
+                          {user.role === 'admin' ? '降为用户' : '设为管理员'}
+                        </button>
+                        <button onclick={() => toggleUserStatus(user)} class="text-error font-medium text-xs hover:underline">
+                          {user.status === 'banned' ? '解封' : '封禁'}
+                        </button>
+                      {/if}
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+
+        {:else if currentTab === "settings"}
+          <!-- Settings Panel -->
+          <div class="mb-6">
+            <h1 class="text-2xl font-bold">系统与全站配置</h1>
+            <p class="text-xs text-[var(--on-surface-variant)] mt-1">配置每日签到积分规则、Cloudflare Turnstile 人机验证、看板娘及全站核心设定</p>
+          </div>
+
+          <div class="space-y-6 max-w-3xl">
+            <!-- Check-in Points Policy -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <h2 class="text-lg font-bold mb-1 flex items-center gap-2">
+                <span>🎁 每日签到与积分引擎规则</span>
+              </h2>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">
+                配置普通用户每日签到获取积分的计算模式。支持固定积分或在指定闭区间随机获取积分。
+              </p>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="text-xs font-semibold block mb-1.5">签到积分发放模式</label>
+                  <select
+                    bind:value={systemConfigState.checkinMode}
+                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                  >
+                    <option value="fixed">固定积分模式 (Fixed)</option>
+                    <option value="random">随机区间模式 (Random Range [min, max])</option>
+                  </select>
+                </div>
+
+                {#if systemConfigState.checkinMode === 'fixed'}
+                  <div>
+                    <label class="text-xs font-semibold block mb-1.5">每次签到发放固定积分</label>
+                    <input
+                      type="number"
+                      bind:value={systemConfigState.checkinFixedPoints}
+                      min="1"
+                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                    />
+                  </div>
+                {:else}
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <label class="text-xs font-semibold block mb-1.5">最小积分 (Min)</label>
+                      <input
+                        type="number"
+                        bind:value={systemConfigState.checkinRandomMin}
+                        min="1"
+                        class="w-full px-3 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label class="text-xs font-semibold block mb-1.5">最大积分 (Max)</label>
+                      <input
+                        type="number"
+                        bind:value={systemConfigState.checkinRandomMax}
+                        min="1"
+                        class="w-full px-3 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                      />
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            </div>
+
+            <!-- Cloudflare Turnstile -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                  <span>🛡️ Cloudflare Turnstile 人机验证</span>
+                </h2>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" bind:checked={systemConfigState.turnstileEnable} class="sr-only peer" />
+                  <div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">
+                为注册与登录开启 Cloudflare Turnstile 无感防护，有效阻断恶意脚本爆破。
+              </p>
+
+              {#if systemConfigState.turnstileEnable}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label class="text-xs font-semibold block mb-1.5">Site Key (前端密钥)</label>
+                    <input
+                      type="text"
+                      bind:value={systemConfigState.turnstileSiteKey}
+                      placeholder="0x4AAAAAA..."
+                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label class="text-xs font-semibold block mb-1.5">Secret Key (后端服务端私钥)</label>
+                    <input
+                      type="password"
+                      bind:value={systemConfigState.turnstileSecretKey}
+                      placeholder="0x4AAAAAA..."
+                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                    />
+                  </div>
+                </div>
+              {/if}
+            </div>
+
+            <!-- Live2D Settings -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <h2 class="text-lg font-bold mb-1 flex items-center gap-2">
+                <span>🐱 看板娘 (Live2D Widget) 配置</span>
+              </h2>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">
+                独立控制访客端与管理员后台看板娘的显示与沙箱挂载。
+              </p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label class="flex items-center gap-3 p-3 rounded-2xl border border-[var(--outline-variant)]/20 cursor-pointer">
+                  <input type="checkbox" bind:checked={systemConfigState.live2dGuestEnable} class="w-4 h-4 text-primary rounded" />
+                  <span class="text-sm font-medium">前台博客页面展示看板娘</span>
+                </label>
+                <label class="flex items-center gap-3 p-3 rounded-2xl border border-[var(--outline-variant)]/20 cursor-pointer">
+                  <input type="checkbox" bind:checked={systemConfigState.live2dAdminEnable} class="w-4 h-4 text-primary rounded" />
+                  <span class="text-sm font-medium">后台管理页面展示看板娘</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Site Core Settings -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <h2 class="text-lg font-bold mb-1 flex items-center gap-2">
+                <span>🎨 博客基础设定</span>
+              </h2>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">博客品牌、标题及 Material 3 调色盘主色相</p>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="text-xs font-semibold block mb-1.5">博客标题 (Title)</label>
+                  <input
+                    type="text"
+                    bind:value={siteConfigState.title}
+                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="text-xs font-semibold block mb-1.5">副标题 (Subtitle)</label>
+                  <input
+                    type="text"
+                    bind:value={siteConfigState.subtitle}
+                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="text-xs font-semibold block mb-1.5">主色相色调 (Hue 0-360)</label>
+                  <div class="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min="0"
+                      max="360"
+                      bind:value={siteConfigState.themeHue}
+                      class="flex-1 accent-primary"
+                    />
+                    <span class="text-xs font-bold w-8">{siteConfigState.themeHue}°</span>
+                  </div>
+                </div>
+                <div>
+                  <label class="text-xs font-semibold block mb-1.5">顶栏对齐布局</label>
+                  <select
+                    bind:value={siteConfigState.topAppBarAlign}
+                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                  >
+                    <option value="center">居中对齐 (Center)</option>
+                    <option value="left">靠左对齐 (Left)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Save Button -->
+            <button
+              onclick={saveAllSettings}
+              class="px-8 py-3 rounded-full bg-primary text-on-primary font-bold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all"
+            >
+              保存所有配置修改
+            </button>
+          </div>
+        {/if}
+      </main>
+    </div>
+  {/if}
+
+  <!-- Post Editor Modal -->
+  {#if postModalOpen}
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
+        <div class="flex items-center justify-between pb-4 border-b border-[var(--outline-variant)]/20">
+          <h2 class="text-xl font-bold">{editingPost ? "编辑博文" : "撰写新文章"}</h2>
+          <button onclick={() => (postModalOpen = false)} class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto py-4 space-y-4 pr-2">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="text-xs font-semibold block mb-1">文章标题 *</label>
+              <input type="text" bind:value={postForm.title} class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold block mb-1">固定链接别名 Slug (如 hello-shirine)</label>
+              <input type="text" bind:value={postForm.slug} class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="text-xs font-semibold block mb-1">分类 Category</label>
+              <input type="text" bind:value={postForm.category} class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold block mb-1">标签 (逗号分隔)</label>
+              <input type="text" bind:value={postForm.tags} placeholder="Shirine, Anime, Tech" class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold block mb-1">阅读权限级别</label>
+              <select bind:value={postForm.permissionType} class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none">
+                <option value="public">完全公开 (Public)</option>
+                <option value="login_required">登录可见 (Login Required)</option>
+                <option value="points_required">积分解锁 (Points Required)</option>
+              </select>
+            </div>
+          </div>
+
+          {#if postForm.permissionType === 'points_required'}
+            <div class="p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-between">
+              <span class="text-xs font-semibold text-purple-600 dark:text-purple-400">所需解锁积分点数：</span>
+              <input type="number" bind:value={postForm.requiredPoints} min="1" class="w-28 px-3 py-1.5 rounded-xl border border-purple-500/30 bg-[var(--surface-container-low)] text-sm font-bold text-center outline-none" />
+            </div>
+          {/if}
+
+          <div>
+            <label class="text-xs font-semibold block mb-1">封面图片 URL (或点击右侧按钮直接上传至 R2)</label>
+            <div class="flex gap-2">
+              <input type="text" bind:value={postForm.image} placeholder="https://..." class="flex-1 px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
+              <label class="px-4 py-2 rounded-xl bg-[var(--surface-container)] hover:bg-[var(--surface-container-high)] text-xs font-medium cursor-pointer flex items-center gap-1.5 shrink-0">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                <span>上传到 R2</span>
+                <input type="file" accept="image/*" class="hidden" onchange={(e) => handleFileUpload(e, "postCover")} />
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold block mb-1">Markdown 正文内容 *</label>
+            <textarea
+              bind:value={postForm.content}
+              rows="12"
+              placeholder="# 欢迎来到 Shirine 博文..."
+              class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] font-mono text-sm focus:border-primary outline-none"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-[var(--outline-variant)]/20 flex items-center justify-end gap-3">
+          <button onclick={() => (postModalOpen = false)} class="px-5 py-2 rounded-full border border-[var(--outline-variant)]/40 text-xs font-medium hover:bg-[var(--surface-container)]">取消</button>
+          <button onclick={savePost} class="px-6 py-2 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105">保存并发布</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Album Modal -->
+  {#if albumModalOpen}
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+        <div class="flex items-center justify-between pb-4 border-b border-[var(--outline-variant)]/20">
+          <h2 class="text-xl font-bold">{editingAlbum ? "编辑相册" : "新建相册"}</h2>
+          <button onclick={() => (albumModalOpen = false)} class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto py-4 space-y-4 pr-2">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="text-xs font-semibold block mb-1">相册名称 *</label>
+              <input type="text" bind:value={albumForm.title} class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold block mb-1">Slug 别名</label>
+              <input type="text" bind:value={albumForm.slug} class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
+            </div>
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold block mb-1">相册描述</label>
+            <input type="text" bind:value={albumForm.description} class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold block mb-1">封面图片 URL</label>
+            <div class="flex gap-2">
+              <input type="text" bind:value={albumForm.cover} class="flex-1 px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
+              <label class="px-4 py-2 rounded-xl bg-[var(--surface-container)] hover:bg-[var(--surface-container-high)] text-xs font-medium cursor-pointer flex items-center gap-1.5 shrink-0">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                <span>上传封面</span>
+                <input type="file" accept="image/*" class="hidden" onchange={(e) => handleFileUpload(e, "albumCover")} />
+              </label>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="text-xs font-semibold block mb-1">相册权限类型</label>
+              <select bind:value={albumForm.permissionType} class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none">
+                <option value="public">完全公开</option>
+                <option value="login_required">登录可见</option>
+                <option value="points_required">积分解锁</option>
+              </select>
+            </div>
+            {#if albumForm.permissionType === 'points_required'}
+              <div>
+                <label class="text-xs font-semibold block mb-1">所需解锁积分</label>
+                <input type="number" bind:value={albumForm.requiredPoints} min="1" class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
+              </div>
+            {/if}
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold block mb-1">照片地址列表 (每行一张图片 URL)</label>
+            <textarea
+              bind:value={albumForm.photosText}
+              rows="6"
+              placeholder="https://example.com/photo1.webp&#10;https://example.com/photo2.webp"
+              class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] font-mono text-sm focus:border-primary outline-none"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-[var(--outline-variant)]/20 flex items-center justify-end gap-3">
+          <button onclick={() => (albumModalOpen = false)} class="px-5 py-2 rounded-full border border-[var(--outline-variant)]/40 text-xs font-medium hover:bg-[var(--surface-container)]">取消</button>
+          <button onclick={saveAlbum} class="px-6 py-2 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105">保存相册</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Adjust Points Modal -->
+  {#if userPointsModalOpen && targetUser}
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+        <h3 class="text-lg font-bold mb-1">调整用户积分</h3>
+        <p class="text-xs text-[var(--on-surface-variant)] mb-4">
+          目标用户：<strong class="text-[var(--on-surface)]">{targetUser.username}</strong>（当前积分：{targetUser.points}）
+        </p>
+        <div class="mb-4">
+          <label class="text-xs font-semibold block mb-1">积分增减额度（正数为增加，负数为扣除）</label>
+          <input
+            type="number"
+            bind:value={adjustPointsDelta}
+            placeholder="例如: 50 或 -20"
+            class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm font-bold outline-none"
+          />
+        </div>
+        <div class="flex items-center justify-end gap-2">
+          <button onclick={() => (userPointsModalOpen = false)} class="px-4 py-2 rounded-full border border-[var(--outline-variant)]/40 text-xs hover:bg-[var(--surface-container)]">取消</button>
+          <button onclick={saveAdjustPoints} class="px-5 py-2 rounded-full bg-primary text-on-primary text-xs font-semibold">确认调整</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+</div>

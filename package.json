@@ -1,0 +1,33 @@
+{
+  "name": "shirine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shirine - Dynamic Anime-Themed Blog Powered by Cloudflare Workers, D1, R2, and Astro",
+  "author": "yiran168",
+  "license": "MIT",
+  "workspaces": [
+    "client",
+    "server",
+    "docs"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "dev:docs": "npm run dev --prefix docs",
+    "build:server": "npm run build --prefix server",
+    "build:client": "npm run build --prefix client",
+    "build:docs": "npm run build --prefix docs",
+    "build": "npm run build:server && npm run build:client && npm run build:docs"
+  },
+  "keywords": [
+    "shirine",
+    "blog",
+    "astro",
+    "cloudflare-workers",
+    "cloudflare-d1",
+    "cloudflare-r2",
+    "cloudflare-pages",
+    "material-3",
+    "svelte-5"
+  ]
+}

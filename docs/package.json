@@ -1,0 +1,13 @@
+{
+  "name": "shirine-docs",
+  "version": "1.0.0",
+  "description": "Documentation for Shirine - Material 3 Expressive Dynamic Anime Blog System",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.5.0"
+  }
+}

@@ -1,0 +1,19 @@
+---
+export const prerender = false;
+
+import AdminDashboard from "@components/admin/AdminDashboard.svelte";
+import "@/styles/main.css";
+---
+
+<!doctype html>
+<html lang="zh_CN" class="h-full">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Shirine 管理控制台</title>
+		<link rel="icon" href="/logo/icon.webp" />
+	</head>
+	<body class="h-full antialiased bg-[var(--surface-container-lowest)] text-[var(--on-surface)]">
+		<AdminDashboard client:only="svelte" />
+	</body>
+</html>

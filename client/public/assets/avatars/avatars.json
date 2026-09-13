@@ -1,0 +1,162 @@
+[
+  {
+    "id": 1,
+    "code": "avatar_01",
+    "name": "银白长发·红瞳",
+    "prompt": "Silver-white hair, ruby eyes, gothic anime girl portrait, clean pastel background, 8k resolution",
+    "url": "/assets/avatars/avatar_01.webp",
+    "thumbUrl": "/assets/avatars/avatar_01_thumb.webp"
+  },
+  {
+    "id": 2,
+    "code": "avatar_02",
+    "name": "金发双马尾·活力",
+    "prompt": "Blonde twin-tails, emerald eyes, cheerful anime schoolgirl, soft lighting",
+    "url": "/assets/avatars/avatar_02.webp",
+    "thumbUrl": "/assets/avatars/avatar_02_thumb.webp"
+  },
+  {
+    "id": 3,
+    "code": "avatar_03",
+    "name": "黑发姬发式·和风",
+    "prompt": "Black hime-cut hair, violet eyes, elegant traditional kimono aesthetic",
+    "url": "/assets/avatars/avatar_03.webp",
+    "thumbUrl": "/assets/avatars/avatar_03_thumb.webp"
+  },
+  {
+    "id": 4,
+    "code": "avatar_04",
+    "name": "樱粉短发·温柔",
+    "prompt": "Sakura pink bob hair, warm amber eyes, gentle smile, cherry blossom petals",
+    "url": "/assets/avatars/avatar_04.webp",
+    "thumbUrl": "/assets/avatars/avatar_04_thumb.webp"
+  },
+  {
+    "id": 5,
+    "code": "avatar_05",
+    "name": "冰蓝长发·清冷",
+    "prompt": "Ice blue long hair, deep sapphire eyes, serene fantasy anime maiden",
+    "url": "/assets/avatars/avatar_05.webp",
+    "thumbUrl": "/assets/avatars/avatar_05_thumb.webp"
+  },
+  {
+    "id": 6,
+    "code": "avatar_06",
+    "name": "栗色微卷·元气",
+    "prompt": "Chestnut curly hair, hazel eyes, cozy sweater, warm café atmosphere",
+    "url": "/assets/avatars/avatar_06.webp",
+    "thumbUrl": "/assets/avatars/avatar_06_thumb.webp"
+  },
+  {
+    "id": 7,
+    "code": "avatar_07",
+    "name": "白发猫耳·软萌",
+    "prompt": "White hair with fluffy cat ears, golden eyes, oversized hoodie",
+    "url": "/assets/avatars/avatar_07.webp",
+    "thumbUrl": "/assets/avatars/avatar_07_thumb.webp"
+  },
+  {
+    "id": 8,
+    "code": "avatar_08",
+    "name": "紫发侧马尾·电波",
+    "prompt": "Lavender side ponytail, futuristic hair accessories, cyberpunk pastel",
+    "url": "/assets/avatars/avatar_08.webp",
+    "thumbUrl": "/assets/avatars/avatar_08_thumb.webp"
+  },
+  {
+    "id": 9,
+    "code": "avatar_09",
+    "name": "薄荷双辫·治愈",
+    "prompt": "Mint green twin braids, sunny floral background, nature lover",
+    "url": "/assets/avatars/avatar_09.webp",
+    "thumbUrl": "/assets/avatars/avatar_09_thumb.webp"
+  },
+  {
+    "id": 10,
+    "code": "avatar_10",
+    "name": "灰发贝雷帽·文学",
+    "prompt": "Light grey hair, stylish beret, wire glasses, vintage library aesthetic",
+    "url": "/assets/avatars/avatar_10.webp",
+    "thumbUrl": "/assets/avatars/avatar_10_thumb.webp"
+  },
+  {
+    "id": 11,
+    "code": "avatar_11",
+    "name": "赤发短发·飒爽",
+    "prompt": "Crimson fiery short hair, confident golden eyes, energetic sporty style",
+    "url": "/assets/avatars/avatar_11.webp",
+    "thumbUrl": "/assets/avatars/avatar_11_thumb.webp"
+  },
+  {
+    "id": 12,
+    "code": "avatar_12",
+    "name": "墨绿长发·精灵",
+    "prompt": "Forest green silky hair, pointed elf ears, gentle forest spirit",
+    "url": "/assets/avatars/avatar_12.webp",
+    "thumbUrl": "/assets/avatars/avatar_12_thumb.webp"
+  },
+  {
+    "id": 13,
+    "code": "avatar_13",
+    "name": "茶棕波浪·知性",
+    "prompt": "Tea brown wavy hair, elegant cardigan, artistic delicate portrait",
+    "url": "/assets/avatars/avatar_13.webp",
+    "thumbUrl": "/assets/avatars/avatar_13_thumb.webp"
+  },
+  {
+    "id": 14,
+    "code": "avatar_14",
+    "name": "渐变幻彩·机甲",
+    "prompt": "Aurora holographic gradient hair, cybernetic headpiece, techwear glow",
+    "url": "/assets/avatars/avatar_14.webp",
+    "thumbUrl": "/assets/avatars/avatar_14_thumb.webp"
+  },
+  {
+    "id": 15,
+    "code": "avatar_15",
+    "name": "雪白短发·三无",
+    "prompt": "Snow white sleek cut, calm silver eyes, minimalist collar",
+    "url": "/assets/avatars/avatar_15.webp",
+    "thumbUrl": "/assets/avatars/avatar_15_thumb.webp"
+  },
+  {
+    "id": 16,
+    "code": "avatar_16",
+    "name": "蜜橙短发·阳光",
+    "prompt": "Honey orange pixie cut, bright sparkling eyes, summer seaside vibe",
+    "url": "/assets/avatars/avatar_16.webp",
+    "thumbUrl": "/assets/avatars/avatar_16_thumb.webp"
+  },
+  {
+    "id": 17,
+    "code": "avatar_17",
+    "name": "淡紫长卷·优雅",
+    "prompt": "Lilac cascading curls, silk ribbon, fairytale noble daughter",
+    "url": "/assets/avatars/avatar_17.webp",
+    "thumbUrl": "/assets/avatars/avatar_17_thumb.webp"
+  },
+  {
+    "id": 18,
+    "code": "avatar_18",
+    "name": "浅蓝发髻·女仆",
+    "prompt": "Pastel blue double buns, classic lace maid hairband, cute wink",
+    "url": "/assets/avatars/avatar_18.webp",
+    "thumbUrl": "/assets/avatars/avatar_18_thumb.webp"
+  },
+  {
+    "id": 19,
+    "code": "avatar_19",
+    "name": "烟粉直发·赛博",
+    "prompt": "Smoky pink straight hair, neon neon rim lighting, futuristic visor",
+    "url": "/assets/avatars/avatar_19.webp",
+    "thumbUrl": "/assets/avatars/avatar_19_thumb.webp"
+  },
+  {
+    "id": 20,
+    "code": "avatar_20",
+    "name": "浅金碎发·帅气",
+    "prompt": "Pale blonde shaggy hair, silver earrings, stylish dark bomber jacket",
+    "url": "/assets/avatars/avatar_20.webp",
+    "thumbUrl": "/assets/avatars/avatar_20_thumb.webp"
+  }
+]
