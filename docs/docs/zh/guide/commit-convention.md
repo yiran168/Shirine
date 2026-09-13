@@ -1,9 +1,10 @@
-﻿# 鎻愪氦瑙勮寖
+# 提交规范
 
-鏈枃妗ｆ弿杩颁簡 Shishirinee 椤圭洰鐨勬彁浜や俊鎭鑼冦€傞伒寰繖浜涜鑼冨彲浠ヨ鎴戜滑鑷姩鐢熸垚鍙樻洿鏃ュ織鍜屽彂甯冭鏄庛€?
-## 鏍煎紡
+本文档描述了 Shirine 项目的提交信息规范。遵循这些规范可以让我们自动生成变更日志和发布说明。
 
-姣忎釜鎻愪氦淇℃伅搴旈伒寰互涓嬫牸寮忥細
+## 格式
+
+每个提交信息应遵循以下格式：
 
 ```
 <type>(<scope>): <subject>
@@ -13,128 +14,156 @@
 [optional footer]
 ```
 
-## 绫诲瀷
+## 类型
 
-| 绫诲瀷 | 鎻忚堪 | 绀轰緥 |
+| 类型 | 描述 | 示例 |
 |------|------|------|
-| `feat` | 鏂板姛鑳?| `feat(auth): 娣诲姞 GitHub OAuth 鐧诲綍` |
-| `fix` | Bug 淇 | `fix(api): 瑙ｅ喅 CORS 闂` |
-| `docs` | 鏂囨。鍙樻洿 | `docs(readme): 鏇存柊閮ㄧ讲鎸囧崡` |
-| `style` | 浠ｇ爜鏍煎紡鍙樻洿锛堟牸寮忓寲銆佸垎鍙风瓑锛?| `style: 浣跨敤 prettier 鏍煎紡鍖朻 |
-| `refactor` | 浠ｇ爜閲嶆瀯 | `refactor(db): 浼樺寲鏌ヨ鎬ц兘` |
-| `perf` | 鎬ц兘浼樺寲 | `perf(cache): 瀹炵幇 Redis 缂撳瓨` |
-| `test` | 娣诲姞鎴栨洿鏂版祴璇?| `test(api): 娣诲姞鐢ㄦ埛璁よ瘉娴嬭瘯` |
-| `chore` | 鏋勫缓杩囩▼鎴栬緟鍔╁伐鍏峰彉鏇?| `chore(deps): 鏇存柊渚濊禆` |
-| `ci` | CI/CD 鍙樻洿 | `ci: 娣诲姞鍙戝竷宸ヤ綔娴乣 |
-| `revert` | 鍥為€€鏇存敼 | `revert: 鎾ら攢鐮村潖鎬у彉鏇碻 |
+| `feat` | 新功能 | `feat(auth): 添加 GitHub OAuth 登录` |
+| `fix` | Bug 修复 | `fix(api): 解决 CORS 问题` |
+| `docs` | 文档变更 | `docs(readme): 更新部署指南` |
+| `style` | 代码格式变更（格式化、分号等） | `style: 使用 prettier 格式化` |
+| `refactor` | 代码重构 | `refactor(db): 优化查询性能` |
+| `perf` | 性能优化 | `perf(cache): 实现 Redis 缓存` |
+| `test` | 添加或更新测试 | `test(api): 添加用户认证测试` |
+| `chore` | 构建过程或辅助工具变更 | `chore(deps): 更新依赖` |
+| `ci` | CI/CD 变更 | `ci: 添加发布工作流` |
+| `revert` | 回退更改 | `revert: 撤销破坏性变更` |
 
-## 浣滅敤鍩?
-浣滅敤鍩熸槸鍙€夌殑锛屽簲鎸囩ず鍙楀奖鍝嶇殑浠ｇ爜鍖哄煙锛?
-- `api` - 鍚庣 API 鍙樻洿
-- `client` - 鍓嶇/瀹㈡埛绔彉鏇?- `db` - 鏁版嵁搴撳彉鏇?- `auth` - 璁よ瘉鐩稿叧
-- `ui` - UI 缁勪欢
-- `deps` - 渚濊禆椤?- `config` - 閰嶇疆鏂囦欢
-- `docs` - 鏂囨。
-- `release` - 鍙戝竷鐩稿叧
+## 作用域
 
-## 涓婚
+作用域是可选的，应指示受影响的代码区域：
 
-- 浣跨敤绁堜娇璇皵锛?娣诲姞"鑰屼笉鏄?娣诲姞浜?鎴?娣诲姞"锛?- 棣栧瓧姣嶄笉澶у啓
-- 鏈熬涓嶅姞鍙ュ彿
-- 鏈€澶?50 涓瓧绗?
-**濂界殑绀轰緥锛?*
-- `feat(auth): 娣诲姞瀵嗙爜閲嶇疆鍔熻兘`
-- `fix(api): 澶勭悊鏁版嵁搴撶┖鍝嶅簲`
-- `docs(readme): 鏇存柊瀹夎璇存槑`
+- `api` - 后端 API 变更
+- `client` - 前端/客户端变更
+- `db` - 数据库变更
+- `auth` - 认证相关
+- `ui` - UI 组件
+- `deps` - 依赖项
+- `config` - 配置文件
+- `docs` - 文档
+- `release` - 发布相关
 
-**涓嶅ソ鐨勭ず渚嬶細**
-- `feat: Added new feature`锛堣繃鍘绘椂鎬侊紝棣栧瓧姣嶅ぇ鍐欙級
-- `fix: fixed the bug.`锛堣繃鍘绘椂鎬侊紝鏈熬鏈夊彞鍙凤級
-- `update stuff`锛堟棤绫诲瀷锛屾弿杩版ā绯婏級
+## 主题
 
-## 姝ｆ枃
+- 使用祈使语气（"添加"而不是"添加了"或"添加"）
+- 首字母不大写
+- 末尾不加句号
+- 最多 50 个字符
 
-- 浣跨敤绁堜娇璇皵
-- 姣忚 72 涓瓧绗﹀鎹㈣
-- 瑙ｉ噴**鍋氫簡浠€涔?*鍜?*涓轰粈涔?*锛岃€屼笉鏄?*鎬庝箞鍋?*
-- 涓庝富棰樹箣闂寸敤绌鸿鍒嗛殧
+**好的示例：**
+- `feat(auth): 添加密码重置功能`
+- `fix(api): 处理数据库空响应`
+- `docs(readme): 更新安装说明`
 
-绀轰緥锛?```
-feat(auth): 瀹炵幇 JWT 浠ょ墝鍒锋柊
+**不好的示例：**
+- `feat: Added new feature`（过去时态，首字母大写）
+- `fix: fixed the bug.`（过去时态，末尾有句号）
+- `update stuff`（无类型，描述模糊）
 
-娣诲姞鑷姩浠ょ墝鍒锋柊鏈哄埗浠ラ槻姝㈢敤鎴锋剰澶栭€€鍑虹櫥褰曘€?浠ょ墝鐜板湪浼氬湪杩囨湡鍓?5 鍒嗛挓鍒锋柊銆?
-杩欓€氳繃鏃犵紳缁存姢浼氳瘽鏉ユ敼鍠勭敤鎴蜂綋楠屻€?```
+## 正文
 
-## 椤佃剼
+- 使用祈使语气
+- 每行 72 个字符处换行
+- 解释**做了什么**和**为什么**，而不是**怎么做**
+- 与主题之间用空行分隔
 
-- 寮曠敤 Issue 鍜?PR锛歚Closes #123`銆乣Fixes #456`
-- 鐮村潖鎬у彉鏇达細`BREAKING CHANGE: 鎻忚堪`
+示例：
+```
+feat(auth): 实现 JWT 令牌刷新
 
-绀轰緥锛?```
-feat(api): 鏇存敼鐢ㄦ埛绔偣鐨勫搷搴旀牸寮?
-BREAKING CHANGE: 鐢ㄦ埛绔偣鐜板湪灏嗙敤鎴锋暟鎹寘瑁呭湪
-`data` 瀛楁涓繑鍥烇紝鑰屼笉鏄洿鎺ヨ繑鍥炪€傝鐩稿簲鏇存柊
-鎮ㄧ殑瀹㈡埛绔唬鐮併€?
+添加自动令牌刷新机制以防止用户意外退出登录。
+令牌现在会在过期前 5 分钟刷新。
+
+这通过无缝维护会话来改善用户体验。
+```
+
+## 页脚
+
+- 引用 Issue 和 PR：`Closes #123`、`Fixes #456`
+- 破坏性变更：`BREAKING CHANGE: 描述`
+
+示例：
+```
+feat(api): 更改用户端点的响应格式
+
+BREAKING CHANGE: 用户端点现在将用户数据包装在
+`data` 字段中返回，而不是直接返回。请相应更新
+您的客户端代码。
+
 Closes #789
 ```
 
-## 绀轰緥
+## 示例
 
-### 鍔熻兘
+### 功能
 ```
-feat(articles): 娣诲姞甯﹂瑙堢殑 Markdown 缂栬緫鍣?
-浣跨敤 Monaco Editor 瀹炵幇鍒嗗睆 Markdown 缂栬緫鍣紝鏀寔
-瀹炴椂棰勮銆傛敮鎸佽娉曢珮浜拰鍥剧墖涓婁紶銆?
+feat(articles): 添加带预览的 Markdown 编辑器
+
+使用 Monaco Editor 实现分屏 Markdown 编辑器，支持
+实时预览。支持语法高亮和图片上传。
+
 Closes #234
 ```
 
-### Bug 淇
+### Bug 修复
 ```
-fix(ui): 瑙ｅ喅绉诲姩绔鑸彍鍗曢噸鍙犻棶棰?
-瀵艰埅鑿滃崟鍦ㄥ皬浜?768px 鐨勫睆骞曚笂涓庡唴瀹归噸鍙犮€?璋冩暣 z-index 鍜屽畾浣嶄互瑙ｅ喅璇ラ棶棰樸€?
+fix(ui): 解决移动端导航菜单重叠问题
+
+导航菜单在小于 768px 的屏幕上与内容重叠。
+调整 z-index 和定位以解决该问题。
+
 Fixes #567
 ```
 
-### 鏂囨。
+### 文档
 ```
-docs(deploy): 娣诲姞 Cloudflare 璁剧疆鎸囧崡
+docs(deploy): 添加 Cloudflare 设置指南
 
-涓烘柊鐨勯儴缃叉坊鍔?Cloudflare Workers銆丏1
-鏁版嵁搴撳拰 R2 瀛樺偍鐨勭患鍚堟寚鍗椼€?```
-
-### 鐮村潖鎬у彉鏇?```
-feat(auth): 杩佺Щ鍒版柊鐨?OAuth 鎻愪緵鍟?
-BREAKING CHANGE: GitHub OAuth 瀹炵幇宸茶鏇挎崲
-涓洪€氱敤 OAuth2 鎻愪緵鍟嗐€傜幆澧冨彉閲忓凡鏇存敼锛?- GITHUB_CLIENT_ID 鈫?OAUTH_CLIENT_ID
-- GITHUB_CLIENT_SECRET 鈫?OAUTH_CLIENT_SECRET
-
-杩佺Щ鎸囧崡锛歨ttps://docs.example.com/migration/v2
+为新的部署添加 Cloudflare Workers、D1
+数据库和 R2 存储的综合指南。
 ```
 
-## 鎻愪氦淇℃伅妫€鏌?
-鎴戜滑寤鸿浣跨敤 commitlint 鏉ュ己鍒舵墽琛岃繖浜涜鑼冿細
+### 破坏性变更
+```
+feat(auth): 迁移到新的 OAuth 提供商
+
+BREAKING CHANGE: GitHub OAuth 实现已被替换
+为通用 OAuth2 提供商。环境变量已更改：
+- GITHUB_CLIENT_ID → OAUTH_CLIENT_ID
+- GITHUB_CLIENT_SECRET → OAUTH_CLIENT_SECRET
+
+迁移指南：https://docs.example.com/migration/v2
+```
+
+## 提交信息检查
+
+我们建议使用 commitlint 来强制执行这些规范：
 
 ```bash
-# 瀹夎 commitlint
+# 安装 commitlint
 npm install --save-dev @commitlint/config-conventional @commitlint/cli
 
-# 鍒涘缓 commitlint.config.js
+# 创建 commitlint.config.js
 module.exports = { extends: ['@commitlint/config-conventional'] };
 ```
 
-## 涓轰粈涔堬紵
+## 为什么？
 
-- **鑷姩鐢熸垚鍙樻洿鏃ュ織**锛氬彲浠ヨ嚜鍔ㄧ敓鎴愬彂甯冭鏄?- **娓呮櫚鐨勫巻鍙茶褰?*锛氭槗浜庣悊瑙ｅ彂鐢熶簡浠€涔堝彉鏇翠互鍙婁负浠€涔?- **璇箟鍖栫増鏈帶鍒?*锛氬府鍔╃‘瀹氱増鏈崌绾э紙feat=minor锛宖ix=patch锛宐reaking=major锛?- **鏇村ソ鐨勫崗浣?*锛氫竴鑷寸殑鏍煎紡浣夸唬鐮佸鏌ユ洿瀹规槗
+- **自动生成变更日志**：可以自动生成发布说明
+- **清晰的历史记录**：易于理解发生了什么变更以及为什么
+- **语义化版本控制**：帮助确定版本升级（feat=minor，fix=patch，breaking=major）
+- **更好的协作**：一致的格式使代码审查更容易
 
-## 宸ュ叿
+## 工具
 
-- **Commitizen**锛氫氦浜掑紡鎻愪氦淇℃伅鏋勫缓鍣?  ```bash
+- **Commitizen**：交互式提交信息构建器
+  ```bash
   npm install -g commitizen
-  git cz  # 鏇夸唬 git commit
+  git cz  # 替代 git commit
   ```
 
-- **VS Code 鎵╁睍**锛?Conventional Commits" 鐢ㄤ簬鑷姩瀹屾垚
+- **VS Code 扩展**："Conventional Commits" 用于自动完成
 
-## 鏈夐棶棰橈紵
+## 有问题？
 
-濡傛灉鎮ㄤ笉纭畾鎻愪氦绫诲瀷鎴栨牸寮忥紝璇峰湪鎮ㄧ殑 PR 涓闂垨鍙傝€冧粨搴撲腑鐜版湁鐨勬彁浜ゃ€?
+如果您不确定提交类型或格式，请在您的 PR 中询问或参考仓库中现有的提交。

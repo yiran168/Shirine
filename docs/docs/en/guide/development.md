@@ -1,14 +1,14 @@
-﻿# Local Development Guide
+# Local Development Guide
 
-This document explains how to develop and debug the Shishirinee project locally.
+This document explains how to develop and debug the Shirine project locally.
 
 ## Quick Start
 
 ### 1. Clone the Project
 
 ```bash
-git clone https://github.com/yiran168/ShiShishirineee.git
-cd Shishirinee
+git clone https://github.com/yiran168/Shirine.git
+cd Shirine
 ```
 
 ### 2. Install Dependencies
@@ -34,10 +34,10 @@ bun run dev
 ```
 
 This will automatically:
-- 鉁?Generate `wrangler.toml` configuration file
-- 鉁?Generate `.dev.vars` sensitive information file
-- 鉁?Run database migrations
-- 鉁?Start development server (port 11498 - unified frontend and backend)
+- ✅ Generate `wrangler.toml` configuration file
+- ✅ Generate `.dev.vars` sensitive information file
+- ✅ Run database migrations
+- ✅ Start development server (port 11498 - unified frontend and backend)
 
 Visit http://localhost:11498 to start developing!
 
@@ -74,8 +74,8 @@ The following environment variables are optional:
 
 | Variable | Description |
 |----------|-------------|
-| `Shishirinee_GITHUB_CLIENT_ID` | GitHub OAuth Client ID |
-| `Shishirinee_GITHUB_CLIENT_SECRET` | GitHub OAuth Client Secret |
+| `RIN_GITHUB_CLIENT_ID` | GitHub OAuth Client ID |
+| `RIN_GITHUB_CLIENT_SECRET` | GitHub OAuth Client Secret |
 | `JWT_SECRET` | JWT signing key |
 | `S3_ACCESS_KEY_ID` | S3 Access Key |
 | `S3_SECRET_ACCESS_KEY` | S3 Secret Key |
@@ -201,13 +201,13 @@ The project uses a custom HTTP client instead of Eden for type-safe API communic
 - **Features**: Type-safe requests, error handling, auth token management
 - **Usage**: All API calls go through the typed client
 
-### Shared Types (@Shishirinee/api)
+### Shared Types (@rin/api)
 
-The `@Shishirinee/api` package provides shared TypeScript types for both client and server:
+The `@rin/api` package provides shared TypeScript types for both client and server:
 
 - **Location**: `packages/api/`
 - **Purpose**: End-to-end type safety for API contracts
-- **Usage**: Import types from `@Shishirinee/api` in both client and server code
+- **Usage**: Import types from `@rin/api` in both client and server code
 
 When adding new API endpoints:
 1. Define types in `packages/api/src/types.ts`
@@ -254,32 +254,32 @@ GitHub OAuth needs to be configured for local development:
 
 ```
 .
-鈹溾攢鈹€ client/                 # Frontend code (React + Vite)
-鈹?  鈹溾攢鈹€ src/
-鈹?  鈹?  鈹溾攢鈹€ page/          # Page components
-鈹?  鈹?  鈹溾攢鈹€ api/           # API client
-鈹?  鈹?  鈹溾攢鈹€ components/    # React components
-鈹?  鈹?  鈹斺攢鈹€ utils/         # Utility functions
-鈹?  鈹斺攢鈹€ package.json
-鈹溾攢鈹€ server/                 # Backend code (Cloudflare Workers)
-鈹?  鈹溾攢鈹€ src/
-鈹?  鈹?  鈹溾攢鈹€ services/      # Business services
-鈹?  鈹?  鈹溾攢鈹€ db/            # Database schema
-鈹?  鈹?  鈹溾攢鈹€ core/          # Router and core types
-鈹?  鈹?  鈹斺攢鈹€ utils/         # Utility functions
-鈹?  鈹溾攢鈹€ tests/             # Test files
-鈹?  鈹斺攢鈹€ package.json
-鈹溾攢鈹€ packages/               # Shared packages
-鈹?  鈹斺攢鈹€ api/                # @Shishirinee/api - Shared API types
-鈹溾攢鈹€ cli/                    # Shishirinee CLI tool
-鈹?  鈹溾攢鈹€ bin/               # Thin executable entrypoints
-鈹?  鈹溾攢鈹€ src/               # Commands, tasks, shared helpers
-鈹?  鈹斺攢鈹€ templates/         # Git hook and file templates
-鈹溾攢鈹€ scripts/                # Compatibility wrappers around CLI tasks
-鈹溾攢鈹€ docs/                   # Documentation
-鈹溾攢鈹€ .env.example            # Environment variable example
-鈹溾攢鈹€ .env.local              # Local configuration (not committed to Git)
-鈹斺攢鈹€ package.json
+├── client/                 # Frontend code (React + Vite)
+│   ├── src/
+│   │   ├── page/          # Page components
+│   │   ├── api/           # API client
+│   │   ├── components/    # React components
+│   │   └── utils/         # Utility functions
+│   └── package.json
+├── server/                 # Backend code (Cloudflare Workers)
+│   ├── src/
+│   │   ├── services/      # Business services
+│   │   ├── db/            # Database schema
+│   │   ├── core/          # Router and core types
+│   │   └── utils/         # Utility functions
+│   ├── tests/             # Test files
+│   └── package.json
+├── packages/               # Shared packages
+│   └── api/                # @rin/api - Shared API types
+├── cli/                    # Shirine CLI tool
+│   ├── bin/               # Thin executable entrypoints
+│   ├── src/               # Commands, tasks, shared helpers
+│   └── templates/         # Git hook and file templates
+├── scripts/                # Compatibility wrappers around CLI tasks
+├── docs/                   # Documentation
+├── .env.example            # Environment variable example
+├── .env.local              # Local configuration (not committed to Git)
+└── package.json
 ```
 
 ## Production Deployment
@@ -288,7 +288,6 @@ Please refer to the [Deployment Guide](./deploy.mdx) for production deployment p
 
 ## Getting Help
 
-- 馃摉 Full documentation: https://docs.openShishirinee.org
-- 馃挰 Discord: https://discord.gg/JWbSTHvAPN
-- 馃悰 Submit Issue: https://github.com/yiran168/ShiShishirineee/issues
-
+- 📖 Full documentation: https://yiran168.github.io/Shirine
+- 💬 Discord: https://discord.gg/JWbSTHvAPN
+- 🐛 Submit Issue: https://github.com/yiran168/Shirine/issues

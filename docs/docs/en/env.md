@@ -1,6 +1,6 @@
-﻿# Environment Variables Configuration Guide
+# Environment Variables Configuration Guide
 
-Shishirinee requires two types of environment variables: **Variables (plaintext)** and **Secrets (encrypted)**.
+Shirine requires two types of environment variables: **Variables (plaintext)** and **Secrets (encrypted)**.
 
 ## Quick Reference
 
@@ -19,7 +19,7 @@ These variables are stored in plaintext in `wrangler.toml` and control feature f
 
 | Variable | Required | Description | Default | Config Key |
 |----------|----------|-------------|---------|------------|
-| `NAME` | No | Site name & title | Shishirinee | `site.name` |
+| `NAME` | No | Site name & title | Shirine | `site.name` |
 | `DESCRIPTION` | No | Site description | A lightweight personal blogging system | `site.description` |
 | `AVATAR` | No | Site avatar URL | - | `site.avatar` |
 | `PAGE_SIZE` | No | Default pagination size | 5 | `site.page_size` |
@@ -58,17 +58,17 @@ We recommend setting `CACHE_STORAGE_MODE` to `database` to reduce deployment com
 
 ## Secrets (Encrypted)
 
-These sensitive values must be configured as **Cloudflare Workers Secrets**, entered via CLI duShishirineeg deployment or set in advance.
+These sensitive values must be configured as **Cloudflare Workers Secrets**, entered via CLI during deployment or set in advance.
 
 ### Authentication (Configure at least one)
 
 | Variable | Purpose | How to Obtain |
 |----------|---------|---------------|
-| `Shishirinee_GITHUB_CLIENT_ID` | GitHub OAuth client ID | GitHub OAuth App settings |
-| `Shishirinee_GITHUB_CLIENT_SECRET` | GitHub OAuth client secret | GitHub OAuth App settings |
+| `RIN_GITHUB_CLIENT_ID` | GitHub OAuth client ID | GitHub OAuth App settings |
+| `RIN_GITHUB_CLIENT_SECRET` | GitHub OAuth client secret | GitHub OAuth App settings |
 | `ADMIN_USERNAME` | Username for password login | Set yourself |
 | `ADMIN_PASSWORD` | Password for password login | Set yourself |
-| `JWT_SECRET` | JWT signing key (any random stShishirineeg) | Generate yourself |
+| `JWT_SECRET` | JWT signing key (any random string) | Generate yourself |
 
 :::warning Authentication Required
 You must configure either **GitHub OAuth** or **Username/Password** authentication, otherwise you cannot access the admin panel.
@@ -85,7 +85,7 @@ You must configure either **GitHub OAuth** or **Username/Password** authenticati
 
 | Variable | Purpose | How to Obtain |
 |----------|---------|---------------|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API access token | Cloudflare Dashboard 鈫?My Profile 鈫?API Tokens |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API access token | Cloudflare Dashboard → My Profile → API Tokens |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID | Right sidebar in Cloudflare Dashboard |
 
 ---
@@ -94,7 +94,7 @@ You must configure either **GitHub OAuth** or **Username/Password** authenticati
 
 When using GitHub Actions for automated deployment, configure these in your Repository settings:
 
-### Repository Variables (Settings 鈫?Secrets and variables 鈫?Variables)
+### Repository Variables (Settings → Secrets and variables → Variables)
 
 ```
 NAME                    # Site name
@@ -108,7 +108,7 @@ WORKER_NAME             # Worker name (optional)
 DB_NAME                 # D1 database name (optional)
 ```
 
-### Repository Secrets (Settings 鈫?Secrets and variables 鈫?Secrets)
+### Repository Secrets (Settings → Secrets and variables → Secrets)
 
 ```
 CLOUDFLARE_API_TOKEN          # Cloudflare API token
@@ -118,8 +118,8 @@ S3_ACCESS_HOST                # S3/R2 access domain
 S3_BUCKET                     # S3 bucket name
 S3_ACCESS_KEY_ID              # S3 access key ID
 S3_SECRET_ACCESS_KEY          # S3 secret access key
-Shishirinee_GITHUB_CLIENT_ID          # GitHub OAuth ID (optional)
-Shishirinee_GITHUB_CLIENT_SECRET      # GitHub OAuth Secret (optional)
+RIN_GITHUB_CLIENT_ID          # GitHub OAuth ID (optional)
+RIN_GITHUB_CLIENT_SECRET      # GitHub OAuth Secret (optional)
 ADMIN_USERNAME                # Admin username (optional)
 ADMIN_PASSWORD                # Admin password (optional)
 JWT_SECRET                    # JWT secret key
@@ -143,8 +143,8 @@ S3_ACCESS_KEY_ID=xxx
 S3_SECRET_ACCESS_KEY=xxx
 
 # Authentication (GitHub or Username/Password)
-Shishirinee_GITHUB_CLIENT_ID=xxx
-Shishirinee_GITHUB_CLIENT_SECRET=xxx
+RIN_GITHUB_CLIENT_ID=xxx
+RIN_GITHUB_CLIENT_SECRET=xxx
 # OR
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=secure_password
@@ -153,4 +153,3 @@ ADMIN_PASSWORD=secure_password
 JWT_SECRET=random_secret_key
 CACHE_STORAGE_MODE=database
 ```
-

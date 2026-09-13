@@ -1,101 +1,101 @@
-﻿# REST API 鎺ュ彛鏂囨。
+# REST API 接口文档
 
-ShiShishirineee 鍚庣鍩轰簬 Cloudflare Workers + Hono 鏋勫缓锛屾墍鏈夋帴鍙ｅ搷搴斿潎閬靛惊鏍囧噯 JSON 鏍煎紡銆?
+Shirine 后端基于 Cloudflare Workers + Hono 构建，所有接口响应均遵循标准 JSON 格式。
+
 ---
 
-## 缁熶竴鍝嶅簲鏍煎紡
+## 统一响应格式
 
 ```json
 {
   "success": true,
   "data": { ... },
-  "error": "鑻ュけ璐ユ椂杩斿洖閿欒鎻忚堪"
+  "error": "若失败时返回错误描述"
 }
 ```
 
 ---
 
-## 涓€銆佺敤鎴蜂笌璁よ瘉鎺ュ彛 (`/api/auth`, `/api/user`)
+## 一、用户与认证接口 (`/api/auth`, `/api/user`)
 
-| 璺緞 | 鏂规硶 | 鏉冮檺瑕佹眰 | 鎻忚堪 |
+| 路径 | 方法 | 权限要求 | 描述 |
 | :--- | :--- | :--- | :--- |
-| `/api/auth/register` | `POST` | 鍏紑 | 鐢ㄦ埛娉ㄥ唽锛堥浣嶆敞鍐岃€呰嚜鍔ㄦ垚涓鸿秴绾х鐞嗗憳锛?|
-| `/api/auth/login` | `POST` | 鍏紑 | 鐢ㄦ埛鐧诲綍锛岃繑鍥?JWT Token |
-| `/api/auth/me` | `GET` | 鐧诲綍鐢ㄦ埛 | 鑾峰彇褰撳墠鐧诲綍鐢ㄦ埛鐨勮缁嗕俊鎭笌绉垎 |
-| `/api/auth/logout` | `POST` | 鐧诲綍鐢ㄦ埛 | 閫€鍑虹櫥褰?|
-| `/api/user/checkin` | `POST` | 鐧诲綍鐢ㄦ埛 | 姣忔棩鎵撳崱绛惧埌锛岃绠楃Н鍒嗗鍔变笌杩炵澶╂暟 |
-| `/api/user/history` | `GET` | 鐧诲綍鐢ㄦ埛 | 鑾峰彇涓汉绛惧埌璁板綍鍘嗗彶 |
-| `/api/user/profile` | `PUT` | 鐧诲綍鐢ㄦ埛 | 鏇存柊涓汉鏄电О銆佸ご鍍忔垨瀵嗙爜 |
+| `/api/auth/register` | `POST` | 公开 | 用户注册（首位注册者自动成为超级管理员） |
+| `/api/auth/login` | `POST` | 公开 | 用户登录，返回 JWT Token |
+| `/api/auth/me` | `GET` | 登录用户 | 获取当前登录用户的详细信息与积分 |
+| `/api/auth/logout` | `POST` | 登录用户 | 退出登录 |
+| `/api/user/checkin` | `POST` | 登录用户 | 每日打卡签到，计算积分奖励与连签天数 |
+| `/api/user/history` | `GET` | 登录用户 | 获取个人签到记录历史 |
+| `/api/user/profile` | `PUT` | 登录用户 | 更新个人昵称、头像或密码 |
 
 ---
 
-## 浜屻€佸崥鏂囨帴鍙?(`/api/posts`)
+## 二、博文接口 (`/api/posts`)
 
-| 璺緞 | 鏂规硶 | 鏉冮檺瑕佹眰 | 鎻忚堪 |
+| 路径 | 方法 | 权限要求 | 描述 |
 | :--- | :--- | :--- | :--- |
-| `/api/posts` | `GET` | 鍏紑 | 鑾峰彇鍗氭枃鍒楄〃锛堟敮鎸佸垎椤点€佸垎绫讳笌鏍囩绛涢€夛級 |
-| `/api/posts/:slugOrId` | `GET` | 鏅鸿兘鏉冮檺 | 鑾峰彇鍗曠瘒鍗氭枃璇︽儏锛堟湭婊¤冻鏉冮檺鏃惰劚鏁忥級 |
-| `/api/posts/:id/unlock` | `POST` | 鐧诲綍鐢ㄦ埛 | 浣跨敤璐︽埛绉垎姘镐箙瑙ｉ攣鎸囧畾鏂囩珷 |
-| `/api/posts` | `POST` | 绠＄悊鍛?| 鍙戝竷鏂板崥鏂?|
-| `/api/posts/:id` | `PUT` | 绠＄悊鍛?| 鏇存柊鍗氭枃鍐呭涓庢潈闄愯瀹?|
-| `/api/posts/:id` | `DELETE` | 绠＄悊鍛?| 鍒犻櫎鎸囧畾鍗氭枃 |
+| `/api/posts` | `GET` | 公开 | 获取博文列表（支持分页、分类与标签筛选） |
+| `/api/posts/:slugOrId` | `GET` | 智能权限 | 获取单篇博文详情（未满足权限时脱敏） |
+| `/api/posts/:id/unlock` | `POST` | 登录用户 | 使用账户积分永久解锁指定文章 |
+| `/api/posts` | `POST` | 管理员 | 发布新博文 |
+| `/api/posts/:id` | `PUT` | 管理员 | 更新博文内容与权限设定 |
+| `/api/posts/:id` | `DELETE` | 管理员 | 删除指定博文 |
 
 ---
 
-## 涓夈€佺浉鍐屽浘搴撴帴鍙?(`/api/albums`)
+## 三、相册图库接口 (`/api/albums`)
 
-| 璺緞 | 鏂规硶 | 鏉冮檺瑕佹眰 | 鎻忚堪 |
+| 路径 | 方法 | 权限要求 | 描述 |
 | :--- | :--- | :--- | :--- |
-| `/api/albums` | `GET` | 鍏紑 | 鑾峰彇鐩稿唽鍒楄〃 |
-| `/api/albums/:id` | `GET` | 鏅鸿兘鏉冮檺 | 鑾峰彇鐩稿唽璇︽儏鍙婄収鐗囧垪琛?|
-| `/api/albums/:id/unlock` | `POST` | 鐧诲綍鐢ㄦ埛 | 浣跨敤璐︽埛绉垎姘镐箙瑙ｉ攣鐩稿唽 |
-| `/api/albums` | `POST` | 绠＄悊鍛?| 鏂板缓鐩稿唽 |
-| `/api/albums/:id` | `PUT` | 绠＄悊鍛?| 鏇存柊鐩稿唽淇℃伅 |
-| `/api/albums/:id` | `DELETE` | 绠＄悊鍛?| 鍒犻櫎鎸囧畾鐩稿唽 |
+| `/api/albums` | `GET` | 公开 | 获取相册列表 |
+| `/api/albums/:id` | `GET` | 智能权限 | 获取相册详情及照片列表 |
+| `/api/albums/:id/unlock` | `POST` | 登录用户 | 使用账户积分永久解锁相册 |
+| `/api/albums` | `POST` | 管理员 | 新建相册 |
+| `/api/albums/:id` | `PUT` | 管理员 | 更新相册信息 |
+| `/api/albums/:id` | `DELETE` | 管理员 | 删除指定相册 |
 
 ---
 
-## 鍥涖€佸姩鎬佹棩璁版帴鍙?(`/api/moments`)
+## 四、动态日记接口 (`/api/moments`)
 
-| 璺緞 | 鏂规硶 | 鏉冮檺瑕佹眰 | 鎻忚堪 |
+| 路径 | 方法 | 权限要求 | 描述 |
 | :--- | :--- | :--- | :--- |
-| `/api/moments` | `GET` | 鍏紑 | 鑾峰彇鍔ㄦ€佹棩璁板垪琛?|
-| `/api/moments` | `POST` | 绠＄悊鍛?| 鍙戝竷鏂板姩鎬佹棩璁帮紙鏀寔蹇冩儏銆佷綅缃笌鍥剧墖锛?|
-| `/api/moments/:id` | `DELETE` | 绠＄悊鍛?| 鍒犻櫎鍔ㄦ€佹棩璁?|
+| `/api/moments` | `GET` | 公开 | 获取动态日记列表 |
+| `/api/moments` | `POST` | 管理员 | 发布新动态日记（支持心情、位置与图片） |
+| `/api/moments/:id` | `DELETE` | 管理员 | 删除动态日记 |
 
 ---
 
-## 浜斻€佸弸閾剧敵璇蜂笌绠＄悊 (`/api/friends`)
+## 五、友链申请与管理 (`/api/friends`)
 
-| 璺緞 | 鏂规硶 | 鏉冮檺瑕佹眰 | 鎻忚堪 |
+| 路径 | 方法 | 权限要求 | 描述 |
 | :--- | :--- | :--- | :--- |
-| `/api/friends` | `GET` | 鍏紑 | 鑾峰彇宸叉壒鍑嗗弸閾惧垪琛?|
-| `/api/friends/apply` | `POST` | 鍏紑 | 璁垮鎻愪氦鍙嬮摼鐢宠 |
-| `/api/friends/:id` | `PUT` | 绠＄悊鍛?| 鏇存柊鍙嬮摼鎴栨壒鍑嗙姸鎬?(`status: approved`) |
-| `/api/friends/:id` | `DELETE` | 绠＄悊鍛?| 鍒犻櫎鍙嬮摼 |
+| `/api/friends` | `GET` | 公开 | 获取已批准友链列表 |
+| `/api/friends/apply` | `POST` | 公开 | 访客提交友链申请 |
+| `/api/friends/:id` | `PUT` | 管理员 | 更新友链或批准状态 (`status: approved`) |
+| `/api/friends/:id` | `DELETE` | 管理员 | 删除友链 |
 
 ---
 
-## 鍏€佸叏绔欎笌绯荤粺绠＄悊 (`/api/admin`, `/api/config`)
+## 六、全站与系统管理 (`/api/admin`, `/api/config`)
 
-| 璺緞 | 鏂规硶 | 鏉冮檺瑕佹眰 | 鎻忚堪 |
+| 路径 | 方法 | 权限要求 | 描述 |
 | :--- | :--- | :--- | :--- |
-| `/api/admin/stats` | `GET` | 绠＄悊鍛?| 鑾峰彇鍏ㄧ珯姒傝缁熻鏁版嵁 |
-| `/api/admin/users` | `GET` | 绠＄悊鍛?| 鍒嗛〉鑾峰彇鎵€鏈夋敞鍐岀敤鎴峰垪琛?|
-| `/api/admin/users/:id/points` | `PUT` | 绠＄悊鍛?| 璋冩暣鎸囧畾鐢ㄦ埛鐨勭Н鍒嗕綑棰濓紙鏀寔姝ｈ礋澧炲噺锛?|
-| `/api/admin/users/:id/role` | `PUT` | 瓒呯骇绠＄悊鍛?| 鍙樻洿鐢ㄦ埛瑙掕壊 (`superadmin`/`admin`/`user`) |
-| `/api/admin/users/:id/status` | `PUT` | 绠＄悊鍛?| 灏佺鎴栬В灏佺敤鎴?|
-| `/api/config/site` | `GET` | 鍏紑 | 鑾峰彇鍏ㄧ珯瑙嗚涓庡熀纭€閰嶇疆 |
-| `/api/config/site` | `PUT` | 绠＄悊鍛?| 鏇存柊鍏ㄧ珯瑙嗚閰嶇疆 |
-| `/api/config/system` | `GET` | 鍏紑 | 鑾峰彇鍏紑绯荤粺閰嶇疆 (Turnstile 寮€鍏崇瓑) |
-| `/api/config/system/admin` | `GET` | 绠＄悊鍛?| 鑾峰彇鍖呭惈瀵嗛挜涓庣鍒版ā寮忕殑瀹屾暣閰嶇疆 |
-| `/api/config/system` | `PUT` | 绠＄悊鍛?| 淇濆瓨绛惧埌瑙勫垯銆乀urnstile 瀵嗛挜鍙婄湅鏉垮閰嶇疆 |
+| `/api/admin/stats` | `GET` | 管理员 | 获取全站概览统计数据 |
+| `/api/admin/users` | `GET` | 管理员 | 分页获取所有注册用户列表 |
+| `/api/admin/users/:id/points` | `PUT` | 管理员 | 调整指定用户的积分余额（支持正负增减） |
+| `/api/admin/users/:id/role` | `PUT` | 超级管理员 | 变更用户角色 (`superadmin`/`admin`/`user`) |
+| `/api/admin/users/:id/status` | `PUT` | 管理员 | 封禁或解封用户 |
+| `/api/config/site` | `GET` | 公开 | 获取全站视觉与基础配置 |
+| `/api/config/site` | `PUT` | 管理员 | 更新全站视觉配置 |
+| `/api/config/system` | `GET` | 公开 | 获取公开系统配置 (Turnstile 开关等) |
+| `/api/config/system/admin` | `GET` | 管理员 | 获取包含密钥与签到模式的完整配置 |
+| `/api/config/system` | `PUT` | 管理员 | 保存签到规则、Turnstile 密钥及看板娘配置 |
 
 ---
 
-## 涓冦€佹枃浠朵笂浼?(`/api/upload`)
+## 七、文件上传 (`/api/upload`)
 
-| 璺緞 | 鏂规硶 | 鏉冮檺瑕佹眰 | 鎻忚堪 |
+| 路径 | 方法 | 权限要求 | 描述 |
 | :--- | :--- | :--- | :--- |
-| `/api/upload` | `POST` | 绠＄悊鍛?| 涓婁紶鍥剧墖鍒?Cloudflare R2锛岃繑鍥炲叕寮€璁块棶 URL |
-
+| `/api/upload` | `POST` | 管理员 | 上传图片到 Cloudflare R2，返回公开访问 URL |

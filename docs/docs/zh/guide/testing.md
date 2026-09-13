@@ -1,85 +1,103 @@
-﻿# 娴嬭瘯鎸囧崡
+# 测试指南
 
-鏈枃妗ｆ彁渚?Shishirinee 椤圭洰涓祴璇曠殑鍏ㄩ潰鎸囧崡銆?
-## 姒傝堪
+本文档提供 Shirine 项目中测试的全面指南。
 
-Shishirinee 鍦ㄦ暣涓粨搴撶粺涓€浣跨敤涓€濂楁祴璇曡繍琛屽櫒锛?
-- **杩愯鍣?*锛歔Bun 鍘熺敓娴嬭瘯杩愯鍣╙(https://bun.sh/docs/cli/test) 涓?`bun:test` API
-- **瀹㈡埛绔幆澧?*锛歊eact 缁勪欢娴嬭瘯瀵煎叆缁熶竴鐨?jsdom 鍒濆鍖栨枃浠?- **鏈嶅姟绔幆澧?*锛歐orker 鍏煎鍏ㄥ眬瀵硅薄涓庡唴瀛?SQLite 鏁版嵁搴?
-## 杩愯娴嬭瘯
+## 概述
 
-### 鎵€鏈夋祴璇?
+Shirine 在整个仓库统一使用一套测试运行器：
+
+- **运行器**：[Bun 原生测试运行器](https://bun.sh/docs/cli/test) 与 `bun:test` API
+- **客户端环境**：React 组件测试导入统一的 jsdom 初始化文件
+- **服务端环境**：Worker 兼容全局对象与内存 SQLite 数据库
+
+## 运行测试
+
+### 所有测试
+
 ```bash
-# 浣跨敤鏍圭洰褰曟爣鍑嗗懡浠よ繍琛屽叏閮ㄦ祴璇?bun run test
+# 使用根目录标准命令运行全部测试
+bun run test
 ```
 
-### 瀹㈡埛绔祴璇?
-```bash
-# 杩愯涓€娆℃祴璇?bun run test:client
+### 客户端测试
 
-# 鐩戣妯″紡杩愯娴嬭瘯
+```bash
+# 运行一次测试
+bun run test:client
+
+# 监视模式运行测试
 bun run test:client:watch
 
-# 杩愯娴嬭瘯骞剁敓鎴愯鐩栫巼鎶ュ憡
+# 运行测试并生成覆盖率报告
 bun run test:client:coverage
 ```
 
-### 鏈嶅姟绔祴璇?
-```bash
-# 杩愯涓€娆℃祴璇?bun run test:server
+### 服务端测试
 
-# 杩愯娴嬭瘯骞剁敓鎴愯鐩栫巼鎶ュ憡
+```bash
+# 运行一次测试
+bun run test:server
+
+# 运行测试并生成覆盖率报告
 bun run test:server:coverage
 ```
 
-## 娴嬭瘯缁撴瀯
+## 测试结构
 
-### 瀹㈡埛绔祴璇?
-浣嶇疆锛歚client/src/**/__tests__/*.test.ts`
+### 客户端测试
+
+位置：`client/src/**/__tests__/*.test.ts`
 
 ```typescript
-// 瀹㈡埛绔祴璇曠ず渚?import '../../test/setup';
+// 客户端测试示例
+import '../../test/setup';
 import { describe, expect, it } from 'bun:test';
 import { render, screen } from '@testing-library/react';
 import { MyComponent } from '../components/MyComponent';
 
 describe('MyComponent', () => {
-  it('搴旇姝ｇ‘娓叉煋', () => {
+  it('应该正确渲染', () => {
     render(<MyComponent />);
     expect(screen.getByText('Hello')).toBeInTheDocument();
   });
 });
 ```
 
-### 鏈嶅姟绔祴璇?
-浣嶇疆锛?- 鍗曞厓娴嬭瘯锛歚server/src/**/__tests__/*.test.ts`
-- 闆嗘垚娴嬭瘯锛歚server/tests/integration/*.test.ts`
-- 瀹夊叏娴嬭瘯锛歚server/tests/security/*.test.ts`
+### 服务端测试
+
+位置：
+- 单元测试：`server/src/**/__tests__/*.test.ts`
+- 集成测试：`server/tests/integration/*.test.ts`
+- 安全测试：`server/tests/security/*.test.ts`
 
 ```typescript
-// 鏈嶅姟绔祴璇曠ず渚?import { describe, it, expect } from 'bun:test';
+// 服务端测试示例
+import { describe, it, expect } from 'bun:test';
 import { myFunction } from '../utils/myFunction';
 
 describe('myFunction', () => {
-  it('搴旇杩斿洖姝ｇ‘缁撴灉', () => {
+  it('应该返回正确结果', () => {
     const result = myFunction('input');
     expect(result).toBe('expected output');
   });
 });
 ```
 
-## 缂栧啓娴嬭瘯
+## 编写测试
 
-### 瀹㈡埛绔祴璇?
-1. **缁勪欢娴嬭瘯**锛氬崟鐙祴璇?React 缁勪欢
-2. **API 瀹㈡埛绔祴璇?*锛氭祴璇?HTTP 瀹㈡埛绔拰 API 璋冪敤
-3. **宸ュ叿鍑芥暟娴嬭瘯**锛氭祴璇曡緟鍔╁嚱鏁?
-绀轰緥锛?```typescript
+### 客户端测试
+
+1. **组件测试**：单独测试 React 组件
+2. **API 客户端测试**：测试 HTTP 客户端和 API 调用
+3. **工具函数测试**：测试辅助函数
+
+示例：
+```typescript
 import { describe, expect, it } from 'bun:test';
 import { apiClient } from '../api/client';
 
 describe('API Client', () => {
-  it('搴旇澶勭悊 API 閿欒', async () => {
+  it('应该处理 API 错误', async () => {
     const result = await apiClient.get('/nonexistent');
     expect(result.error).toBeDefined();
     expect(result.error?.status).toBe(404);
@@ -87,11 +105,14 @@ describe('API Client', () => {
 });
 ```
 
-### 鏈嶅姟绔祴璇?
-1. **鏈嶅姟娴嬭瘯**锛氭祴璇曟湇鍔′腑鐨勪笟鍔￠€昏緫
-2. **璺敱娴嬭瘯**锛氭祴璇?API 绔偣
-3. **宸ュ叿鍑芥暟娴嬭瘯**锛氭祴璇曡緟鍔╁嚱鏁?
-浣跨敤鏁版嵁搴撶殑绀轰緥锛?```typescript
+### 服务端测试
+
+1. **服务测试**：测试服务中的业务逻辑
+2. **路由测试**：测试 API 端点
+3. **工具函数测试**：测试辅助函数
+
+使用数据库的示例：
+```typescript
 import { describe, it, expect, beforeEach } from 'bun:test';
 import { createMockDB } from '../../tests/fixtures';
 
@@ -103,53 +124,70 @@ describe('FeedService', () => {
     db = mockDB.db;
   });
 
-  it('搴旇鍒涘缓 feed', async () => {
-    // 浣跨敤妯℃嫙鏁版嵁搴撹繘琛屾祴璇?  });
+  it('应该创建 feed', async () => {
+    // 使用模拟数据库进行测试
+  });
 });
 ```
 
-## 娴嬭瘯澶瑰叿
+## 测试夹具
 
-鏈嶅姟绔祴璇曚娇鐢ㄥす鍏锋潵璁剧疆妯℃嫙鏁版嵁锛?
-- `server/tests/fixtures/index.ts` - 妯℃嫙鏁版嵁搴撳拰鐜璁剧疆
-- `server/tests/test-api-client.ts` - 鐢ㄤ簬娴嬭瘯鐨勭被鍨嬪畨鍏?API 瀹㈡埛绔?
-## 瑕嗙洊鐜?
-鏍圭洰褰曞懡浠や細鐢熸垚涓€浠藉悎骞惰鐩栫巼鎶ュ憡锛?
+服务端测试使用夹具来设置模拟数据：
+
+- `server/tests/fixtures/index.ts` - 模拟数据库和环境设置
+- `server/tests/test-api-client.ts` - 用于测试的类型安全 API 客户端
+
+## 覆盖率
+
+根目录命令会生成一份合并覆盖率报告：
+
 ```bash
-# 鍏ㄤ粨娴嬭瘯瑕嗙洊鐜?bun run test:coverage
+# 全仓测试覆盖率
+bun run test:coverage
 ```
 
-鍚堝苟鎶ュ憡鐢熸垚鍦?`coverage/`銆傝嫢浠庡鎴风鎴栨湇鍔＄鐩綍鍗曠嫭杩愯瑕嗙洊鐜囧懡浠わ紝鎶ュ憡浠嶅垎鍒啓鍏?`client/coverage/` 鎴?`server/coverage/`銆?
-## CI/CD 闆嗘垚
+合并报告生成在 `coverage/`。若从客户端或服务端目录单独运行覆盖率命令，报告仍分别写入 `client/coverage/` 或 `server/coverage/`。
 
-娴嬭瘯鍦ㄤ互涓嬫儏鍐佃嚜鍔ㄨ繍琛岋細
-- 姣忔鎺ㄩ€佸埌 `main` 鎴?`trunk` 鍒嗘敮
-- 姣忎釜 Pull Request
-- 閮ㄧ讲鍓嶏紙闃诲鎬э級
+## CI/CD 集成
 
-璇︾粏淇℃伅璇峰弬闃?[GitHub Actions 宸ヤ綔娴乚(./deploy.mdx#github-actions-宸ヤ綔娴?銆?
-## 鏈€浣冲疄璺?
-1. **涓烘柊鍔熻兘缂栧啓娴嬭瘯**锛氭瘡涓柊鍔熻兘閮藉簲璇ュ寘鍚祴璇?2. **娴嬭瘯杈圭晫鎯呭喌**锛氬寘鎷敊璇潯浠跺拰杈圭晫鎯呭喌鐨勬祴璇?3. **浣跨敤鎻忚堪鎬у悕绉?*锛氭祴璇曟弿杩板簲璇ユ竻妤氳鏄庢鍦ㄦ祴璇曚粈涔?4. **淇濇寔娴嬭瘯鐙珛**锛氭瘡涓祴璇曢兘搴旇鑳藉鐙珛杩愯
-5. **妯℃嫙澶栭儴渚濊禆**锛氫负澶栭儴 API 鍜屾湇鍔′娇鐢ㄦā鎷?6. **缁熶竴杩愯鍣?*锛氭祴璇?API 鍙粠 `bun:test` 瀵煎叆锛屼笉瑕佸啀娣诲姞 Vitest 鎴栧叾浠栬繍琛屽櫒
+测试在以下情况自动运行：
+- 每次推送到 `main` 或 `trunk` 分支
+- 每个 Pull Request
+- 部署前（阻塞性）
 
-## 鏁呴殰鎺掗櫎
+详细信息请参阅 [GitHub Actions 工作流](./deploy.mdx#github-actions-工作流)。
 
-### 瀹㈡埛绔祴璇曞け璐?
+## 最佳实践
+
+1. **为新功能编写测试**：每个新功能都应该包含测试
+2. **测试边界情况**：包括错误条件和边界情况的测试
+3. **使用描述性名称**：测试描述应该清楚说明正在测试什么
+4. **保持测试独立**：每个测试都应该能够独立运行
+5. **模拟外部依赖**：为外部 API 和服务使用模拟
+6. **统一运行器**：测试 API 只从 `bun:test` 导入，不要再添加 Vitest 或其他运行器
+
+## 故障排除
+
+### 客户端测试失败
+
 ```bash
-# 閫氳繃鏍囧噯瀹㈡埛绔叆鍙ｈ繍琛?bun run test:client
+# 通过标准客户端入口运行
+bun run test:client
 ```
 
-### 鏈嶅姟绔祴璇曞け璐?
+### 服务端测试失败
+
 ```bash
-# 纭繚浣犲湪 server 鐩綍涓?cd server
+# 确保你在 server 目录中
+cd server
 bun test
 ```
 
-### 瑕嗙洊鐜囨湭鐢熸垚
+### 覆盖率未生成
 
-纭繚浣犲湪娴嬭瘯閰嶇疆涓厤缃簡瑕嗙洊鐜囨姤鍛婂櫒銆?
-## 鍏朵粬璧勬簮
+确保你在测试配置中配置了覆盖率报告器。
 
-- [Bun 娴嬭瘯杩愯鍣╙(https://bun.sh/docs/cli/test)
+## 其他资源
+
+- [Bun 测试运行器](https://bun.sh/docs/cli/test)
 - [Testing Library](https://testing-library.com/docs/)
-

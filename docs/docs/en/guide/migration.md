@@ -1,6 +1,6 @@
-﻿# Shishirinee Migration Guide (v0.3.0)
+# Shirine Migration Guide (v0.3.0)
 
-This guide helps existing Shishirinee users migrate to the latest version.
+This guide helps existing Shirine users migrate to the latest version.
 
 ## Overview of Changes
 
@@ -29,13 +29,13 @@ Version 0.3.0 includes significant architectural changes:
 Old variable names are deprecated:
 
 ```
-GITHUB_CLIENT_ID      鈫?Shishirinee_GITHUB_CLIENT_ID
-GITHUB_CLIENT_SECRET  鈫?Shishirinee_GITHUB_CLIENT_SECRET
+GITHUB_CLIENT_ID      → RIN_GITHUB_CLIENT_ID
+GITHUB_CLIENT_SECRET  → RIN_GITHUB_CLIENT_SECRET
 ```
 
 **Steps**:
-1. Go to Settings 鈫?Secrets and variables 鈫?Actions
-2. Add new Secrets with the `Shishirinee_` prefix
+1. Go to Settings → Secrets and variables → Actions
+2. Add new Secrets with the `RIN_` prefix
 3. (Optional) Delete old Secrets
 
 #### Optional: Add Username/Password Login
@@ -48,17 +48,17 @@ If you prefer simple username/password authentication over GitHub OAuth:
 
 ### Step 3: Remove Pages (Optional but Recommended)
 
-Starting from 0.3.0, Shishirinee now uses Workers to host static assets instead of Cloudflare Pages. Follow these steps to migrate:
+Starting from 0.3.0, Shirine now uses Workers to host static assets instead of Cloudflare Pages. Follow these steps to migrate:
 
 1. **Unbind Pages Domain**
-   - Go to Cloudflare Dashboard 鈫?Pages
-   - Select your Pages project 鈫?Custom domains
+   - Go to Cloudflare Dashboard → Pages
+   - Select your Pages project → Custom domains
    - Remove the bound domain
 
 2. **Bind Domain to Worker**
-   - Go to Cloudflare Dashboard 鈫?Workers & Pages
-   - Select your Worker (`Shishirinee-server`)
-   - Click "Triggers" 鈫?"Add Custom Domain"
+   - Go to Cloudflare Dashboard → Workers & Pages
+   - Select your Worker (`shirine-server`)
+   - Click "Triggers" → "Add Custom Domain"
    - Enter your domain and save
 
 3. **Clean Up Extra Domain Bindings**
@@ -66,7 +66,7 @@ Starting from 0.3.0, Shishirinee now uses Workers to host static assets instead 
    - Remove unnecessary bindings (e.g., `seo/*`, `sub/*`, etc.)
 
 4. **Update GitHub OAuth Callback**
-   - Go to GitHub 鈫?Settings 鈫?Developer settings 鈫?OAuth Apps
+   - Go to GitHub → Settings → Developer settings → OAuth Apps
    - Find your OAuth App
    - Change the Authorization callback URL from:
      - `https://<worker-domain>/user/github/callback`
@@ -125,8 +125,8 @@ If you have custom frontend code using the old API, please update accordingly.
 
 | Old Name | New Name | Required |
 |----------|----------|----------|
-| `GITHUB_CLIENT_ID` | `Shishirinee_GITHUB_CLIENT_ID` | Optional* |
-| `GITHUB_CLIENT_SECRET` | `Shishirinee_GITHUB_CLIENT_SECRET` | Optional* |
+| `GITHUB_CLIENT_ID` | `RIN_GITHUB_CLIENT_ID` | Optional* |
+| `GITHUB_CLIENT_SECRET` | `RIN_GITHUB_CLIENT_SECRET` | Optional* |
 | - | `ADMIN_USERNAME` | Optional* |
 | - | `ADMIN_PASSWORD` | Optional* |
 
@@ -159,7 +159,7 @@ After successful migration, you can:
 **Solution**:
 1. Verify at least one login method is configured (GitHub OAuth or username/password)
 2. Check Secrets are set correctly
-3. Try cleaShishirineeg browser cache
+3. Try clearing browser cache
 
 ### "Images Not Loading"
 
@@ -173,14 +173,14 @@ After successful migration, you can:
 If migration fails and you need to rollback:
 
 1. Restore previous git tag: `git checkout v0.2.x`
-2. Force push to main (鈿狅笍 destructive): `git push origin HEAD:main --force`
+2. Force push to main (⚠️ destructive): `git push origin HEAD:main --force`
 3. Redeploy from Actions
 
 ## Need Help?
 
-- 馃摉 [Full Documentation](https://Shishirinee-docs.xeu.life)
-- 馃悰 [GitHub Issues](https://github.com/yiran168/ShiShishirineee/issues)
-- 馃挰 [GitHub Discussions](https://github.com/yiran168/ShiShishirineee/discussions)
+- 📖 [Full Documentation](https://rin-docs.xeu.life)
+- 🐛 [GitHub Issues](https://github.com/yiran168/Shirine/issues)
+- 💬 [GitHub Discussions](https://github.com/yiran168/Shirine/discussions)
 
 ---
 

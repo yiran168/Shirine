@@ -1,69 +1,81 @@
-﻿# 璐＄尞
+# 贡献
 
-鎴戜滑寰堜箰鎰忔帴鍙楁偍瀵硅繖涓」鐩殑琛ヤ竵鍜岃础鐚€傛偍鍙渶閬靛惊涓€浜涘皬鎸囧崡鍗冲彲銆?
-## Commit-msg 閽╁瓙
+我们很乐意接受您对这个项目的补丁和贡献。您只需遵循一些小指南即可。
 
-鎴戜滑鍦?`cli/templates/git-commit-msg.sh` 涓湁涓€涓ず渚?commit-msg hook銆傝杩愯浠ヤ笅鍛戒护璁剧疆锛?
+## Commit-msg 钩子
+
+我们在 `cli/templates/git-commit-msg.sh` 中有一个示例 commit-msg hook。请运行以下命令设置：
+
 ```sh
 ln -s ../../cli/templates/git-commit-msg.sh ./.git/hooks/commit-msg
 ```
 
-Windows 涓嬭鐩存帴灏?`commit-msg.sh` 鏂囦欢澶嶅埗鍒?`.git/hooks/commit-msg`銆?
+Windows 下请直接将 `commit-msg.sh` 文件复制到 `.git/hooks/commit-msg`。
+
 ```powershell
 cp .\scripts\commit-msg.sh .\.git\hooks\commit-msg
 ```
 
-杩欏皢鍦ㄦ瘡娆℃彁浜や箣鍓嶈繍琛屼互涓嬫鏌ワ細
+这将在每次提交之前运行以下检查：
 
-1. **绫诲瀷妫€鏌?* - `bun run check` 楠岃瘉鎵€鏈夊寘鐨?TypeScript 绫诲瀷
-2. **浠ｇ爜鏍煎紡鍖?* - 妫€鏌ヤ唬鐮佹牸寮忓拰椋庢牸
-3. **鎻愪氦娑堟伅鏍煎紡** - 楠岃瘉鎻愪氦娑堟伅鏄惁浠ヤ互涓嬩箣涓€寮€澶达細`feat|chore|fix|docs|ci|style|test|pref`
+1. **类型检查** - `bun run check` 验证所有包的 TypeScript 类型
+2. **代码格式化** - 检查代码格式和风格
+3. **提交消息格式** - 验证提交消息是否以以下之一开头：`feat|chore|fix|docs|ci|style|test|pref`
 
-:::warning 閲嶈鎻愮ず
-閽╁瓙杩樹細杩愯娴嬭瘯銆傛彁浜ゅ墠璇风‘淇濇墍鏈夋祴璇曢€氳繃锛?```sh
+:::warning 重要提示
+钩子还会运行测试。提交前请确保所有测试通过：
+```sh
 bun run test
 ```
 :::
 
-濡傛灉鎮ㄦ兂璺宠繃閽╁瓙锛堜笉鎺ㄨ崘锛夛紝璇蜂娇鐢?`--no-verify` 閫夐」杩愯 `git commit`銆?
-## 璁剧疆寮€鍙戠幆澧?
-1. Fork & Clone 浠撳簱
+如果您想跳过钩子（不推荐），请使用 `--no-verify` 选项运行 `git commit`。
 
-2. 瀹夎 [Node](https://nodejs.org/en/download/package-manager) & [Bun](https://bun.sh/)
+## 设置开发环境
 
-3. 瀹夎渚濊禆椤?    ```sh
+1. Fork & Clone 仓库
+
+2. 安装 [Node](https://nodejs.org/en/download/package-manager) & [Bun](https://bun.sh/)
+
+3. 安装依赖项
+    ```sh
     bun i
     ```
 
-4. 鍦?`.env.local` 鏂囦欢涓～鍐欏繀瑕佺殑閰嶇疆
+4. 在 `.env.local` 文件中填写必要的配置
 
 :::tip
-閫氬父鎯呭喌涓嬶紝鎮ㄥ彧闇€瑕佸～鍐?`AVATAR`銆乣NAME` 鍜?`DESCRIPTION`銆?濡傞渶閰嶇疆 GitHub OAuth锛岄渶瑕佸垱寤轰竴涓?OAuth App锛屽洖璋冨湴鍧€涓?`http://localhost:11498/api/user/github/callback`
+通常情况下，您只需要填写 `AVATAR`、`NAME` 和 `DESCRIPTION`。
+如需配置 GitHub OAuth，需要创建一个 OAuth App，回调地址为 `http://localhost:11498/api/user/github/callback`
 :::
 
-5. 杩愯璁剧疆鑴氭湰鐢熸垚閰嶇疆鏂囦欢
+5. 运行设置脚本生成配置文件
 ```sh
 bun run dev:setup
 ```
 
-杩欏皢鏍规嵁鎮ㄧ殑 `.env.local` 閰嶇疆鑷姩鐢熸垚 `wrangler.toml` 鍜?`.dev.vars` 鏂囦欢銆?
-6. 鎵ц鏁版嵁搴撹縼绉?```sh
+这将根据您的 `.env.local` 配置自动生成 `wrangler.toml` 和 `.dev.vars` 文件。
+
+6. 执行数据库迁移
+```sh
 bun run db:migrate
 ```
 
-7.锛堝彲閫夛級閰嶇疆 S3/R2 鐢ㄤ簬鍥剧墖涓婁紶
+7.（可选）配置 S3/R2 用于图片上传
 
-濡傞渶浣跨敤鍥剧墖涓婁紶鍔熻兘锛岃鍦?`.env.local` 涓～鍐?S3 閰嶇疆锛?- `S3_ENDPOINT`
+如需使用图片上传功能，请在 `.env.local` 中填写 S3 配置：
+- `S3_ENDPOINT`
 - `S3_BUCKET`
 - `S3_ACCESS_KEY_ID`
 - `S3_SECRET_ACCESS_KEY`
 
-8. 鍚姩寮€鍙戞湇鍔″櫒
+8. 启动开发服务器
     ```sh
     bun run dev
     ```
 
-9. 涓轰簡鏇村ソ鍦版帶鍒跺紑鍙戞湇鍔″櫒锛屾偍鍙互鍒嗗埆鍦ㄤ袱涓粓绔腑鍒嗗埆杩愯瀹㈡埛绔笌鏈嶅姟绔殑 dev 鍛戒护锛?    ```sh
+9. 为了更好地控制开发服务器，您可以分别在两个终端中分别运行客户端与服务端的 dev 命令：
+    ```sh
     # tty1
     bun run dev:client
     
@@ -71,31 +83,39 @@ bun run db:migrate
     bun run dev:server
     ```
 
-## 娴嬭瘯瑕佹眰
+## 测试要求
 
-鍦ㄦ彁浜?Pull Request 涔嬪墠锛岃纭繚鎵€鏈夋祴璇曢€氳繃锛?
+在提交 Pull Request 之前，请确保所有测试通过：
+
 ```sh
-# 杩愯鎵€鏈夋祴璇?bun run test
+# 运行所有测试
+bun run test
 
-# 杩愯绫诲瀷妫€鏌?bun run check
+# 运行类型检查
+bun run check
 
-# 杩愯鏍煎紡鍖栨鏌?bun run format:check
+# 运行格式化检查
+bun run format:check
 ```
 
-### 涓烘柊鍔熻兘娣诲姞娴嬭瘯
+### 为新功能添加测试
 
-娣诲姞鏂扮殑 API 绔偣鏃讹細
-1. 鍦?`packages/api/src/types.ts` 涓畾涔夌被鍨嬶紙瀹㈡埛绔拰鏈嶅姟绔叡浜級
-2. 鍦?`server/src/**/__tests__/*.test.ts` 涓坊鍔犳湇鍔＄娴嬭瘯
-3. 濡傛湁闇€瑕侊紝鍦?`client/src/**/__tests__/*.test.ts` 涓坊鍔犲鎴风娴嬭瘯
+添加新的 API 端点时：
+1. 在 `packages/api/src/types.ts` 中定义类型（客户端和服务端共享）
+2. 在 `server/src/**/__tests__/*.test.ts` 中添加服务端测试
+3. 如有需要，在 `client/src/**/__tests__/*.test.ts` 中添加客户端测试
 
-## 鎻愪氦鏇存敼
+## 提交更改
 
-1. 瀵逛簬绠€鍗曠殑琛ヤ竵锛屽湪 UTC+8 鏃跺尯鐨勬棩闂撮€氬父 10 鍒嗛挓鍐呭嵆鍙鍏惰繘琛屽鏍搞€?
-2. 鍦?PR 鍑嗗濂借繘琛屽鏍稿悗锛屼笉瑕佸己鍒舵帹閫佸皬鐨勬洿鏀广€傝繖鏍峰仛浼氳揩浣跨淮鎶よ€呴噸鏂伴槄璇绘偍鐨勬暣涓?PR锛屼粠鑰屽欢杩熷鏍歌繃绋嬨€?
-3. 濮嬬粓淇濇寔 CI 涓虹豢鑹层€?
-4. 濡傛灉 CI 鍦ㄦ偍鐨?PR 涓婂け璐ワ紝璇蜂笉瑕佹帹閫併€傚嵆浣挎偍璁や负杩欎笉鏄ˉ涓佺殑閿欒銆傚鏋滃叾浠栧師鍥犵牬鍧忎簡 CI锛岃鍦ㄦ帹閫佷箣鍓嶅府鍔╀慨澶嶆牴鏈師鍥犮€?
-*寮€濮嬫剦蹇湴鍐欎唬鐮佸惂锛?
+1. 对于简单的补丁，在 UTC+8 时区的日间通常 10 分钟内即可对其进行审核。
 
-## 浠ｇ爜瀹℃牳
-鎵€鏈夋彁浜わ紝鍖呮嫭椤圭洰鎴愬憳鐨勬彁浜わ紝閮介渶瑕佸鏍搞€傛垜浠娇鐢?GitHub 鎷夊彇璇锋眰鏉ュ疄鐜版鐩殑銆傛湁鍏充娇鐢ㄦ媺鍙栬姹傜殑鏇村淇℃伅锛岃鍙傞槄 GitHub 甯姪銆?
+2. 在 PR 准备好进行审核后，不要强制推送小的更改。这样做会迫使维护者重新阅读您的整个 PR，从而延迟审核过程。
+
+3. 始终保持 CI 为绿色。
+
+4. 如果 CI 在您的 PR 上失败，请不要推送。即使您认为这不是补丁的错误。如果其他原因破坏了 CI，请在推送之前帮助修复根本原因。
+
+*开始愉快地写代码吧！*
+
+## 代码审核
+所有提交，包括项目成员的提交，都需要审核。我们使用 GitHub 拉取请求来实现此目的。有关使用拉取请求的更多信息，请参阅 GitHub 帮助。

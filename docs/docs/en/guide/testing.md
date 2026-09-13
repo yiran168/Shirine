@@ -1,10 +1,10 @@
-﻿# Testing Guide
+# Testing Guide
 
-This document provides a comprehensive guide to testing in the Shishirinee project.
+This document provides a comprehensive guide to testing in the Shirine project.
 
 ## Overview
 
-Shishirinee uses one test runner across the repository:
+Shirine uses one test runner across the repository:
 
 - **Runner**: [Bun's native test runner](https://bun.sh/docs/cli/test) and the `bun:test` API
 - **Client environment**: React component tests import the shared jsdom setup
@@ -191,4 +191,3 @@ Make sure you have the coverage reporter configured in your test config.
 
 - [Bun Test Runner](https://bun.sh/docs/cli/test)
 - [Testing Library](https://testing-library.com/docs/)
-

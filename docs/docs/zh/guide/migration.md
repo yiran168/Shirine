@@ -1,159 +1,190 @@
-﻿# Shishirinee 杩佺Щ鎸囧崡 (v0.3.0)
+# Shirine 迁移指南 (v0.3.0)
 
-鏈寚鍗楀府鍔╃幇鏈?Shishirinee 鐢ㄦ埛杩佺Щ鍒版渶鏂扮増鏈€?
-## 鍙樻洿姒傝
+本指南帮助现有 Shirine 用户迁移到最新版本。
 
-v0.3.0 鐗堟湰鍖呭惈閲嶅ぇ鐨勬灦鏋勫彉鏇达細
+## 变更概览
 
-1. **妗嗘灦杩佺Щ**: 鐢ㄨ嚜瀹氫箟杞婚噺绾ф鏋舵浛浠?ElysiaJS
-2. **API 鍙樻洿**: 鏂扮殑 API 瀹㈡埛绔帴鍙?3. **鐧诲綍鏂瑰紡**: 鏂板璐﹀彿瀵嗙爜鐧诲綍鏀寔
-4. **OAuth 鍙樻洿**: GitHub OAuth 鍙橀噺鍚嶆洿鏂?5. **鎬ц兘鎻愬崌**: 鏄捐憲鐨勬€ц兘鏀硅繘
+v0.3.0 版本包含重大的架构变更：
 
-## 杩佺Щ姝ラ
+1. **框架迁移**: 用自定义轻量级框架替代 ElysiaJS
+2. **API 变更**: 新的 API 客户端接口
+3. **登录方式**: 新增账号密码登录支持
+4. **OAuth 变更**: GitHub OAuth 变量名更新
+5. **性能提升**: 显著的性能改进
 
-### 绗竴姝ワ細鍚屾 Fork
+## 迁移步骤
 
-1. 杩涘叆鎮ㄥ湪 GitHub 涓?fork 鐨勪粨搴?2. 鐐瑰嚮 **"Sync fork"** 鎸夐挳
-3. 鐐瑰嚮 **"Update branch"** 鍚堝苟鍙樻洿
+### 第一步：同步 Fork
 
-### 绗簩姝ワ細鏇存柊鐜鍙橀噺
+1. 进入您在 GitHub 上 fork 的仓库
+2. 点击 **"Sync fork"** 按钮
+3. 点击 **"Update branch"** 合并变更
 
-#### 蹇呴渶鍙樻洿
+### 第二步：更新环境变量
 
-**GitHub OAuth 鍙橀噺锛堝鏋滀娇鐢?GitHub 鐧诲綍锛?*
+#### 必需变更
 
-鏃у彉閲忓悕宸插純鐢細
+**GitHub OAuth 变量（如果使用 GitHub 登录）**
+
+旧变量名已弃用：
 
 ```
-GITHUB_CLIENT_ID      鈫?Shishirinee_GITHUB_CLIENT_ID
-GITHUB_CLIENT_SECRET  鈫?Shishirinee_GITHUB_CLIENT_SECRET
+GITHUB_CLIENT_ID      → RIN_GITHUB_CLIENT_ID
+GITHUB_CLIENT_SECRET  → RIN_GITHUB_CLIENT_SECRET
 ```
 
-**鎿嶄綔姝ラ**锛?1. 杩涘叆 Settings 鈫?Secrets and variables 鈫?Actions
-2. 娣诲姞甯?`Shishirinee_` 鍓嶇紑鐨勬柊 Secrets
-3. 锛堝彲閫夛級鍒犻櫎鏃?Secrets
+**操作步骤**：
+1. 进入 Settings → Secrets and variables → Actions
+2. 添加带 `RIN_` 前缀的新 Secrets
+3. （可选）删除旧 Secrets
 
-#### 鍙€夛細娣诲姞璐﹀彿瀵嗙爜鐧诲綍
+#### 可选：添加账号密码登录
 
-濡傛灉鎮ㄦ洿鍠滄绠€鍗曠殑璐﹀彿瀵嗙爜鐧诲綍鑰岄潪 GitHub OAuth锛?
-1. 娣诲姞浠ヤ笅 Secrets锛?   - `ADMIN_USERNAME`: 鎮ㄦ兂瑕佺殑鐢ㄦ埛鍚?   - `ADMIN_PASSWORD`: 鎮ㄦ兂瑕佺殑瀵嗙爜
+如果您更喜欢简单的账号密码登录而非 GitHub OAuth：
 
-### 绗笁姝ワ細绉婚櫎 Pages锛堝彲閫変絾鎺ㄨ崘锛?
-鑷?0.3.0 寮€濮嬶紝Shishirinee 鏀逛负浣跨敤 Workers 鎵樼闈欐€佽祫婧愶紝涓嶅啀渚濊禆 Cloudflare Pages銆傚缓璁寜浠ヤ笅姝ラ杩佺Щ锛?
-1. **瑙ｇ粦 Pages 鍩熷悕**
-   - 杩涘叆 Cloudflare Dashboard 鈫?Pages
-   - 閫夋嫨鎮ㄧ殑 Pages 椤圭洰 鈫?鑷畾涔夊煙
-   - 鍒犻櫎缁戝畾鐨勫煙鍚?
-2. **灏嗗煙鍚嶇粦瀹氬埌 Worker**
-   - 杩涘叆 Cloudflare Dashboard 鈫?Workers & Pages
-   - 閫夋嫨鎮ㄧ殑 Worker (`Shishirinee-server`)
-   - 鐐瑰嚮"瑙﹀彂鍣? 鈫?"娣诲姞鑷畾涔夊煙"
-   - 杈撳叆鎮ㄧ殑鍩熷悕骞朵繚瀛?
-3. **娓呯悊澶氫綑鐨勫煙鍚嶇粦瀹?*
-   - 妫€鏌?Worker 鐨勮嚜瀹氫箟鍩熷垪琛?   - 鍒犻櫎涓嶉渶瑕佺殑缁戝畾锛堝 `seo/*`銆乣sub/*` 绛夛級
+1. 添加以下 Secrets：
+   - `ADMIN_USERNAME`: 您想要的用户名
+   - `ADMIN_PASSWORD`: 您想要的密码
 
-4. **鏇存柊 GitHub OAuth Callback**
-   - 杩涘叆 GitHub 鈫?Settings 鈫?Developer settings 鈫?OAuth Apps
-   - 鎵惧埌鎮ㄧ殑 OAuth App
-   - 灏?Authorization callback URL 浠庯細
+### 第三步：移除 Pages（可选但推荐）
+
+自 0.3.0 开始，Shirine 改为使用 Workers 托管静态资源，不再依赖 Cloudflare Pages。建议按以下步骤迁移：
+
+1. **解绑 Pages 域名**
+   - 进入 Cloudflare Dashboard → Pages
+   - 选择您的 Pages 项目 → 自定义域
+   - 删除绑定的域名
+
+2. **将域名绑定到 Worker**
+   - 进入 Cloudflare Dashboard → Workers & Pages
+   - 选择您的 Worker (`shirine-server`)
+   - 点击"触发器" → "添加自定义域"
+   - 输入您的域名并保存
+
+3. **清理多余的域名绑定**
+   - 检查 Worker 的自定义域列表
+   - 删除不需要的绑定（如 `seo/*`、`sub/*` 等）
+
+4. **更新 GitHub OAuth Callback**
+   - 进入 GitHub → Settings → Developer settings → OAuth Apps
+   - 找到您的 OAuth App
+   - 将 Authorization callback URL 从：
      - `https://<worker-domain>/user/github/callback`
-   - 淇敼涓猴細
+   - 修改为：
      - `https://<your-domain>/api/user/github/callback`
 
-### 绗洓姝ワ細鏇存柊 Cloudflare API Key 鏉冮檺
+### 第四步：更新 Cloudflare API Key 权限
 
-纭繚鎮ㄧ殑 Cloudflare API Token 鍏锋湁浠ヤ笅鏉冮檺锛?- **D1**:Edit
-- **Workers R2 瀛樺偍**:Edit (濡傛灉浣跨敤 R2 瀛樺偍)
-- **Workers 鑴氭湰**:Edit
+确保您的 Cloudflare API Token 具有以下权限：
+- **D1**:Edit
+- **Workers R2 存储**:Edit (如果使用 R2 存储)
+- **Workers 脚本**:Edit
 
 ![1000000663](/cloudflare-api-key-cn.png)
 
 
-### 绗簲姝ワ細閲嶅懡鍚嶅垎鏀悕
+### 第五步：重命名分支名
 
 
-1. 鑻ュ厛鍓?fork 浠撳簱鐨勫垎鏀负 `dev`锛岄渶鎵嬪姩閲嶅懡鍚嶄负 `main` 鎴?`master`
+1. 若先前 fork 仓库的分支为 `dev`，需手动重命名为 `main` 或 `master`
 
 
-### 绗叚姝ワ細閮ㄧ讲
+### 第六步：部署
 
-1. 杩涘叆浠撳簱鐨?Actions 鏍囩
-2. 閫夋嫨 **"Build"** 宸ヤ綔娴?3. 鐐瑰嚮 **"Run workflow"**
-4. 鍦ㄦ瀯寤烘垚鍔熷悗浼氳嚜鍔ㄨЕ鍙?`Deploy` 宸ヤ綔娴佽嚜鍔ㄩ儴缃插埌 workers
+1. 进入仓库的 Actions 标签
+2. 选择 **"Build"** 工作流
+3. 点击 **"Run workflow"**
+4. 在构建成功后会自动触发 `Deploy` 工作流自动部署到 workers
 
-### 绗竷姝ワ細楠岃瘉閮ㄧ讲
+### 第七步：验证部署
 
-1. 璁块棶鎮ㄧ殑鍓嶇 URL
-2. 娴嬭瘯鐧诲綍鍔熻兘
-3. 妫€鏌ョ幇鏈夋枃绔犳槸鍚﹀彲璁块棶
-4. 楠岃瘉鍥剧墖鏄惁姝ｇ‘鍔犺浇
+1. 访问您的前端 URL
+2. 测试登录功能
+3. 检查现有文章是否可访问
+4. 验证图片是否正确加载
 
-## 鐮村潖鎬у彉鏇存眹鎬?
-### API 瀹㈡埛绔帴鍙?
-**鏃т唬鐮?*锛堜笉鍐嶆敮鎸侊級锛?```typescript
+## 破坏性变更汇总
+
+### API 客户端接口
+
+**旧代码**（不再支持）：
+```typescript
 const feeds = await client.feed.index.get({ query: { page: 1 } });
 ```
 
-**鏂颁唬鐮?*锛?```typescript
+**新代码**：
+```typescript
 const feeds = await client.feed.list({ page: 1 });
 ```
 
-濡傛灉鎮ㄦ湁浣跨敤鏃?API 鐨勮嚜瀹氫箟鍓嶇浠ｇ爜锛岃鐩稿簲鏇存柊銆?
-### 璁よ瘉娴佺▼
+如果您有使用旧 API 的自定义前端代码，请相应更新。
 
-- **鏃?*: 鍚庣閲嶅畾鍚戝埌鍓嶇 callback URL
-- **鏂?*: 鐙珛鐨?`/login` 椤甸潰锛屼笓鐢ㄧ櫥褰曟祦绋?
-### 鐜鍙橀噺鍙樺寲
+### 认证流程
 
-| 鏃у悕绉?| 鏂板悕绉?| 蹇呴渶 |
+- **旧**: 后端重定向到前端 callback URL
+- **新**: 独立的 `/login` 页面，专用登录流程
+
+### 环境变量变化
+
+| 旧名称 | 新名称 | 必需 |
 |--------|--------|------|
-| `GITHUB_CLIENT_ID` | `Shishirinee_GITHUB_CLIENT_ID` | 鍙€? |
-| `GITHUB_CLIENT_SECRET` | `Shishirinee_GITHUB_CLIENT_SECRET` | 鍙€? |
-| - | `ADMIN_USERNAME` | 鍙€? |
-| - | `ADMIN_PASSWORD` | 鍙€? |
+| `GITHUB_CLIENT_ID` | `RIN_GITHUB_CLIENT_ID` | 可选* |
+| `GITHUB_CLIENT_SECRET` | `RIN_GITHUB_CLIENT_SECRET` | 可选* |
+| - | `ADMIN_USERNAME` | 可选* |
+| - | `ADMIN_PASSWORD` | 可选* |
 
-*蹇呴』閰嶇疆鑷冲皯涓€绉嶇櫥褰曟柟寮?
-## 杩佺Щ鍚?
-### 灏濊瘯鏂板姛鑳?
-1. **涓汉璧勬枡绠＄悊**: 璁块棶 `/profile` 鏇存柊澶村儚鍜岀敤鎴峰悕
-2. **鎬ц兘鎻愬崌**: 浣撻獙鏇村揩鐨勫喎鍚姩鍜屾洿浣庣殑 CPU 浣跨敤鐜?3. **鏇村ソ鐨勭櫥褰曚綋楠?*: 鏂扮殑鐙珛鐧诲綍椤甸潰锛屾敼杩涚劍鐐瑰鐞?
-### 娓呯悊锛堝彲閫夛級
+*必须配置至少一种登录方式
 
-鎴愬姛杩佺Щ鍚庯紝鎮ㄥ彲浠ワ細
+## 迁移后
 
-1. 鍒犻櫎宸插純鐢ㄧ殑鐜鍙橀噺
-2. 濡備笉鍐嶉渶瑕侊紝鍒犻櫎鏃х殑棰勮閮ㄧ讲
-3. 鏇存柊鑷畾涔夎剼鏈互浣跨敤鏂扮殑 API 鎺ュ彛
+### 尝试新功能
 
-## 鏁呴殰鎺掗櫎
+1. **个人资料管理**: 访问 `/profile` 更新头像和用户名
+2. **性能提升**: 体验更快的冷启动和更低的 CPU 使用率
+3. **更好的登录体验**: 新的独立登录页面，改进焦点处理
 
-### "鐗堟湰涓嶅尮閰? 閿欒
+### 清理（可选）
 
-**瑙ｅ喅鏂规**: 纭繚 git 鏍囩涓?package.json 鐗堟湰鍖归厤銆傚悓姝ュ簲璇ヤ細鑷姩澶勭悊銆?
-### "鏃犳硶鐧诲綍"
+成功迁移后，您可以：
 
-**瑙ｅ喅鏂规**锛?1. 楠岃瘉鑷冲皯閰嶇疆浜嗕竴绉嶇櫥褰曟柟寮忥紙GitHub OAuth 鎴?璐﹀彿瀵嗙爜锛?2. 妫€鏌?Secrets 鏄惁姝ｇ‘璁剧疆
-3. 灏濊瘯娓呴櫎娴忚鍣ㄧ紦瀛?
-### "鍥剧墖鏃犳硶鍔犺浇"
+1. 删除已弃用的环境变量
+2. 如不再需要，删除旧的预览部署
+3. 更新自定义脚本以使用新的 API 接口
 
-**瑙ｅ喅鏂规**锛?1. 妫€鏌?S3/R2 閰嶇疆
-2. 楠岃瘉 `S3_ACCESS_HOST` 鏄惁姝ｇ‘璁剧疆
-3. 妫€鏌?R2 瀛樺偍妗舵潈闄?
-## 鍥炴粴锛堝闇€瑕侊級
+## 故障排除
 
-濡傛灉杩佺Щ澶辫触闇€瑕佸洖婊氾細
+### "版本不匹配" 错误
 
-1. 鎭㈠涔嬪墠鐨?git 鏍囩锛歚git checkout v0.2.x`
-2. 寮哄埗鎺ㄩ€佸埌 main锛堚殸锔?鐮村潖鎬э級锛歚git push origin HEAD:main --force`
-3. 浠?Actions 閲嶆柊閮ㄧ讲
+**解决方案**: 确保 git 标签与 package.json 版本匹配。同步应该会自动处理。
 
-## 闇€瑕佸府鍔╋紵
+### "无法登录"
 
-- 馃摉 [瀹屾暣鏂囨。](https://Shishirinee-docs.xeu.life)
-- 馃悰 [GitHub Issues](https://github.com/yiran168/ShiShishirineee/issues)
-- 馃挰 [GitHub Discussions](https://github.com/yiran168/ShiShishirineee/discussions)
+**解决方案**：
+1. 验证至少配置了一种登录方式（GitHub OAuth 或 账号密码）
+2. 检查 Secrets 是否正确设置
+3. 尝试清除浏览器缓存
+
+### "图片无法加载"
+
+**解决方案**：
+1. 检查 S3/R2 配置
+2. 验证 `S3_ACCESS_HOST` 是否正确设置
+3. 检查 R2 存储桶权限
+
+## 回滚（如需要）
+
+如果迁移失败需要回滚：
+
+1. 恢复之前的 git 标签：`git checkout v0.2.x`
+2. 强制推送到 main（⚠️ 破坏性）：`git push origin HEAD:main --force`
+3. 从 Actions 重新部署
+
+## 需要帮助？
+
+- 📖 [完整文档](https://rin-docs.xeu.life)
+- 🐛 [GitHub Issues](https://github.com/yiran168/Shirine/issues)
+- 💬 [GitHub Discussions](https://github.com/yiran168/Shirine/discussions)
 
 ---
 
-*鏈€鍚庢洿鏂帮細2025-02-08*
-
+*最后更新：2025-02-08*

@@ -1,38 +1,40 @@
-﻿# RSS 閰嶇疆
+# RSS 配置
 
-Shishirinee 鏀寔 RSS銆丄tom銆丣son 涓夌璁㈤槄鏍煎紡
+Shirine 支持 RSS、Atom、Json 三种订阅格式
 
-## 鐜鍙橀噺
+## 环境变量
 
-RSS 鏈韩涓嶉渶瑕佸お澶氱殑閰嶇疆锛岄粯璁ゆ槸寮€绠卞嵆鐢ㄧ殑銆備絾鏄綘鍙互閫氳繃浠ヤ笅鐜鍙橀噺淇敼鍏堕粯璁ら厤缃細
+RSS 本身不需要太多的配置，默认是开箱即用的。但是你可以通过以下环境变量修改其默认配置：
 
 ```ini
-RSS_TITLE=<RSS 鏍囬锛岄粯璁や负浣犵殑鐢ㄦ埛鍚?
-RSS_DESCRIPTION=<RSS 鎻忚堪锛岄粯璁や负 Feed from Shishirinee>
+RSS_TITLE=<RSS 标题，默认为你的用户名>
+RSS_DESCRIPTION=<RSS 描述，默认为 Feed from Shirine>
 ```
 
-浠ヤ笂鐜鍙橀噺閫氳繃鍦?Github 鐨?`Settings` > `Secrets and Variables` > `Actions` > `Variables` > `New repository variable` 涓坊鍔犲嵆鍙€?
-## 浣跨敤
+以上环境变量通过在 Github 的 `Settings` > `Secrets and Variables` > `Actions` > `Variables` > `New repository variable` 中添加即可。
 
-RSS 鐜板湪涓嶉渶瑕侀澶栭厤缃?Workers 璺敱锛岄儴缃插畬鎴愬悗鍗冲彲鐩存帴璁块棶璁㈤槄鍦板潃銆?
+## 使用
+
+RSS 现在不需要额外配置 Workers 路由，部署完成后即可直接访问订阅地址。
+
 :::note
-娉ㄦ剰锛歊SS 璁㈤槄鍦板潃宸茬粡浠?`/sub/` 璺緞杩佺Щ鍒版牴璺緞锛屾棫鐨?`/sub/` 璺緞浠嶇劧鍙敤浠ヤ繚鎸佸悜鍚庡吋瀹广€?:::
+注意：RSS 订阅地址已经从 `/sub/` 路径迁移到根路径，旧的 `/sub/` 路径仍然可用以保持向后兼容。
+:::
 
-RSS 鐨勮闃呭湴鍧€涓猴細
-
-```
-<鍓嶇鍩熷悕>/rss.xml
-```
-
-Atom 鐨勮闃呭湴鍧€涓猴細
+RSS 的订阅地址为：
 
 ```
-<鍓嶇鍩熷悕>/atom.xml
+<前端域名>/rss.xml
 ```
 
-Json 鐨勮闃呭湴鍧€涓猴細
+Atom 的订阅地址为：
 
 ```
-<鍓嶇鍩熷悕>/rss.json
+<前端域名>/atom.xml
 ```
 
+Json 的订阅地址为：
+
+```
+<前端域名>/rss.json
+```

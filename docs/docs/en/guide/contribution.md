@@ -1,4 +1,4 @@
-﻿# Contribute to Shishirinee
+# Contribute to Shirine
 
 We are happy to accept your patches and contributions to this project. You just need to follow some small guidelines.
 
@@ -108,7 +108,7 @@ When adding new API endpoints:
 
 ## Committing Changes
 
-1. for simple patches, they can usually be reviewed within 10 minutes duShishirineeg the day in the UTC+8 time zone. 2.
+1. for simple patches, they can usually be reviewed within 10 minutes during the day in the UTC+8 time zone. 2.
 
 2. Do not force push minor changes after the PR is ready for review. Doing so forces maintainers to re-read your entire
    PR, which delays the review process. 3.
@@ -124,4 +124,3 @@ When adding new API endpoints:
 
 All commits, including those from project members, need to be reviewed. We use GitHub pull requests for this purpose.
 For more information on using pull requests, see the GitHub Help.
-

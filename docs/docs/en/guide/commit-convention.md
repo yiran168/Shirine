@@ -1,6 +1,6 @@
-﻿# Commit Message Convention
+# Commit Message Convention
 
-This document outlines the commit message convention for the Shishirinee project. Following these conventions allows us to automatically generate changelogs and release notes.
+This document outlines the commit message convention for the Shirine project. Following these conventions allows us to automatically generate changelogs and release notes.
 
 ## Format
 
@@ -22,7 +22,7 @@ Each commit message should follow this format:
 | `fix` | A bug fix | `fix(api): resolve CORS issue` |
 | `docs` | Documentation changes | `docs(readme): update deployment guide` |
 | `style` | Code style changes (formatting, semicolons, etc.) | `style: format with prettier` |
-| `refactor` | Code refactoShishirineeg | `refactor(db): optimize query performance` |
+| `refactor` | Code refactoring | `refactor(db): optimize query performance` |
 | `perf` | Performance improvements | `perf(cache): implement Redis caching` |
 | `test` | Adding or updating tests | `test(api): add user authentication tests` |
 | `chore` | Build process or auxiliary tool changes | `chore(deps): update dependencies` |
@@ -129,8 +129,8 @@ feat(auth): migrate to new OAuth provider
 
 BREAKING CHANGE: The GitHub OAuth implementation has been replaced
 with a generic OAuth2 provider. Environment variables have changed:
-- GITHUB_CLIENT_ID 鈫?OAUTH_CLIENT_ID
-- GITHUB_CLIENT_SECRET 鈫?OAUTH_CLIENT_SECRET
+- GITHUB_CLIENT_ID → OAUTH_CLIENT_ID
+- GITHUB_CLIENT_SECRET → OAUTH_CLIENT_SECRET
 
 Migration guide: https://docs.example.com/migration/v2
 ```
@@ -167,4 +167,3 @@ module.exports = { extends: ['@commitlint/config-conventional'] };
 ## Questions?
 
 If you're unsure about the commit type or format, ask in your PR or refer to existing commits in the repository.
-

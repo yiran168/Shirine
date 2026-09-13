@@ -6,7 +6,7 @@
       { "text": "快速部署", "link": "/guide/deploy" },
       { "text": "本地开发", "link": "/guide/development" },
       { "text": "权限与积分体系", "link": "/guide/permissions" },
-      { "text": "管理后台使用", "link": "/guide/admin" },
+      { "text": "管理后台", "link": "/guide/admin" },
       { "text": "Live2D 看板娘", "link": "/guide/live2d" },
       { "text": "Turnstile 防护", "link": "/guide/turnstile" },
       { "text": "API 接口文档", "link": "/guide/api" },

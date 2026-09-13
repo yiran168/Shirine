@@ -1,16 +1,16 @@
-﻿# Release Process
+# Release Process
 
-This document describes the release process for the Shishirinee project.
+This document describes the release process for the Shirine project.
 
 ## Overview
 
-Shishirinee uses [Semantic Versioning](https://semver.org/) and follows a structured release workflow to ensure stability and consistency.
+Shirine uses [Semantic Versioning](https://semver.org/) and follows a structured release workflow to ensure stability and consistency.
 
 **Key Features:**
-- 馃 **Automated Release Notes**: Generated from conventional commit messages
-- 馃摑 **Detailed Changelog**: Maintained in `CHANGELOG.md` with migration guides
-- 鉁?**Automated Validation**: CI checks version consistency and runs tests
-- 馃殌 **Automated Deployment**: Deploys to Cloudflare on version tags
+- 🤖 **Automated Release Notes**: Generated from conventional commit messages
+- 📝 **Detailed Changelog**: Maintained in `CHANGELOG.md` with migration guides
+- ✅ **Automated Validation**: CI checks version consistency and runs tests
+- 🚀 **Automated Deployment**: Deploys to Cloudflare on version tags
 
 ## Version Format
 
@@ -33,7 +33,7 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 | `feat` | New feature | `feat(auth): add GitHub OAuth` |
 | `fix` | Bug fix | `fix(api): resolve CORS issue` |
 | `docs` | Documentation | `docs(readme): update guide` |
-| `refactor` | Code refactoShishirineeg | `refactor(db): optimize queries` |
+| `refactor` | Code refactoring | `refactor(db): optimize queries` |
 | `perf` | Performance | `perf(cache): add Redis` |
 | `chore` | Maintenance | `chore(deps): update packages` |
 
@@ -51,26 +51,26 @@ See [Commit Convention](./commit-convention.md) for detailed guidelines.
 
 ```bash
 # Bump patch version (0.1.0 -> 0.1.1)
-bun cli/bin/Shishirinee.ts release patch
+bun cli/bin/rin.ts release patch
 
 # Bump minor version (0.1.0 -> 0.2.0)
-bun cli/bin/Shishirinee.ts release minor
+bun cli/bin/rin.ts release minor
 
 # Bump major version (0.1.0 -> 1.0.0)
-bun cli/bin/Shishirinee.ts release major
+bun cli/bin/rin.ts release major
 
 # Or set a specific version
-bun cli/bin/Shishirinee.ts release 1.2.3
+bun cli/bin/rin.ts release 1.2.3
 
 # Pre-release version
-bun cli/bin/Shishirinee.ts release 0.3.0-rc.1
+bun cli/bin/rin.ts release 0.3.0-rc.1
 ```
 
 The script will:
-1. 鉁?Run pre-release checks (typecheck, build, branch/changelog validation)
-2. 馃摑 Update version in every workspace `package.json`
-3. 馃敆 Append the release link for the target version in `CHANGELOG.md`
-4. 馃彿锔?Create git commit and tag
+1. ✅ Run pre-release checks (typecheck, build, branch/changelog validation)
+2. 📝 Update version in every workspace `package.json`
+3. 🔗 Append the release link for the target version in `CHANGELOG.md`
+4. 🏷️ Create git commit and tag
 
 **Important**: The script does not write the changelog body for you; it expects a matching version section to already exist in `CHANGELOG.md`.
 
@@ -93,7 +93,7 @@ git commit --amend --no-edit
 To preview changes without applying them:
 
 ```bash
-bun cli/bin/Shishirinee.ts release minor --dry-run
+bun cli/bin/rin.ts release minor --dry-run
 ```
 
 ### 5. Push the Release
@@ -110,17 +110,17 @@ git push origin v0.3.0-rc.1
 
 Once the tag is pushed, GitHub Actions automatically:
 
-1. **馃攳 Validation** (`release.yml`)
+1. **🔍 Validation** (`release.yml`)
    - Validates version consistency
    - Runs typecheck and build
 
-2. **馃摑 Release Notes Generation** (`release.yml`)
+2. **📝 Release Notes Generation** (`release.yml`)
    - Categorizes commits by type (features, fixes, etc.)
    - Extracts detailed notes from CHANGELOG.md
    - Creates GitHub Release with formatted notes
    - Attaches `build-v<version>-cloudflare.tar.gz` as a release asset
 
-3. **馃殌 Deployment** (`deploy.yml`)
+3. **🚀 Deployment** (`deploy.yml`)
    - Validates deployment version
    - Deploys to Cloudflare Workers
    - Runs database migrations
@@ -134,19 +134,19 @@ GitHub Releases will contain:
 
 **Full Changelog**: v0.1.0...v0.2.0
 
-### 馃殌 Features
+### 🚀 Features
 - feat(auth): add GitHub OAuth login (abc1234)
 - feat(ui): implement dark mode (def5678)
 
-### 馃悰 Bug Fixes
+### 🐛 Bug Fixes
 - fix(api): resolve CORS issue (ghi9012)
 
-### 馃搵 Detailed Changelog
+### 📋 Detailed Changelog
 [Content from CHANGELOG.md for this version]
 
 ---
 
-## 馃啓 Upgrade Guide
+## 🆙 Upgrade Guide
 ...
 ```
 
@@ -175,7 +175,7 @@ That URL is exactly what the `artifact_url` input in `deploy.yml` is meant to co
 
 ```bash
 # Add upstream remote
-git remote add upstream https://github.com/yiran168/ShiShishirineee.git
+git remote add upstream https://github.com/yiran168/Shirine.git
 
 # Fetch latest changes
 git fetch upstream
@@ -206,7 +206,7 @@ After pushing the tag:
 
 ## Emergency Releases
 
-For critical bugs requiShishirineeg immediate release:
+For critical bugs requiring immediate release:
 
 ```bash
 # Create hotfix branch from latest tag
@@ -216,7 +216,7 @@ git checkout -b fix/critical-bug v0.2.0
 git commit -m "fix(api): resolve critical security issue"
 
 # Run release script
-bun cli/bin/Shishirinee.ts release patch
+bun cli/bin/rin.ts release patch
 
 # Push (no need to merge to main for hotfixes)
 git push origin fix/critical-bug
@@ -266,7 +266,7 @@ git push origin v0.2.1
 
 ### Writing Good Commits
 
-鉁?**Good**:
+✅ **Good**:
 ```
 feat(auth): implement JWT token refresh
 
@@ -276,7 +276,7 @@ Tokens refresh 5 minutes before expiry.
 Closes #123
 ```
 
-鉂?**Bad**:
+❌ **Bad**:
 ```
 update auth stuff
 fixed bug
@@ -284,7 +284,7 @@ fixed bug
 
 ### Maintaining CHANGELOG
 
-- Keep [Unreleased] section updated duShishirineeg development
+- Keep [Unreleased] section updated during development
 - Write migration guides for breaking changes
 - Include code examples in migration sections
 - Credit contributors when applicable
@@ -299,7 +299,6 @@ When in doubt, use **minor** for new features.
 
 ## Questions?
 
-- 馃摉 Read [Commit Convention](./commit-convention.md) for commit guidelines
-- 馃悰 Report issues: [GitHub Issues](https://github.com/yiran168/ShiShishirineee/issues)
-- 馃挰 Join discussions in our community
-
+- 📖 Read [Commit Convention](./commit-convention.md) for commit guidelines
+- 🐛 Report issues: [GitHub Issues](https://github.com/yiran168/Shirine/issues)
+- 💬 Join discussions in our community

@@ -1,6 +1,6 @@
-﻿# Shishirinee Deployment Guide
+# Shirine Deployment Guide
 
-This document will guide you through deploying the Shishirinee blog system to Cloudflare from scratch.
+This document will guide you through deploying the Shirine blog system to Cloudflare from scratch.
 
 ## Prerequisites
 
@@ -12,16 +12,16 @@ This document will guide you through deploying the Shishirinee blog system to Cl
 
 ### Step 1: Fork the Repository
 
-1. Visit the [Shishirinee GitHub Repository](https://github.com/yiran168/ShiShishirineee)
+1. Visit the [Shirine GitHub Repository](https://github.com/yiran168/Shirine)
 2. Click the **"Fork"** button in the top right corner
-   ![1000000657](https://github.com/OXeu/Shishirinee/assets/36541432/df3607ca-a8a9-49b8-92ce-6b348afeb13f)
+   ![1000000657](https://github.com/OXeu/Shirine/assets/36541432/df3607ca-a8a9-49b8-92ce-6b348afeb13f)
 3. Select your personal account, keep the default settings, and click **"Create fork"**
 
 ### Obtaining Account ID and API Token
 
 Refer to https://developers.cloudflare.com/workers/wrangler/ci-cd/ to configure the Cloudflare login environment variables required for GitHub Actions.
 
-**Account ID**: Click on any domain you have bound. After enteShishirineeg, you can find the `Account ID` on the right side (you need to scroll down a bit).
+**Account ID**: Click on any domain you have bound. After entering, you can find the `Account ID` on the right side (you need to scroll down a bit).
 
 **Creating an API Token**: Click your `Profile` icon in the top right > `My Profile` > `API Tokens` > `Create Token`, and select the `Edit Cloudflare Workers` template:
 ![1000000663](/cloudflare-api-key-en.png)
@@ -40,13 +40,13 @@ Save the token after creation.
 |-------------|-------|-------------|
 | `CLOUDFLARE_API_TOKEN` | `ThEApiKeyIsRaNdomStR1ngNearly40CharsLong` | Cloudflare API Token |
 | `CLOUDFLARE_ACCOUNT_ID` | `0123456789abcdef0123456789abcdef` | Cloudflare Account ID |
-| `JWT_SECRET` | Any random stShishirineeg | JWT signing key |
+| `JWT_SECRET` | Any random string | JWT signing key |
 
-> **Tip**: `JWT_SECRET` can be any random stShishirineeg of any length, for example: `MySecretKey123!@#`
+> **Tip**: `JWT_SECRET` can be any random string of any length, for example: `MySecretKey123!@#`
 
 #### Login Configuration Secrets
 
-Shishirinee currently supports username/password login and GitHub OAuth login. You can choose one or configure both.
+Shirine currently supports username/password login and GitHub OAuth login. You can choose one or configure both.
 
 **Username/Password Login (Recommended)**
 
@@ -76,8 +76,8 @@ The deployment process takes approximately 3-5 minutes. You can view the deploym
 
 After deployment is complete, you can access your blog through the following addresses:
 
-- **Frontend**: `https://Shishirinee-client.pages.dev` (or the name you set in `PAGES_NAME`)
-- **Backend API**: `https://Shishirinee-server.your-account-id.workers.dev`
+- **Frontend**: `https://shirine-client.pages.dev` (or the name you set in `PAGES_NAME`)
+- **Backend API**: `https://shirine-server.your-account-id.workers.dev`
 
 ### Step 5: First Login
 
@@ -92,7 +92,7 @@ After deployment is complete, you can access your blog through the following add
 2. Fill in the article title and content
 3. Click the **"Publish"** button
 
-馃帀 Congratulations! Your Shishirinee blog has been successfully deployed and your first post has been published!
+🎉 Congratulations! Your Shirine blog has been successfully deployed and your first post has been published!
 
 ---
 
@@ -106,7 +106,7 @@ After deployment is complete, you can access your blog through the following add
 
 ### Image Storage Configuration
 
-Shishirinee supports two storage methods: **Cloudflare R2** (recommended) or **S3-compatible storage**.
+Shirine supports two storage methods: **Cloudflare R2** (recommended) or **S3-compatible storage**.
 
 #### Using Cloudflare R2 (Recommended)
 
@@ -149,17 +149,17 @@ If you want to log in with your GitHub account:
 1. Visit GitHub Settings > Developer settings > OAuth Apps
 2. Click **"New OAuth App"**
 3. Fill in the application information:
-    - **Application name**: Shishirinee Blog
+    - **Application name**: Shirine Blog
     - **Homepage URL**: Your frontend page address
     - **Authorization callback URL**: `https://your-worker-name.your-account-id.workers.dev/api/user/github/callback`
 4. After creation, obtain the Client ID and Client Secret
 5. Add to GitHub Secrets:
-    - `Shishirinee_GITHUB_CLIENT_ID`
-    - `Shishirinee_GITHUB_CLIENT_SECRET`
+    - `RIN_GITHUB_CLIENT_ID`
+    - `RIN_GITHUB_CLIENT_SECRET`
 
 ### Webhook Notifications
 
-If you want Shishirinee to send comment and friend-link notifications to a bot, chat service, or automation platform, see the [Webhook Guide](./webhook).
+If you want Shirine to send comment and friend-link notifications to a bot, chat service, or automation platform, see the [Webhook Guide](./webhook).
 
 ---
 
@@ -231,7 +231,7 @@ When a new version is released:
 Or update manually:
 
 ```bash
-git remote add upstream https://github.com/yiran168/ShiShishirineee.git
+git remote add upstream https://github.com/yiran168/Shirine.git
 git fetch upstream
 git checkout main
 git merge upstream/main
@@ -242,7 +242,6 @@ git push origin main
 
 ## Need Help?
 
-- 馃摉 [Full Documentation](https://docs.openShishirinee.org)
-- 馃悰 [GitHub Issues](https://github.com/yiran168/ShiShishirineee/issues)
-- 馃挰 [GitHub Discussions](https://github.com/yiran168/ShiShishirineee/discussions)
-
+- 📖 [Full Documentation](https://yiran168.github.io/Shirine)
+- 🐛 [GitHub Issues](https://github.com/yiran168/Shirine/issues)
+- 💬 [GitHub Discussions](https://github.com/yiran168/Shirine/discussions)

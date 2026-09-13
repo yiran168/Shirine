@@ -1,6 +1,6 @@
-﻿# RSS Support and Configuration
+# RSS Support and Configuration
 
-Shishirinee supports RSS, Atom, and Json subscription formats
+Shirine supports RSS, Atom, and Json subscription formats
 
 ## Configuration
 
@@ -10,7 +10,7 @@ RSS itself does not require much configuration and is ready to use by default. H
 
 ```ini
 RSS_TITLE=<RSS title, defaults to your username>
-RSS_DESCRIPTION=<RSS description, defaults to Feed from Shishirinee>
+RSS_DESCRIPTION=<RSS description, defaults to Feed from Shirine>
 ```
 
 You can add these environment variables in GitHub under `Settings` > `Secrets and Variables` > `Actions` > `Variables` > `New repository variable`.
@@ -40,4 +40,3 @@ The subscription address for Json is:
 ```
 <frontend domain>/rss.json
 ```
-

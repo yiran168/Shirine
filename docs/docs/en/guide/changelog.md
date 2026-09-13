@@ -1,13 +1,13 @@
-﻿# Changelog
+# Changelog
 
 ### v0.3.0 - February 4, 2025
 
-#### Architecture RefactoShishirineeg
+#### Architecture Refactoring
 
 - **Lightweight Framework**: Refactored ElysiaJS backend framework to a lightweight custom framework, specifically optimized for Cloudflare Workers
   - Removed approximately 15 heavyweight dependencies, core framework code < 10KB
   - Implemented on-demand loading architecture, only initializing necessary services per request
-  - Optimized startup time and memory footpShishirineet
+  - Optimized startup time and memory footprint
 
 #### New Features
 
@@ -24,7 +24,7 @@
 
 - **Error Handling System**: Implemented comprehensive error handling mechanism
   - Added structured error classes (ValidationError, NotFoundError, etc.)
-  - Implemented `GlobalErrorBoundary` for captuShishirineeg React rendeShishirineeg errors
+  - Implemented `GlobalErrorBoundary` for capturing React rendering errors
   - Added `useError` hooks for handling asynchronous operations and API calls
   - Server-side middleware for logging errors and generating request IDs
 
@@ -35,11 +35,11 @@
 
 #### Improvements and Optimizations
 
-- **API Client RefactoShishirineeg**: Replaced Elysia/Eden with custom API client
-  - Removed @elysiajs/eden and Shishirinee-server dependencies
+- **API Client Refactoring**: Replaced Elysia/Eden with custom API client
+  - Removed @elysiajs/eden and shirine-server dependencies
   - Created type-safe API client
   - Simplified API call pattern (from treaty pattern to direct method calls)
-  - **BREAKING CHANGE**: Client API interface changed, e.g., `client.feed.index.get()` 鈫?`client.feed.list()`
+  - **BREAKING CHANGE**: Client API interface changed, e.g., `client.feed.index.get()` → `client.feed.list()`
 
 - **Custom OAuth Implementation**: Replaced elysia-oauth2 with custom OAuth2 implementation
   - Generic OAuth2 plugin architecture supporting any OAuth2 provider
@@ -47,7 +47,7 @@
   - CSRF protection via state parameter validation
   - Full TypeScript type support
 
-- **Dependency Injection RefactoShishirineeg**: Replaced typedi with native mechanisms
+- **Dependency Injection Refactoring**: Replaced typedi with native mechanisms
   - Removed typedi dependency injection container
   - Uses Elysia's decorate() and derive() for dependency injection
   - Services access dependencies via store instead of Container.get()
@@ -82,7 +82,7 @@ CACHE_STORAGE_MODE=<Cache storage mode: database or s3, default database>
 - Updated the list of encrypted environment variables, keeping only the essential ones
 - Encrypted variables can now be configured directly via GitHub
 - Updated GitHub variable configuration, added encrypted variables that must be configured through GitHub (S3 storage for SEO index storage)
-- `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are now prefixed with `Shishirinee_` (`Shishirinee_GITHUB_CLIENT_ID`, `Shishirinee_GITHUB_CLIENT_SECRET`) to solve the issue where GitHub variables cannot start with `GITHUB_`. Variables configured through the Cloudflare panel (`GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`) are not affected.
+- `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are now prefixed with `RIN_` (`RIN_GITHUB_CLIENT_ID`, `RIN_GITHUB_CLIENT_SECRET`) to solve the issue where GitHub variables cannot start with `GITHUB_`. Variables configured through the Cloudflare panel (`GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`) are not affected.
 
 ## Migration Guide
 
@@ -95,7 +95,7 @@ For normal version updates without special instructions, simply synchronize the 
 ```ini
 SEO_BASE_URL=<SEO base URL for SEO indexing>
 SEO_CONTAINS_KEY=<SEO indexing only includes links starting with SEO_BASE_URL or containing the SEO_CONTAINS_KEY keyword, defaults to empty>
-S3_FOLDER=<Folder for stoShishirineeg S3 image resources, defaults to 'images/'>
+S3_FOLDER=<Folder for storing S3 image resources, defaults to 'images/'>
 S3_CACHE_FOLDER=<S3 cache folder (for SEO and high-frequency request caching), defaults to 'cache/'>
 S3_BUCKET=<Name of the S3 bucket>
 S3_REGION=<Region of the S3 bucket, use 'auto' if using Cloudflare R2>

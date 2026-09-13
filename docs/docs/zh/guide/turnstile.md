@@ -1,17 +1,30 @@
-﻿# Cloudflare Turnstile 浜烘満闃叉姢
+# Cloudflare Turnstile 人机防护
 
-Cloudflare Turnstile 鏄竴绉嶄繚鎶ょ綉绔欏厤鍙楁満鍣ㄤ汉鎭舵剰鏀诲嚮鐨勬櫤鑳介獙璇佸伐鍏凤紝鐩告瘮浼犵粺楠岃瘉鐮侊紙CAPTCHA锛夛紝瀹冨叿鏈夋棤闇€鎷煎浘銆佹棤闇€閫夊浘鐨勬瀬鑷存棤鎰熶綋楠屻€?
+Cloudflare Turnstile 是一种保护网站免受机器人恶意攻击的智能验证工具，相比传统验证码（CAPTCHA），它具有无需拼图、无需选图的极致无感体验。
+
 ---
 
-## 涓€銆佽幏鍙?Turnstile 瀵嗛挜
+## 一、获取 Turnstile 密钥
 
-1. 鐧诲綍 [Cloudflare 鎺у埗鍙癩(https://dash.cloudflare.com/)銆?2. 鍦ㄥ乏渚у鑸爮閫夋嫨 **Turnstile**銆?3. 鐐瑰嚮 **Add site** 娣诲姞鏂扮珯鐐癸細
-   - **Site name**: `ShiShishirineee Blog`
-   - **Domain**: 濉叆浣犵殑鍗氬鍩熷悕锛堝 `yourblog.com`锛屽紑鍙戞祴璇曞彲娣诲姞 `localhost`锛?   - **Widget Mode**: 鎺ㄨ崘閫夋嫨 **Managed**锛堟櫤鑳界鎶わ級
-4. 鍒涘缓瀹屾垚鍚庯紝浣犲皢鑾峰緱涓ょ粍瀵嗛挜锛?   - **Site Key (绔欑偣瀵嗛挜)**锛氬叕寮€鍦ㄥ墠绔娇鐢紱
-   - **Secret Key (閫氫俊瀵嗛挜)**锛氫繚瀵嗭紝浠呯敤浜庢湇鍔＄楠岃瘉銆?
+1. 登录 [Cloudflare 控制台](https://dash.cloudflare.com/)。
+2. 在左侧导航栏选择 **Turnstile**。
+3. 点击 **Add site** 添加新站点：
+   - **Site name**: `Shirine Blog`
+   - **Domain**: 填入你的博客域名（如 `yourblog.com`，开发测试可添加 `localhost`）
+   - **Widget Mode**: 推荐选择 **Managed**（智能管护）
+4. 创建完成后，你将获得两组密钥：
+   - **Site Key (站点密钥)**：公开在前端使用；
+   - **Secret Key (通信密钥)**：保密，仅用于服务端验证。
+
 ---
 
-## 浜屻€佸湪 ShiShishirineee 鍚庡彴涓€閿厤缃?
-1. 浣跨敤绠＄悊鍛樿处鍙风櫥褰?ShiShishirineee 鍗氬锛岃繘鍏?`/admin` 绠＄悊鍚庡彴銆?2. 鐐瑰嚮 **绯荤粺涓庤缃?* -> **Cloudflare Turnstile 浜烘満楠岃瘉**銆?3. 寮€鍚?**鍚敤寮€鍏?*銆?4. 鍒嗗埆濉叆 **Site Key** 涓?**Secret Key**锛岀偣鍑?**淇濆瓨鎵€鏈夐厤缃慨鏀?*銆?
-閰嶇疆淇濆瓨鍚庯紝绯荤粺鍗冲埢鐢熸晥锛?- 璁垮鍦ㄧ偣鍑?**娉ㄥ唽** 鎴?**鐧诲綍** 鏃讹紝寮圭獥涓皢鑷姩鍔犺浇 Turnstile 楠岃瘉鎸備欢锛?- 鏈嶅姟绔湪澶勭悊鐢ㄦ埛鎻愪氦璇锋眰鏃讹紝浼氳嚜鍔ㄥ悜 Cloudflare 瀹樻柟鏍￠獙鎺ュ彛鍙戣捣鏈嶅姟绔簩娆￠獙璇侊紝鏉滅粷涓€鍒囪嚜鍔ㄥ寲鎾炲簱鑴氭湰涓庡瀮鍦炬敞鍐屻€?
+## 二、在 Shirine 后台一键配置
+
+1. 使用管理员账号登录 Shirine 博客，进入 `/admin` 管理后台。
+2. 点击 **系统与设置** -> **Cloudflare Turnstile 人机验证**。
+3. 开启 **启用开关**。
+4. 分别填入 **Site Key** 与 **Secret Key**，点击 **保存所有配置修改**。
+
+配置保存后，系统即刻生效：
+- 访客在点击 **注册** 或 **登录** 时，弹窗中将自动加载 Turnstile 验证挂件；
+- 服务端在处理用户提交请求时，会自动向 Cloudflare 官方校验接口发起服务端二次验证，杜绝一切自动化撞库脚本与垃圾注册。
