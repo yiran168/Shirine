@@ -1,0 +1,33 @@
+﻿# ShiShishirineee 閮ㄧ讲鎸囧崡
+
+鏈枃妗ｅ皢鎸囧鎮ㄤ粠闆跺紑濮嬮儴缃?ShiShishirineee 鍗氬绯荤粺鍒?Cloudflare锛堝畬鍏ㄥ厤璐癸級銆?
+## 鍓嶇疆瑕佹眰
+
+- 涓€涓?GitHub 璐﹀彿
+- 涓€涓?Cloudflare 璐﹀彿锛堝厤璐圭増鍗冲彲锛?- 澶х害 5-10 鍒嗛挓鏃堕棿
+
+## 閮ㄧ讲姝ラ
+
+### 绗竴姝ワ細Fork 浠撳簱
+
+1. 璁块棶 [ShiShishirineee GitHub 浠撳簱](https://github.com/yiran168/ShiShishirineee)
+2. 鐐瑰嚮鍙充笂瑙掔殑 **"Fork"** 鎸夐挳
+3. 閫夋嫨鎮ㄧ殑涓汉璐︽埛锛屼繚鎸侀粯璁よ缃紝鐐瑰嚮 **"Create fork"**
+
+### 绗簩姝ワ細鑾峰彇 Cloudflare 璐︽埛 ID 涓?API 浠ょ墝
+
+1. 鐧诲綍 [Cloudflare 鎺у埗鍙癩(https://dash.cloudflare.com/)銆?2. 鍦ㄥ彸涓嬭鎴栦换鎰忓煙鍚嶇殑鍙充晶鏍忎腑鎵惧埌 **璐︽埛 ID (Account ID)**銆?3. 鍒涘缓 API 浠ょ墝锛氱偣鍑诲彸涓婅 **澶村儚** > **鎴戠殑涓汉璧勬枡** > **API 浠ょ墝** > **鍒涘缓浠ょ墝**锛屾ā鏉块€夋嫨 **缂栬緫 Cloudflare Workers**銆?4. 鍒涘缓瀹屾垚鍚庝繚瀛樿浠ょ墝銆?
+### 绗笁姝ワ細閰嶇疆 GitHub Secrets
+
+1. 鍦ㄦ偍 Fork 鐨勪粨搴撻〉闈紝鐐瑰嚮 **Settings** 鏍囩銆?2. 鍦ㄥ乏渚ц彍鍗曚腑锛屽睍寮€ **Secrets and variables**锛岄€夋嫨 **Actions**銆?3. 鐐瑰嚮 **New repository secret** 鎸夐挳锛屾坊鍔犱互涓?Secrets锛?
+| Secret 鍚嶇О | 璇存槑 |
+| :--- | :--- |
+| `CLOUDFLARE_API_TOKEN` | 鍒氬垰鍒涘缓鐨?Cloudflare API 浠ょ墝 |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 璐︽埛 ID |
+| `PUBLIC_API_URL` | 鍚庣 Workers 鏈嶅姟鐨?API 鍦板潃锛堝 `https://shiShishirineee-server.your-name.workers.dev/api`锛?|
+
+### 绗洓姝ワ細瑙﹀彂閮ㄧ讲娴佹按绾?
+1. 杩涘叆浠撳簱鐨?**Actions** 鏍囩銆?2. 鍦ㄥ乏渚ч€夋嫨 **Deploy ShiShishirineee** 宸ヤ綔娴併€?3. 鐐瑰嚮 **Run workflow** 杩愯銆?4. 閮ㄧ讲瀹屾垚鍚庯紝鎮ㄧ殑鍓嶇 Pages 涓庡悗绔?Workers 灏嗚嚜鍔ㄤ笂绾匡紒
+
+### 绗簲姝ワ細娉ㄥ唽棣栦綅瓒呯骇绠＄悊鍛?
+1. 璁块棶閮ㄧ讲濂界殑鍓嶇鍗氬缃戠珯銆?2. 鐐瑰嚮鍙充笂瑙掑渾褰㈠ご鍍忔寜閽紝閫夋嫨 **娉ㄥ唽璐﹀彿**銆?3. **閲嶈鐗规€?*锛氬湪绯荤粺涓浣嶆敞鍐岀殑鐢ㄦ埛灏嗙敱绯荤粺鑷姩鎻愭嫈涓烘渶楂樻潈闄愮殑 **瓒呯骇绠＄悊鍛?(`superadmin`)**锛?4. 鐧诲綍鍚庣偣鍑诲ご鍍忚彍鍗曚腑鐨?**绠＄悊闈㈡澘** (`/admin`)锛屽嵆鍙繘鍏ュ畬鏁寸殑鍙鍖栨帶鍒跺彴鍙戝竷鍗氭枃涓庤嚜瀹氫箟鍗氬锛?

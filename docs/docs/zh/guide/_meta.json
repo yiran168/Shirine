@@ -1,0 +1,18 @@
+[
+  "index",
+  "deploy",
+  "development",
+  "permissions",
+  "admin",
+  "live2d",
+  "turnstile",
+  "api",
+  "webhook",
+  "rss",
+  "testing",
+  "contribution",
+  "commit-convention",
+  "release",
+  "migration",
+  "changelog"
+]
