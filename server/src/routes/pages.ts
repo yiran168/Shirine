@@ -43,12 +43,13 @@ pagesRouter.get("/", async (c) => {
       orderBy: [desc(schema.pages.createdAt)],
     });
 
-    const formatted: PageDto[] = allPages.map((p) => ({
+    const formatted: (PageDto & { status?: string })[] = allPages.map((p) => ({
       id: p.id,
       slug: p.slug,
       title: p.title,
       content: p.content,
       draft: p.draft === 1,
+      status: p.draft === 1 ? "draft" : "published",
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
     }));
@@ -105,7 +106,8 @@ pagesRouter.post("/", requireAdmin, async (c) => {
     const user = c.get("user")!;
     const db = getDb(c.env.DB);
     const body = await c.req.json();
-    const { slug, title, content, draft = false } = body;
+    const { slug, title, content } = body;
+    const isDraft = body.draft !== undefined ? Boolean(body.draft) : body.status === "draft";
 
     if (!slug || typeof slug !== "string" || !slug.trim()) {
       return c.json({ success: false, error: "Slug is required" }, 400);
@@ -142,7 +144,7 @@ pagesRouter.post("/", requireAdmin, async (c) => {
         slug: cleanSlug,
         title: title.trim(),
         content,
-        draft: draft ? 1 : 0,
+        draft: isDraft ? 1 : 0,
         uid: user.id,
       })
       .returning();
@@ -193,7 +195,11 @@ pagesRouter.put("/:idOrSlug", requireAdmin, async (c) => {
 
     if (body.title !== undefined) updates.title = body.title.trim();
     if (body.content !== undefined) updates.content = body.content;
-    if (body.draft !== undefined) updates.draft = body.draft ? 1 : 0;
+    if (body.draft !== undefined) {
+      updates.draft = body.draft ? 1 : 0;
+    } else if (body.status !== undefined) {
+      updates.draft = body.status === "draft" ? 1 : 0;
+    }
     if (body.slug !== undefined && body.slug.trim()) {
       const cleanSlug = body.slug.trim().toLowerCase().replace(/^[/\s]+|[/\s]+$/g, "");
       if (cleanSlug !== existing.slug && RESERVED_SLUGS.has(cleanSlug)) {

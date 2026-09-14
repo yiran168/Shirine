@@ -333,7 +333,7 @@ INSERT OR IGNORE INTO users (id, username, password_hash, salt, role, nickname, 
 VALUES (
   1,
   'admin',
-  '2f4c32b508fbe7d549ff4a86f788de3aeec601d00344df3ea5a522bb33f388ae007f59d5811776999a4c5ce82d56a782b7db5c57bbda3a16709f61b0c952b75e',
+  '749e89182d447e42ad71b2f9ef82dd42a89a14b3b9e827a0039ac22ae78509b5',
   '4c9f13e738d9b15d290fb43292415174',
   'superadmin',
   'Shirine Admin',
@@ -345,26 +345,59 @@ VALUES (
 `;
 
 for (const f of friends) {
-  sql += `INSERT OR REPLACE INTO friends (name, desc, avatar, url, accepted, sort_order, uid)
-VALUES (${escapeSql(f.name)}, ${escapeSql(f.desc)}, ${escapeSql(f.avatar)}, ${escapeSql(f.url)}, ${f.accepted}, ${f.sortOrder}, 1);\n`;
+  sql += `INSERT INTO friends (name, desc, avatar, url, accepted, sort_order, uid)
+VALUES (${escapeSql(f.name)}, ${escapeSql(f.desc)}, ${escapeSql(f.avatar)}, ${escapeSql(f.url)}, ${f.accepted}, ${f.sortOrder}, 1)
+ON CONFLICT(url) DO UPDATE SET
+  name = excluded.name,
+  desc = excluded.desc,
+  avatar = excluded.avatar,
+  accepted = excluded.accepted,
+  sort_order = excluded.sort_order;\n`;
 }
 
 sql += `\n-- 3. Moments\n`;
 for (const m of moments) {
-  sql += `INSERT OR IGNORE INTO moments (content, location, mood, images, tags, pinned, uid, created_at)
-VALUES (${escapeSql(m.content)}, ${escapeSql(m.location)}, ${escapeSql(m.mood)}, ${escapeSql(JSON.stringify(m.images))}, ${escapeSql(JSON.stringify(m.tags))}, ${m.pinned}, 1, ${Math.floor(m.createdAt / 1000)});\n`;
+  sql += `INSERT INTO moments (content, location, mood, images, tags, pinned, uid, created_at)
+VALUES (${escapeSql(m.content)}, ${escapeSql(m.location)}, ${escapeSql(m.mood)}, ${escapeSql(JSON.stringify(m.images))}, ${escapeSql(JSON.stringify(m.tags))}, ${m.pinned}, 1, ${Math.floor(m.createdAt / 1000)})
+ON CONFLICT(content) DO UPDATE SET
+  location = excluded.location,
+  mood = excluded.mood,
+  images = excluded.images,
+  tags = excluded.tags,
+  pinned = excluded.pinned;\n`;
 }
 
 sql += `\n-- 4. Albums & Photos\n`;
 for (const a of albums) {
-  sql += `INSERT OR REPLACE INTO albums (slug, title, description, cover, layout, columns, permission_type, uid)
-VALUES (${escapeSql(a.slug)}, ${escapeSql(a.title)}, ${escapeSql(a.description)}, ${escapeSql(a.cover)}, ${escapeSql(a.layout)}, ${a.columns}, ${escapeSql(a.permissionType)}, 1);\n`;
+  sql += `INSERT INTO albums (slug, title, description, cover, layout, columns, permission_type, uid)
+VALUES (${escapeSql(a.slug)}, ${escapeSql(a.title)}, ${escapeSql(a.description)}, ${escapeSql(a.cover)}, ${escapeSql(a.layout)}, ${a.columns}, ${escapeSql(a.permissionType)}, 1)
+ON CONFLICT(slug) DO UPDATE SET
+  title = excluded.title,
+  description = excluded.description,
+  cover = excluded.cover,
+  layout = excluded.layout,
+  columns = excluded.columns,
+  permission_type = excluded.permission_type;\n`;
 }
 
 sql += `\n-- 5. Posts\n`;
 for (const p of posts) {
-  sql += `INSERT OR REPLACE INTO posts (slug, alias, permalink, title, description, content, image, category, tags, pinned, draft, comment_enabled, permission_type, required_points, uid, created_at)
-VALUES (${escapeSql(p.slug)}, ${escapeSql(p.alias)}, ${escapeSql(p.permalink)}, ${escapeSql(p.title)}, ${escapeSql(p.description)}, ${escapeSql(p.content)}, ${escapeSql(p.image)}, ${escapeSql(p.category)}, ${escapeSql(JSON.stringify(p.tags))}, ${p.pinned}, ${p.draft}, ${p.commentEnabled}, ${escapeSql(p.permissionType)}, ${p.requiredPoints}, 1, ${Math.floor(p.createdAt / 1000)});\n`;
+  sql += `INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, pinned, draft, comment_enabled, permission_type, required_points, uid, created_at)
+VALUES (${escapeSql(p.slug)}, ${escapeSql(p.alias)}, ${escapeSql(p.permalink)}, ${escapeSql(p.title)}, ${escapeSql(p.description)}, ${escapeSql(p.content)}, ${escapeSql(p.image)}, ${escapeSql(p.category)}, ${escapeSql(JSON.stringify(p.tags))}, ${p.pinned}, ${p.draft}, ${p.commentEnabled}, ${escapeSql(p.permissionType)}, ${p.requiredPoints}, 1, ${Math.floor(p.createdAt / 1000)})
+ON CONFLICT(slug) DO UPDATE SET
+  alias = excluded.alias,
+  permalink = excluded.permalink,
+  title = excluded.title,
+  description = excluded.description,
+  content = excluded.content,
+  image = excluded.image,
+  category = excluded.category,
+  tags = excluded.tags,
+  pinned = excluded.pinned,
+  draft = excluded.draft,
+  comment_enabled = excluded.comment_enabled,
+  permission_type = excluded.permission_type,
+  required_points = excluded.required_points;\n`;
 }
 
 fs.writeFileSync(OUTPUT_SQL, sql, "utf-8");

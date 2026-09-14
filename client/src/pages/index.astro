@@ -23,10 +23,10 @@ const page = {
 	lastPage: totalPages,
 	url: {
 		current: "/",
-		next: totalPages > 1 ? "/2/" : undefined,
+		next: totalPages > 1 ? "/page/2/" : undefined,
 		prev: undefined,
 		first: "/",
-		last: `/${totalPages}/`,
+		last: `/page/${totalPages}/`,
 	},
 } as any;
 

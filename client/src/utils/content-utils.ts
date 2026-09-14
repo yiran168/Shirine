@@ -6,6 +6,7 @@ import {
 	validatePublicationMetadata,
 } from "@utils/content-date";
 import { siteMarkdownProcessor } from "@utils/markdown-processor";
+import { renderDynamicMarkdown } from "@utils/dynamic-markdown";
 import { initPostIdMap } from "@utils/permalink-utils";
 import { getCategoryUrl, getPostUrl, url } from "@utils/url-utils";
 
@@ -248,7 +249,7 @@ export async function getSortedMoments(): Promise<MomentItem[]> {
 				apiMoments = json.data.map((m: any) => ({
 					id: String(m.id),
 					published: new Date(m.createdAt).toISOString(),
-					html: m.content || "",
+					html: renderDynamicMarkdown(m.content || ""),
 					pinned: Boolean(m.pinned),
 					location: m.location || "",
 					mood: m.mood || "",

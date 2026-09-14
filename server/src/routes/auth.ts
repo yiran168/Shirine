@@ -37,12 +37,8 @@ authRouter.post("/register", async (c) => {
       return c.json({ success: false, error: "Username is already taken" }, 400);
     }
 
-    // First user becomes superadmin!
-    const countResult = await db.select({ count: sql<number>`count(*)` }).from(schema.users);
-    const userCount = countResult[0]?.count ?? 0;
-    const isFirstUser = userCount === 0;
-    const role = isFirstUser ? "superadmin" : "user";
-    const points = isFirstUser ? 100 : 0;
+    const role = "user";
+    const points = 0;
 
     const salt = generateSalt();
     const passwordHash = await hashPassword(password, salt);
@@ -66,10 +62,13 @@ authRouter.post("/register", async (c) => {
       c.env.JWT_SECRET
     );
 
+    const isLocal = c.req.url.includes("localhost") || c.req.url.includes("127.0.0.1");
+    const secureFlag = isLocal ? "" : "; Secure";
+
     // Set cookie
     c.header(
       "Set-Cookie",
-      `shirine_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`
+      `shirine_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}${secureFlag}`
     );
 
     return c.json({
@@ -130,9 +129,12 @@ authRouter.post("/login", async (c) => {
       c.env.JWT_SECRET
     );
 
+    const isLocal = c.req.url.includes("localhost") || c.req.url.includes("127.0.0.1");
+    const secureFlag = isLocal ? "" : "; Secure";
+
     c.header(
       "Set-Cookie",
-      `shirine_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}`
+      `shirine_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}${secureFlag}`
     );
 
     return c.json({
@@ -167,8 +169,13 @@ authRouter.get("/me", requireAuth, async (c) => {
     return c.json({ success: false, error: "User not found" }, 404);
   }
 
-  // Check if today is already checked in
-  const today = new Date().toISOString().slice(0, 10);
+  // Check if today is already checked in (using Shanghai timezone)
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
   const checkedInToday = user.lastCheckinDate === today;
 
   return c.json({
@@ -191,9 +198,12 @@ authRouter.get("/me", requireAuth, async (c) => {
 
 // Logout
 authRouter.post("/logout", async (c) => {
+  const isLocal = c.req.url.includes("localhost") || c.req.url.includes("127.0.0.1");
+  const secureFlag = isLocal ? "" : "; Secure";
+
   c.header(
     "Set-Cookie",
-    "shirine_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT"
+    `shirine_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${secureFlag}`
   );
   return c.json({ success: true, message: "Logged out successfully" });
 });

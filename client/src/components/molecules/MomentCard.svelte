@@ -60,7 +60,11 @@ const timeText = $derived(formatDateToYYYYMMDDHHmm(publishedAt));
 		<div class="moment-card__badges">
 			{#if moment.mood}
 				<span class="moment-card__badge" aria-hidden="true">
-					<Icon icon={moment.mood} />
+					{#if moment.mood.includes(":")}
+						<Icon icon={moment.mood} />
+					{:else}
+						<span class="text-sm leading-none">{moment.mood}</span>
+					{/if}
 				</span>
 			{/if}
 			{#if moment.pinned}

@@ -19,7 +19,7 @@ interface Props {
 const { page, style } = Astro.props;
 const className = Astro.props.class;
 
-const getPageUrl = (p: number) => (p === 1 ? "/" : `/${p}/`);
+const getPageUrl = (p: number) => (p === 1 ? "/" : `/page/${p}/`);
 const buildUrl = (p: number) => url(getPageUrl(p));
 
 const labels = {

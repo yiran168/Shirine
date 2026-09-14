@@ -530,7 +530,7 @@
       title: page.title || "",
       slug: page.slug || "",
       content: page.content || "",
-      status: page.status || "published",
+      status: page.draft ? "draft" : (page.status || "published"),
     };
     pageModalOpen = true;
   }
@@ -538,10 +538,12 @@
   async function savePage() {
     if (!pageForm.title.trim()) return showMessage("请输入页面标题", true);
     if (!pageForm.slug.trim()) return showMessage("请输入页面路径 slug (例如: about)", true);
+    const isDraft = pageForm.status === "draft";
     const payload = {
       title: pageForm.title.trim(),
       slug: pageForm.slug.trim().toLowerCase(),
       content: pageForm.content,
+      draft: isDraft,
       status: pageForm.status,
     };
     try {
@@ -1165,7 +1167,7 @@
                     <p class="text-xs text-[var(--on-surface-variant)] line-clamp-2">{album.description || "暂无描述"}</p>
                   </div>
                   <div class="mt-4 pt-3 border-t border-[var(--outline-variant)]/10 flex items-center justify-between text-xs">
-                    <span class="text-[var(--on-surface-variant)]">照片数: {Array.isArray(album.photos) ? album.photos.length : 0}</span>
+                    <span class="text-[var(--on-surface-variant)]">照片数: {album.photoCount ?? (Array.isArray(album.photos) ? album.photos.length : 0)}</span>
                     <div class="space-x-2">
                       <button onclick={() => openEditAlbumModal(album)} class="text-primary font-medium hover:underline">编辑</button>
                       <button onclick={() => deleteAlbum(album.id)} class="text-error font-medium hover:underline">删除</button>
@@ -1281,7 +1283,7 @@
                       <a href={`/pages/${page.slug}`} target="_blank" class="hover:underline">/pages/{page.slug}</a>
                     </td>
                     <td class="px-4 py-4 text-xs">
-                      {#if page.status === 'published'}
+                      {#if !page.draft && page.status !== 'draft'}
                         <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-medium">已发布</span>
                       {:else}
                         <span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 font-medium">草稿</span>
@@ -1407,11 +1409,15 @@
                       {/if}
                     </td>
                     <td class="px-6 py-4 text-right space-x-2">
-                      <button onclick={() => openAdjustPoints(user)} class="text-primary font-medium text-xs hover:underline">调整积分</button>
-                      {#if user.role !== 'superadmin'}
+                      {#if authStore.user?.role === 'superadmin' || user.role !== 'superadmin'}
+                        <button onclick={() => openAdjustPoints(user)} class="text-primary font-medium text-xs hover:underline">调整积分</button>
+                      {/if}
+                      {#if authStore.user?.role === 'superadmin' && user.role !== 'superadmin'}
                         <button onclick={() => toggleUserRole(user)} class="text-indigo-600 font-medium text-xs hover:underline">
                           {user.role === 'admin' ? '降为用户' : '设为管理员'}
                         </button>
+                      {/if}
+                      {#if user.role !== 'superadmin' && (authStore.user?.role === 'superadmin' || user.role !== 'admin')}
                         <button onclick={() => toggleUserStatus(user)} class="text-error font-medium text-xs hover:underline">
                           {user.status === 'banned' ? '解封' : '封禁'}
                         </button>

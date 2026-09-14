@@ -143,9 +143,7 @@ if (dynamicDetail) {
 	(entry.data as any).permissionType = dynamicDetail.permissionType;
 	(entry.data as any).requiredPoints = dynamicDetail.requiredPoints;
 	(entry.data as any).dbId = dynamicDetail.id;
-	if (dynamicDetail.content) {
-		entry.body = dynamicDetail.content;
-	}
+	entry.body = dynamicDetail.content ?? "";
 }
 
 const discoveryCandidates = blogEntries.map((e) => ({
@@ -232,16 +230,16 @@ const ogImage = entry.data.image
 
 const canonicalPostUrl = getPostUrl(entry);
 
-// Permission check
+// Permission check (P0-02, P0-03)
 const permissionType = (entry.data as any).permissionType || "public";
 const requiredPoints = (entry.data as any).requiredPoints || 0;
 const isUnlocked = Boolean((entry.data as any).isUnlocked);
 const dbId = Number((entry.data as any).dbId || (entry.data as any).id || (dynamicDetail?.id ?? 0));
 
-const hasLoginCookie = Boolean(Astro.cookies.get("shirine_token")?.value);
-const isLocked =
-	(permissionType === "login_required" && !isUnlocked && !hasLoginCookie) ||
-	(permissionType === "points_required" && !isUnlocked);
+const isLocked = permissionType !== "public" && !isUnlocked;
+if (isLocked) {
+	entry.body = "";
+}
 
 const jsonLd = {
 	"@context": "https://schema.org",

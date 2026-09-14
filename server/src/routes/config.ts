@@ -266,14 +266,18 @@ configRouter.put("/site", requireAdmin, async (c) => {
       const siteUpdates: Record<string, any> = {};
       if (body.title !== undefined) siteUpdates.title = body.title;
       if (body.subtitle !== undefined) siteUpdates.subtitle = body.subtitle;
-      if (body.themeHue !== undefined) siteUpdates.themeColor = { hue: Number(body.themeHue) || 315 };
+      if (body.themeHue !== undefined) {
+        const hueNum = Number(body.themeHue);
+        siteUpdates.themeColor = { hue: Number.isFinite(hueNum) ? hueNum : 315 };
+      }
       if (body.topAppBarAlign !== undefined) siteUpdates.topAppBar = { contentAlign: body.topAppBarAlign };
       if (body.wallpaperMode !== undefined) siteUpdates.wallpaperMode = { defaultMode: body.wallpaperMode };
       if (body.texturePreset !== undefined || body.textureOpacity !== undefined) {
+        const opNum = Number(body.textureOpacity);
         siteUpdates.texture = {
           enable: body.texturePreset !== "none",
           defaultPreset: body.texturePreset || "starlight",
-          defaultOpacity: Number(body.textureOpacity) || 0.12,
+          defaultOpacity: Number.isFinite(opNum) ? opNum : 0.12,
           allowMotion: true,
         };
       }

@@ -86,7 +86,7 @@ export const postUnlocks = sqliteTable("post_unlocks", {
 // Albums
 export const albums = sqliteTable("albums", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  slug: text("slug"),
+  slug: text("slug").unique(),
   title: text("title").notNull(),
   description: text("description").default("").notNull(),
   cover: text("cover").default("").notNull(),
@@ -131,7 +131,7 @@ export const albumUnlocks = sqliteTable("album_unlocks", {
 // Moments (动态)
 export const moments = sqliteTable("moments", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  content: text("content").notNull(),
+  content: text("content").unique().notNull(),
   location: text("location").default(""),
   mood: text("mood").default(""),
   images: text("images").default("[]").notNull(), // JSON [{ src, alt }]
@@ -161,7 +161,7 @@ export const friends = sqliteTable("friends", {
   name: text("name").notNull(),
   desc: text("desc").default(""),
   avatar: text("avatar").notNull(),
-  url: text("url").notNull(),
+  url: text("url").unique().notNull(),
   accepted: integer("accepted").default(1).notNull(),
   sortOrder: integer("sort_order").default(0).notNull(),
   uid: integer("uid").references(() => users.id),

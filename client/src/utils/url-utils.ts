@@ -1,4 +1,4 @@
-﻿import { permalinkConfig } from "../config/permalinkConfig.ts";
+import { permalinkConfig } from "../config/permalinkConfig.ts";
 import type I18nKey from "../i18n/i18nKey.ts";
 import { i18n } from "../i18n/translation.ts";
 import {
@@ -112,14 +112,17 @@ export function url(path: string, baseUrlOverride?: string): string {
 	if (!path) {
 		return baseUrlOverride ?? import.meta.env?.BASE_URL ?? "/";
 	}
+	const trimmed = path.trim().toLowerCase();
+	if (trimmed.startsWith("javascript:") || trimmed.startsWith("vbscript:")) {
+		return "#";
+	}
 	if (
 		path.startsWith("http://") ||
 		path.startsWith("https://") ||
 		path.startsWith("data:") ||
 		path.startsWith("#") ||
 		path.startsWith("mailto:") ||
-		path.startsWith("tel:") ||
-		path.startsWith("javascript:")
+		path.startsWith("tel:")
 	) {
 		return path;
 	}

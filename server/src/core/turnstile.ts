@@ -31,8 +31,7 @@ export async function verifyTurnstile(
 
     const secretKey = config.secretKey;
     if (!secretKey) {
-      // Secret key not configured, bypass or pass
-      return { success: true };
+      return { success: false, message: "Turnstile is enabled but secret key is not configured" };
     }
 
     const clientIp = c.req.header("cf-connecting-ip") || c.req.header("x-forwarded-for") || "";

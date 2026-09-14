@@ -126,6 +126,11 @@ adminRouter.put("/users/:id/points", async (c) => {
       return c.json({ success: false, error: "User not found" }, 404);
     }
 
+    const currentUser = c.get("user")!;
+    if (user.role === "superadmin" && currentUser.role !== "superadmin") {
+      return c.json({ success: false, error: "Only superadmin can adjust superadmin points" }, 403);
+    }
+
     if (exactPoints !== undefined) {
       const targetPoints = Math.max(0, parseInt(exactPoints) || 0);
       await c.env.DB.prepare("UPDATE users SET points = ?, updated_at = unixepoch() WHERE id = ?")
@@ -177,6 +182,13 @@ adminRouter.put("/users/:id/role", async (c) => {
       return c.json({ success: false, error: "Only superadmin can change user roles" }, 403);
     }
 
+    const targetUser = await db.query.users.findFirst({
+      where: eq(schema.users.id, id),
+    });
+    if (!targetUser) {
+      return c.json({ success: false, error: "User not found" }, 404);
+    }
+
     if (role !== "superadmin" && role !== "admin" && role !== "user") {
       return c.json({ success: false, error: "Invalid role. Must be 'superadmin', 'admin', or 'user'" }, 400);
     }
@@ -209,6 +221,21 @@ adminRouter.put("/users/:id/status", async (c) => {
       return c.json({ success: false, error: "Cannot ban your own account" }, 400);
     }
 
+    const targetUser = await db.query.users.findFirst({
+      where: eq(schema.users.id, id),
+    });
+    if (!targetUser) {
+      return c.json({ success: false, error: "User not found" }, 404);
+    }
+
+    // Role hierarchy check (#P0-19, P1-58)
+    if (targetUser.role === "superadmin") {
+      return c.json({ success: false, error: "Cannot modify superadmin account status" }, 403);
+    }
+    if (targetUser.role === "admin" && currentUser.role !== "superadmin") {
+      return c.json({ success: false, error: "Only superadmin can modify admin account status" }, 403);
+    }
+
     if (status !== "active" && status !== "banned") {
       return c.json({ success: false, error: "Invalid status. Must be 'active' or 'banned'" }, 400);
     }
@@ -227,6 +254,11 @@ adminRouter.put("/users/:id/status", async (c) => {
 // Seed or Reset Preset Demo Data
 adminRouter.post("/seed", async (c) => {
   try {
+    const currentUser = c.get("user")!;
+    if (currentUser.role !== "superadmin") {
+      return c.json({ success: false, error: "Only superadmin can seed or reset demo data" }, 403);
+    }
+
     const db = getDb(c.env.DB);
     const body = await c.req.json().catch(() => ({}));
     const overwrite = Boolean(body.overwrite);

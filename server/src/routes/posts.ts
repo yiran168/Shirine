@@ -92,7 +92,6 @@ postsRouter.get("/", async (c) => {
         permalink: post.permalink,
         title: post.title,
         description: post.description,
-        content: post.content,
         image: post.image,
         category: post.category,
         tags: parsedTags,
@@ -283,14 +282,23 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
       });
     }
 
-    // Check if already unlocked (Idempotent)
-    const existingUnlock = await db.query.postUnlocks.findFirst({
-      where: and(
-        eq(schema.postUnlocks.userId, user.id),
-        eq(schema.postUnlocks.postId, post.id)
-      ),
-    });
-    if (existingUnlock || isAdmin || user.id === post.uid) {
+    // 1. Privileged bypass for admin or author
+    if (isAdmin || user.id === post.uid) {
+      return c.json({
+        success: true,
+        message: "Post unlocked (privileged access)",
+        content: post.content,
+      });
+    }
+
+    // 2. Atomic reservation: only the unique winner gets to deduct points
+    const reserveRes = await c.env.DB.prepare(
+      "INSERT OR IGNORE INTO post_unlocks (user_id, post_id, points_spent, created_at) VALUES (?, ?, ?, unixepoch())"
+    )
+      .bind(user.id, post.id, post.requiredPoints)
+      .run();
+
+    if (!reserveRes.meta?.changes || reserveRes.meta.changes === 0) {
       return c.json({
         success: true,
         message: "Post already unlocked",
@@ -298,7 +306,7 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
       });
     }
 
-    // Atomic conditional deduction: only subtract if points >= requiredPoints
+    // 3. Deduct points with atomic condition
     const deductRes = await c.env.DB.prepare(
       "UPDATE users SET points = points - ?, updated_at = unixepoch() WHERE id = ? AND points >= ?"
     )
@@ -306,6 +314,13 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
       .run();
 
     if (!deductRes.meta?.changes || deductRes.meta.changes === 0) {
+      // Rollback reservation if points insufficient
+      await c.env.DB.prepare(
+        "DELETE FROM post_unlocks WHERE user_id = ? AND post_id = ?"
+      )
+        .bind(user.id, post.id)
+        .run();
+
       const currentUser = await db.query.users.findFirst({
         where: eq(schema.users.id, user.id),
       });
@@ -320,16 +335,6 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
         400
       );
     }
-
-    // Insert unlock record idempotently
-    await db
-      .insert(schema.postUnlocks)
-      .values({
-        userId: user.id,
-        postId: post.id,
-        pointsSpent: post.requiredPoints,
-      })
-      .onConflictDoNothing();
 
     const updatedUser = await db.query.users.findFirst({
       where: eq(schema.users.id, user.id),

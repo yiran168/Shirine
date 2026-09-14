@@ -14,6 +14,9 @@ import ArticleShare from "@components/organisms/ArticleShare.svelte";
 import CommentSection from "@components/organisms/comment/CommentSection.astro";
 import EncryptedContent from "@components/organisms/EncryptedContent.astro";
 import UmamiStats from "@components/organisms/UmamiStats.astro";
+import PermissionBadge from "@components/permissions/PermissionBadge.svelte";
+import CoverLockOverlay from "@components/permissions/CoverLockOverlay.svelte";
+import PostUnlockCard from "@components/permissions/PostUnlockCard.svelte";
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import MainGridLayout from "@layouts/MainGridLayout.astro";
@@ -60,6 +63,16 @@ if (!permalink) {
 	return Astro.redirect("/404");
 }
 
+// Redirect legacy numeric pagination URLs /2/, /3/ to /page/2/, /page/3/
+if (/^\d+$/.test(permalink)) {
+	const pageNum = parseInt(permalink, 10);
+	return Astro.redirect(pageNum <= 1 ? "/" : `/page/${pageNum}/`);
+}
+
+const apiBase = import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
+const cookieHeader = Astro.request.headers.get("cookie") || "";
+const authHeader = Astro.request.headers.get("authorization") || "";
+
 const blogEntries = await getSortedPosts();
 initPostIdMap(blogEntries);
 
@@ -86,8 +99,81 @@ let entry = blogEntries.find((cand) => {
 	return defaultSlug === permalink || cand.id === permalink;
 });
 
+// Fetch authoritative post detail from backend API (#P0-04)
+let dynamicDetail: any = null;
+const lookupKey = entry ? (entry.id || permalink) : permalink;
+try {
+	const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts/${encodeURIComponent(lookupKey)}`, {
+		headers: {
+			...(cookieHeader ? { cookie: cookieHeader } : {}),
+			...(authHeader ? { authorization: authHeader } : {}),
+		},
+		signal: AbortSignal.timeout(3000),
+	});
+	if (res.ok) {
+		const json = await res.json();
+		if (json.success && (json.data || json.post)) {
+			dynamicDetail = json.data || json.post;
+		}
+	}
+} catch (e) {
+	console.error("Failed to fetch post detail from API:", e);
+}
+
+// If post is not in local static markdown, create entry from dynamic detail
+if (!entry && dynamicDetail) {
+	entry = {
+		id: dynamicDetail.slug || String(dynamicDetail.id),
+		body: dynamicDetail.content || "",
+		collection: "posts" as const,
+		data: {
+			title: dynamicDetail.title,
+			published: new Date(dynamicDetail.createdAt),
+			updated: dynamicDetail.updatedAt ? new Date(dynamicDetail.updatedAt) : undefined,
+			description: dynamicDetail.description || "",
+			image: dynamicDetail.image || "",
+			category: dynamicDetail.category || "",
+			tags: Array.isArray(dynamicDetail.tags) ? dynamicDetail.tags : [],
+			pinned: Boolean(dynamicDetail.pinned),
+			draft: Boolean(dynamicDetail.draft),
+			comment: Boolean(dynamicDetail.commentEnabled ?? true),
+			encrypted: false,
+			permissionType: dynamicDetail.permissionType || "public",
+			requiredPoints: dynamicDetail.requiredPoints || 0,
+			isUnlocked: Boolean(dynamicDetail.isUnlocked),
+			alias: dynamicDetail.alias,
+			permalink: dynamicDetail.permalink,
+			prevTitle: "",
+			prevSlug: "",
+			nextTitle: "",
+			nextSlug: "",
+			dbId: dynamicDetail.id,
+		} as any,
+	} as any;
+}
+
 if (!entry) {
 	return Astro.redirect("/404");
+}
+
+// Update permission and content from authoritative backend detail
+if (dynamicDetail) {
+	(entry.data as any).isUnlocked = Boolean(dynamicDetail.isUnlocked);
+	(entry.data as any).permissionType = dynamicDetail.permissionType;
+	(entry.data as any).requiredPoints = dynamicDetail.requiredPoints;
+	(entry.data as any).dbId = dynamicDetail.id;
+	entry.body = dynamicDetail.content ?? "";
+}
+
+// Permission check
+const permissionType = (entry.data as any).permissionType || "public";
+const requiredPoints = (entry.data as any).requiredPoints || 0;
+const isUnlocked = Boolean((entry.data as any).isUnlocked);
+const dbId = Number((entry.data as any).dbId || (entry.data as any).id || (dynamicDetail?.id ?? 0));
+
+const isLocked = permissionType !== "public" && !isUnlocked;
+if (isLocked) {
+	entry.body = "";
 }
 
 const current = discoveryCandidates.find(
@@ -228,8 +314,11 @@ const jsonLd = {
 					flex items-center gap-3"
 				>
 					<AccentBar size="large" />
-					<div class="inline-block">
-						{entry.data.title}
+					<div class="inline-flex items-center gap-2.5 flex-wrap">
+						<span>{entry.data.title}</span>
+						{permissionType !== "public" && (
+							<PermissionBadge client:load type={permissionType} points={requiredPoints} />
+						)}
 					</div>
 					<IconButton
 						id="copy-post-link"
@@ -265,21 +354,33 @@ const jsonLd = {
             <!-- always show cover as long as it has one -->
 
 			{entry.data.image &&
-				<ImageWrapper
-					id="post-cover"
-					src={entry.data.image}
-					basePath={imageBasePath}
-					class="mb-8 rounded-xl banner-container onload-animation"
-					loading="eager"
-					fetchPriority="high"
-					widths={[360, 720, 1080, 1440]}
-					sizes="(min-width: 1280px) 720px, (min-width: 768px) calc(100vw - 22rem), calc(100vw - 3.5rem)"
-					formats={["avif", "webp"]}
-					quality={65}
-				/>
+				<div class="relative mb-8 rounded-xl overflow-hidden banner-container onload-animation">
+					<ImageWrapper
+						id="post-cover"
+						src={entry.data.image}
+						basePath={imageBasePath}
+						class="w-full"
+						loading="eager"
+						fetchPriority="high"
+						widths={[360, 720, 1080, 1440]}
+						sizes="(min-width: 1280px) 720px, (min-width: 768px) calc(100vw - 22rem), calc(100vw - 3.5rem)"
+						formats={["avif", "webp"]}
+						quality={65}
+					/>
+					{isLocked && (
+						<CoverLockOverlay client:load type={permissionType} points={requiredPoints} />
+					)}
+				</div>
 			}
 
-            {isEncrypted ? (
+            {isLocked ? (
+				<PostUnlockCard
+					client:load
+					postId={dbId}
+					permissionType={permissionType}
+					requiredPoints={requiredPoints}
+				/>
+			) : isEncrypted ? (
                 <EncryptedContent
                     password={entry.data.password!}
                     scope={scope}

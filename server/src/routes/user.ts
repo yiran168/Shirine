@@ -92,14 +92,14 @@ userRouter.post("/checkin", requireAuth, async (c) => {
     const newStreak = user.lastCheckinDate === yesterday ? user.checkinStreak + 1 : 1;
     const newPoints = user.points + awarded;
 
-    // Atomic execution using D1 batch (#102)
+    // Atomic execution using D1 batch (#102, P0-14)
     await c.env.DB.batch([
       c.env.DB.prepare(
         "INSERT INTO checkin_records (user_id, checkin_date, points_awarded, created_at) VALUES (?, ?, ?, unixepoch())"
       ).bind(user.id, today, awarded),
       c.env.DB.prepare(
-        "UPDATE users SET points = ?, last_checkin_date = ?, checkin_streak = ?, updated_at = unixepoch() WHERE id = ?"
-      ).bind(newPoints, today, newStreak, user.id),
+        "UPDATE users SET points = points + ?, last_checkin_date = ?, checkin_streak = ?, updated_at = unixepoch() WHERE id = ?"
+      ).bind(awarded, today, newStreak, user.id),
     ]);
 
     return c.json({

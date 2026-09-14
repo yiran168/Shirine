@@ -14,7 +14,7 @@ const DEFAULT_ADMIN = {
   id: 1,
   username: "admin",
   passwordHash:
-    "2f4c32b508fbe7d549ff4a86f788de3aeec601d00344df3ea5a522bb33f388ae007f59d5811776999a4c5ce82d56a782b7db5c57bbda3a16709f61b0c952b75e",
+    "749e89182d447e42ad71b2f9ef82dd42a89a14b3b9e827a0039ac22ae78509b5",
   salt: "4c9f13e738d9b15d290fb43292415174",
   role: "superadmin" as const,
   nickname: "Shirine Admin",

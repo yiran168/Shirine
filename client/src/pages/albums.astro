@@ -48,5 +48,5 @@ const albumsToUse = apiConnected ? dynamicAlbums : localAlbums;
 ---
 
 <MainGridLayout title={i18n(I18nKey.albums)} description={i18n(I18nKey.albumsBanner)} page="albums">
-	<AlbumSection albums={combinedAlbums} client:visible />
+	<AlbumSection albums={albumsToUse} client:visible />
 </MainGridLayout>

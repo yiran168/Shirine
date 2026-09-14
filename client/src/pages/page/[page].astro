@@ -4,12 +4,12 @@ export const prerender = false;
 import Pagination from "@components/molecules/Pagination.astro";
 import PostPage from "@components/organisms/PostPage.astro";
 import { postListConfig } from "@/config/postListConfig";
-import MainGridLayout from "../layouts/MainGridLayout.astro";
-import { getSortedPosts } from "../utils/content-utils";
+import MainGridLayout from "../../layouts/MainGridLayout.astro";
+import { getSortedPosts } from "../../utils/content-utils";
 
 const { page: pageParam } = Astro.params;
 
-// Only match pure numeric pagination params (e.g. /2/, /3/)
+// Only match pure numeric pagination params (e.g. /page/2/, /page/3/)
 if (!pageParam || !/^\d+$/.test(pageParam)) {
 	return Astro.redirect("/404/");
 }
@@ -25,7 +25,7 @@ const total = allBlogPosts.length;
 const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
 if (currentPage > totalPages) {
-	return Astro.redirect(totalPages === 1 ? "/" : `/${totalPages}/`);
+	return Astro.redirect(totalPages === 1 ? "/" : `/page/${totalPages}/`);
 }
 
 const start = (currentPage - 1) * pageSize;
@@ -40,11 +40,11 @@ const page = {
 	size: pageSize,
 	lastPage: totalPages,
 	url: {
-		current: `/${currentPage}/`,
-		next: currentPage < totalPages ? `/${currentPage + 1}/` : undefined,
-		prev: currentPage === 2 ? "/" : `/${currentPage - 1}/`,
+		current: `/page/${currentPage}/`,
+		next: currentPage < totalPages ? `/page/${currentPage + 1}/` : undefined,
+		prev: currentPage === 2 ? "/" : `/page/${currentPage - 1}/`,
 		first: "/",
-		last: `/${totalPages}/`,
+		last: `/page/${totalPages}/`,
 	},
 } as any;
 

@@ -156,6 +156,14 @@ albumsRouter.get("/:id", async (c) => {
       userPoints = u?.points ?? 0;
     }
 
+    // Get total photo count regardless of unlock status (#10)
+    const countRes = await c.env.DB.prepare(
+      "SELECT COUNT(*) as total FROM album_photos WHERE album_id = ?"
+    )
+      .bind(album.id)
+      .first<{ total: number }>();
+    const totalPhotoCount = countRes?.total ?? 0;
+
     // Get photos only if unlocked
     let photos: AlbumPhotoDto[] = [];
     if (isUnlocked) {
@@ -193,8 +201,8 @@ albumsRouter.get("/:id", async (c) => {
       cover: album.cover,
       layout: (album.layout as "grid" | "masonry") || "masonry",
       columns: album.columns || 3,
-      photoCount: photos.length,
-      count: photos.length,
+      photoCount: totalPhotoCount,
+      count: totalPhotoCount,
       permissionType: album.permissionType as any,
       requiredPoints: album.requiredPoints,
       isUnlocked,
@@ -254,11 +262,65 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
         eq(schema.albumUnlocks.albumId, album.id)
       ),
     });
-    if (existingUnlock || isAdmin || user.id === album.uid) {
-      return c.json({ success: true, message: "Album already unlocked" });
+    // 1. Privileged bypass
+    if (isAdmin || user.id === album.uid) {
+      const dbPhotos = await db.query.albumPhotos.findMany({
+        where: eq(schema.albumPhotos.albumId, album.id),
+        orderBy: [schema.albumPhotos.sortOrder],
+      });
+      return c.json({
+        success: true,
+        message: "Album unlocked (privileged access)",
+        photos: dbPhotos.map((p) => {
+          let tags: string[] = [];
+          try { tags = JSON.parse(p.tags || "[]"); } catch { tags = []; }
+          return {
+            id: p.id,
+            src: p.url,
+            url: p.url,
+            alt: p.alt || p.title || album.title,
+            title: p.title || "",
+            description: p.description || "",
+            tags,
+            sortOrder: p.sortOrder,
+          };
+        }),
+      });
     }
 
-    // Atomic conditional deduction (#100)
+    // 2. Atomic reservation: only unique winner gets to deduct points
+    const reserveRes = await c.env.DB.prepare(
+      "INSERT OR IGNORE INTO album_unlocks (user_id, album_id, points_spent, created_at) VALUES (?, ?, ?, unixepoch())"
+    )
+      .bind(user.id, album.id, album.requiredPoints)
+      .run();
+
+    if (!reserveRes.meta?.changes || reserveRes.meta.changes === 0) {
+      const dbPhotos = await db.query.albumPhotos.findMany({
+        where: eq(schema.albumPhotos.albumId, album.id),
+        orderBy: [schema.albumPhotos.sortOrder],
+      });
+      return c.json({
+        success: true,
+        message: "Album already unlocked",
+        photos: dbPhotos.map((p) => {
+          let tags: string[] = [];
+          try { tags = JSON.parse(p.tags || "[]"); } catch { tags = []; }
+          return {
+            id: p.id,
+            src: p.url,
+            url: p.url,
+            alt: p.alt || p.title || album.title,
+            title: p.title || "",
+            description: p.description || "",
+            tags,
+            sortOrder: p.sortOrder,
+          };
+        }),
+      });
+    }
+
+    // 3. Atomic conditional deduction
     const deductRes = await c.env.DB.prepare(
       "UPDATE users SET points = points - ?, updated_at = unixepoch() WHERE id = ? AND points >= ?"
     )
@@ -266,6 +328,13 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
       .run();
 
     if (!deductRes.meta?.changes || deductRes.meta.changes === 0) {
+      // Rollback reservation if insufficient points
+      await c.env.DB.prepare(
+        "DELETE FROM album_unlocks WHERE user_id = ? AND album_id = ?"
+      )
+        .bind(user.id, album.id)
+        .run();
+
       const currentUser = await db.query.users.findFirst({ where: eq(schema.users.id, user.id) });
       const currentPoints = currentUser?.points ?? 0;
       return c.json(
@@ -279,16 +348,6 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
       );
     }
 
-    // Insert unlock record idempotently
-    await db
-      .insert(schema.albumUnlocks)
-      .values({
-        userId: user.id,
-        albumId: album.id,
-        pointsSpent: album.requiredPoints,
-      })
-      .onConflictDoNothing();
-
     const updatedUser = await db.query.users.findFirst({ where: eq(schema.users.id, user.id) });
 
     // Fetch photos now that album is unlocked
@@ -296,16 +355,20 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
       where: eq(schema.albumPhotos.albumId, album.id),
       orderBy: [schema.albumPhotos.sortOrder],
     });
-    const photos: AlbumPhotoDto[] = dbPhotos.map((p) => ({
-      id: p.id,
-      src: p.url,
-      url: p.url,
-      alt: p.alt || p.title || album.title,
-      title: p.title || "",
-      description: p.description || "",
-      tags: [],
-      sortOrder: p.sortOrder,
-    }));
+    const photos: AlbumPhotoDto[] = dbPhotos.map((p) => {
+      let tags: string[] = [];
+      try { tags = JSON.parse(p.tags || "[]"); } catch { tags = []; }
+      return {
+        id: p.id,
+        src: p.url,
+        url: p.url,
+        alt: p.alt || p.title || album.title,
+        title: p.title || "",
+        description: p.description || "",
+        tags,
+        sortOrder: p.sortOrder,
+      };
+    });
 
     return c.json({
       success: true,

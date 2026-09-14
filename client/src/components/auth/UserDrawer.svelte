@@ -73,8 +73,8 @@
         <div>
           <div class="flex items-center gap-2">
             <h4 class="text-lg font-bold text-on-surface">{authStore.user.nickname || authStore.user.username}</h4>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider {authStore.user.role === 'superadmin' ? 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30' : 'bg-surface-container-high text-on-surface-variant'}">
-              {authStore.user.role === 'superadmin' ? '超级管理员' : '普通用户'}
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider {authStore.user.role === 'superadmin' ? 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30' : authStore.user.role === 'admin' ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30' : 'bg-surface-container-high text-on-surface-variant'}">
+              {authStore.user.role === 'superadmin' ? '超级管理员' : authStore.user.role === 'admin' ? '管理员' : '普通用户'}
             </span>
           </div>
           <p class="text-xs text-on-surface-variant/80 mt-0.5">@{authStore.user.username}</p>
@@ -127,7 +127,7 @@
 
       <!-- Quick Navigations -->
       <div class="space-y-2 flex-1">
-        {#if authStore.user.role === "superadmin"}
+        {#if authStore.user.role === "superadmin" || authStore.user.role === "admin"}
           <a
             href="/admin"
             class="w-full flex items-center justify-between p-3.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 font-semibold text-sm border border-purple-500/20 hover:bg-purple-500/15 transition-all"
