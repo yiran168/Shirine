@@ -15,7 +15,7 @@ export const users = sqliteTable("users", {
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   salt: text("salt").notNull(),
-  role: text("role", { enum: ["superadmin", "user"] }).default("user").notNull(),
+  role: text("role", { enum: ["superadmin", "admin", "user"] }).default("user").notNull(),
   avatar: text("avatar").default(""),
   nickname: text("nickname").default(""),
   points: integer("points").default(0).notNull(),
@@ -86,9 +86,12 @@ export const postUnlocks = sqliteTable("post_unlocks", {
 // Albums
 export const albums = sqliteTable("albums", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  slug: text("slug"),
   title: text("title").notNull(),
   description: text("description").default("").notNull(),
   cover: text("cover").default("").notNull(),
+  layout: text("layout").default("masonry").notNull(),
+  columns: integer("columns").default(3).notNull(),
   permissionType: text("permission_type", { enum: ["public", "login_required", "points_required"] })
     .default("public")
     .notNull(),
@@ -104,8 +107,10 @@ export const albumPhotos = sqliteTable("album_photos", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   albumId: integer("album_id").references(() => albums.id, { onDelete: "cascade" }).notNull(),
   url: text("url").notNull(),
+  alt: text("alt").default(""),
   title: text("title").default(""),
   description: text("description").default(""),
+  tags: text("tags").default("[]"),
   sortOrder: integer("sort_order").default(0).notNull(),
   createdAt,
 }, (table) => ({
@@ -159,7 +164,7 @@ export const friends = sqliteTable("friends", {
   url: text("url").notNull(),
   accepted: integer("accepted").default(1).notNull(),
   sortOrder: integer("sort_order").default(0).notNull(),
-  uid: integer("uid").references(() => users.id).notNull(),
+  uid: integer("uid").references(() => users.id),
   createdAt,
   updatedAt,
 });

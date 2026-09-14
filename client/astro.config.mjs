@@ -64,35 +64,21 @@ const optionalMusicSidebarPlugin = {
 const isBuildCommand = process.argv.includes("build");
 const isDevCommand = process.argv.includes("dev");
 
-const configuredFonts =
-	resolvedFontOptions.mode === "custom"
-		? resolvedFontOptions.families.flatMap((family) => {
-				const localVariants = getLocalFontVariants(family);
-				if (localVariants.length === 0) return [];
+const configuredFonts = [];
 
-				return [
-					{
-						name: family.family,
-						cssVariable:
-							family.role === "mono"
-								? "--font-mono"
-								: family.role === "cjk"
-									? "--font-cjk"
-									: "--font-body",
-						options: {
-							fallbacks: family.fallback,
-						},
-						source: "local",
-						variants: localVariants.map((variant) => ({
-							src: variant.file.startsWith("./") ? variant.file : `./${variant.file}`,
-							weight: variant.weight,
-							style: variant.style,
-							display: family.display,
-						})),
-					},
-				];
-			})
-		: [];
+const prismVirtualPlugin = {
+	name: "vite-plugin-astro-cloudflare-prism-virtual",
+	resolveId(id) {
+		if (id === "virtual:astro-cloudflare:prism") {
+			return "\0virtual:astro-cloudflare:prism";
+		}
+	},
+	load(id) {
+		if (id === "\0virtual:astro-cloudflare:prism") {
+			return "export const bundledLanguages = {};\nexport default bundledLanguages;";
+		}
+	},
+};
 
 // https://astro.build/config
 export default defineConfig({
@@ -188,6 +174,7 @@ export default defineConfig({
 		}),
 	],
 	markdown: {
+		syntaxHighlight: false,
 		processor: siteMarkdownProcessor,
 	},
 	vite: {
@@ -208,7 +195,7 @@ export default defineConfig({
 				},
 			],
 		},
-		plugins: [optionalMusicSidebarPlugin, tailwindcss()],
+		plugins: [optionalMusicSidebarPlugin, prismVirtualPlugin, tailwindcss()],
 		optimizeDeps: {
 			include: [
 				"mermaid",

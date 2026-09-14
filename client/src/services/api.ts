@@ -35,7 +35,7 @@ async function request<T = any>(
   const token = getToken();
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(options.body ? { "Content-Type": "application/json" } : {}),
     ...(options.headers as Record<string, string>),
   };
 
@@ -176,7 +176,7 @@ export const adminApi = {
   },
   updateUserPoints: (id: number, body: { exactPoints?: number; delta?: number }) =>
     request(`/admin/users/${id}/points`, { method: "PUT", body: JSON.stringify(body) }),
-  updateUserRole: (id: number, role: "superadmin" | "user") =>
+  updateUserRole: (id: number, role: "superadmin" | "admin" | "user") =>
     request(`/admin/users/${id}/role`, { method: "PUT", body: JSON.stringify({ role }) }),
   updateUserStatus: (id: number, status: "active" | "banned") =>
     request(`/admin/users/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),

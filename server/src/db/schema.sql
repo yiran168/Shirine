@@ -1,15 +1,15 @@
--- Shirine D1 Database Initialization SQL
+-- Shirine D1 Database Initialization SQL (Material 3 Expressive Dynamic Full-Stack System)
 
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   salt TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'user',
+  role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('superadmin', 'admin', 'user')),
   avatar TEXT DEFAULT '',
   nickname TEXT DEFAULT '',
-  points INTEGER NOT NULL DEFAULT 0,
-  status TEXT NOT NULL DEFAULT 'active',
+  points INTEGER NOT NULL DEFAULT 0 CHECK(points >= 0),
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'banned')),
   last_checkin_date TEXT,
   checkin_streak INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
@@ -41,8 +41,8 @@ CREATE TABLE IF NOT EXISTS posts (
   pinned INTEGER NOT NULL DEFAULT 0,
   draft INTEGER NOT NULL DEFAULT 0,
   comment_enabled INTEGER NOT NULL DEFAULT 1,
-  permission_type TEXT NOT NULL DEFAULT 'public',
-  required_points INTEGER NOT NULL DEFAULT 0,
+  permission_type TEXT NOT NULL DEFAULT 'public' CHECK(permission_type IN ('public', 'login_required', 'points_required')),
+  required_points INTEGER NOT NULL DEFAULT 0 CHECK(required_points >= 0),
   encrypted INTEGER NOT NULL DEFAULT 0,
   password TEXT DEFAULT '',
   password_hint TEXT DEFAULT '',
@@ -58,19 +58,22 @@ CREATE INDEX IF NOT EXISTS posts_date_idx ON posts(created_at);
 CREATE TABLE IF NOT EXISTS post_unlocks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  postId INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
   points_spent INTEGER NOT NULL,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-  UNIQUE(user_id, post_id)
+  UNIQUE(user_id, postId)
 );
 
 CREATE TABLE IF NOT EXISTS albums (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT,
   title TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   cover TEXT NOT NULL DEFAULT '',
-  permission_type TEXT NOT NULL DEFAULT 'public',
-  required_points INTEGER NOT NULL DEFAULT 0,
+  layout TEXT NOT NULL DEFAULT 'masonry',
+  columns INTEGER NOT NULL DEFAULT 3,
+  permission_type TEXT NOT NULL DEFAULT 'public' CHECK(permission_type IN ('public', 'login_required', 'points_required')),
+  required_points INTEGER NOT NULL DEFAULT 0 CHECK(required_points >= 0),
   draft INTEGER NOT NULL DEFAULT 0,
   uid INTEGER NOT NULL REFERENCES users(id),
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
@@ -81,8 +84,10 @@ CREATE TABLE IF NOT EXISTS album_photos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   album_id INTEGER NOT NULL REFERENCES albums(id) ON DELETE CASCADE,
   url TEXT NOT NULL,
+  alt TEXT DEFAULT '',
   title TEXT DEFAULT '',
   description TEXT DEFAULT '',
+  tags TEXT DEFAULT '[]',
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
@@ -130,7 +135,7 @@ CREATE TABLE IF NOT EXISTS friends (
   url TEXT NOT NULL,
   accepted INTEGER NOT NULL DEFAULT 1,
   sort_order INTEGER NOT NULL DEFAULT 0,
-  uid INTEGER NOT NULL REFERENCES users(id),
+  uid INTEGER REFERENCES users(id),
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );

@@ -1,12 +1,47 @@
 import { SignJWT, jwtVerify } from "jose";
 import type { UserPayload } from "../types";
 
+/**
+ * PBKDF2-HMAC-SHA256 password hashing with 100,000 iterations using native Web Crypto API.
+ */
 export async function hashPassword(password: string, salt: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + ":" + salt);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(password),
+    { name: "PBKDF2" },
+    false,
+    ["deriveBits"]
+  );
+  const derived = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt: enc.encode(salt),
+      iterations: 100000,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    256
+  );
+  return Array.from(new Uint8Array(derived))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * Verifies password against stored hash, supporting both PBKDF2 and legacy single-round SHA-256.
+ */
+export async function verifyPassword(password: string, salt: string, storedHash: string): Promise<boolean> {
+  const pbkdf2Hash = await hashPassword(password, salt);
+  if (pbkdf2Hash === storedHash) return true;
+
+  // Fallback support for legacy single-round SHA-256 hash
+  const enc = new TextEncoder();
+  const legacyBuffer = await crypto.subtle.digest("SHA-256", enc.encode(password + ":" + salt));
+  const legacyHash = Array.from(new Uint8Array(legacyBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return legacyHash === storedHash;
 }
 
 export function generateSalt(): string {
@@ -30,10 +65,14 @@ export async function verifyToken(token: string, secret: string): Promise<UserPa
   try {
     const secretKey = new TextEncoder().encode(secret);
     const { payload } = await jwtVerify(token, secretKey);
+    const role =
+      payload.role === "superadmin" || payload.role === "admin"
+        ? (payload.role as "superadmin" | "admin")
+        : "user";
     return {
       id: Number(payload.id),
       username: String(payload.username),
-      role: (payload.role === "superadmin" ? "superadmin" : "user") as "superadmin" | "user",
+      role,
     };
   } catch {
     return null;

@@ -27,6 +27,7 @@ async function getRawSortedPosts(): Promise<CollectionEntry<"posts">[]> {
 					body: p.content || "",
 					collection: "posts" as const,
 					data: {
+						dbId: p.id,
 						title: p.title,
 						published: new Date(p.createdAt),
 						updated: p.updatedAt ? new Date(p.updatedAt) : undefined,

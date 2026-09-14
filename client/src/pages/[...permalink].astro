@@ -32,6 +32,7 @@ import {
 	generatePermalinkSlug,
 	hasCustomPermalink,
 	initPostIdMap,
+	removeFileExtension,
 } from "@utils/permalink-utils";
 import { getDir, getPostUrl, getPostUrlBySlug } from "@utils/url-utils";
 import { Icon } from "astro-icon/components";
@@ -52,59 +53,55 @@ import {
 	umamiConfig,
 } from "@/config";
 
-export async function getStaticPaths() {
-	const blogEntries = await getSortedPosts();
-	initPostIdMap(blogEntries);
+export const prerender = false;
 
-	const discoveryCandidates = blogEntries.map((entry) => ({
-		slug: entry.id,
-		data: entry.data,
-	}));
-	const discoveryOptions = resolveArticleDiscoveryOptions(articleConfig);
-
-	const paths: {
-		params: { permalink: string };
-		props: {
-			entry: CollectionEntry<"posts">;
-			discovery: { related: PostForList[]; random: PostForList[] };
-		};
-	}[] = [];
-
-	for (const entry of blogEntries) {
-		let permalink: string | null = null;
-
-		if (hasCustomPermalink(entry)) {
-			permalink =
-				entry.data.permalink?.replace(/^\/+/, "").replace(/\/+$/, "") ?? null;
-		} else if (permalinkConfig.enable) {
-			permalink = generatePermalinkSlug(entry);
-		}
-
-		if (permalink) {
-			const current = discoveryCandidates.find(
-				(candidate) => candidate.slug === entry.id,
-			);
-			const discovery =
-				discoveryOptions && current
-					? discoverArticles(
-							current,
-							discoveryCandidates,
-							discoveryOptions.relatedCount,
-							discoveryOptions.randomCount,
-						)
-					: { related: [], random: [] };
-
-			paths.push({
-				params: { permalink },
-				props: { entry, discovery },
-			});
-		}
-	}
-
-	return paths;
+const { permalink } = Astro.params;
+if (!permalink) {
+	return Astro.redirect("/404");
 }
 
-const { entry, discovery } = Astro.props;
+const blogEntries = await getSortedPosts();
+initPostIdMap(blogEntries);
+
+const discoveryCandidates = blogEntries.map((e) => ({
+	slug: e.id,
+	data: e.data,
+}));
+const discoveryOptions = resolveArticleDiscoveryOptions(articleConfig);
+
+let entry = blogEntries.find((cand) => {
+	if (hasCustomPermalink(cand)) {
+		const custom = cand.data.permalink?.replace(/^\/+/, "").replace(/\/+$/, "");
+		if (custom === permalink) return true;
+	}
+	if (permalinkConfig.enable) {
+		const generated = generatePermalinkSlug(cand);
+		if (generated === permalink) return true;
+	}
+	if (cand.data.alias) {
+		let alias = cand.data.alias.replace(/^\/+/, "").replace(/\/+$/, "");
+		if (alias === permalink) return true;
+	}
+	const defaultSlug = removeFileExtension(cand.id);
+	return defaultSlug === permalink || cand.id === permalink;
+});
+
+if (!entry) {
+	return Astro.redirect("/404");
+}
+
+const current = discoveryCandidates.find(
+	(candidate) => candidate.slug === entry.id,
+);
+const discovery =
+	discoveryOptions && current
+		? discoverArticles(
+				current,
+				discoveryCandidates,
+				discoveryOptions.relatedCount,
+				discoveryOptions.randomCount,
+			)
+		: { related: [], random: [] };
 const isEncrypted = Boolean(
 	entry.data.password && entry.data.password.trim().length > 0,
 );

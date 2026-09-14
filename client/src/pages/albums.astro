@@ -15,15 +15,21 @@ try {
 		const json = await res.json();
 		if (json.success && Array.isArray(json.data)) {
 			dynamicAlbums = json.data.map((a: any) => ({
-				id: a.id,
+				id: a.slug || String(a.id),
+				dbId: a.id,
 				title: a.title,
-				description: a.description,
-				cover: a.cover,
-				count: a.photoCount,
-				permissionType: a.permissionType,
-				requiredPoints: a.requiredPoints,
-				isUnlocked: a.isUnlocked,
-				date: a.createdAt ? new Date(a.createdAt).toISOString().slice(0, 10) : "",
+				description: a.description || "",
+				cover: a.cover || "",
+				count: a.photoCount ?? 0,
+				photoCount: a.photoCount ?? 0,
+				permissionType: a.permissionType || "public",
+				requiredPoints: a.requiredPoints || 0,
+				isUnlocked: Boolean(a.isUnlocked),
+				protected: a.permissionType !== "public",
+				tags: Array.isArray(a.tags) ? a.tags : [],
+				layout: a.layout || "masonry",
+				columns: a.columns || 3,
+				date: a.date || (a.createdAt ? new Date(a.createdAt).toISOString().slice(0, 10) : ""),
 			}));
 		}
 	}

@@ -3,10 +3,11 @@ import { eq, desc, sql, like, or } from "drizzle-orm";
 import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
 import { requireAdmin } from "../core/middleware";
+import type { AdminStatsDto, UserDto } from "../types/dto";
 
 export const adminRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// All admin routes require superadmin role
+// All admin routes require admin or superadmin role
 adminRouter.use("*", requireAdmin);
 
 // Dashboard Overview Statistics
@@ -20,22 +21,28 @@ adminRouter.get("/stats", async (c) => {
     const momentCountRes = await db.select({ count: sql<number>`count(*)` }).from(schema.moments);
     const pointsSumRes = await db.select({ total: sql<number>`sum(points)` }).from(schema.users);
 
-    const today = new Date().toISOString().slice(0, 10);
+    // Use Asia/Shanghai or local date (#103)
+    const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai" });
+    const today = formatter.format(new Date());
+
     const checkinTodayRes = await db
       .select({ count: sql<number>`count(*)` })
       .from(schema.checkinRecords)
       .where(eq(schema.checkinRecords.checkinDate, today));
 
+    const stats: AdminStatsDto = {
+      posts: postCountRes[0]?.count ?? 0,
+      users: userCountRes[0]?.count ?? 0,
+      albums: albumCountRes[0]?.count ?? 0,
+      moments: momentCountRes[0]?.count ?? 0,
+      totalPoints: pointsSumRes[0]?.total ?? 0,
+      checkinToday: checkinTodayRes[0]?.count ?? 0,
+    };
+
     return c.json({
       success: true,
-      stats: {
-        posts: postCountRes[0]?.count ?? 0,
-        users: userCountRes[0]?.count ?? 0,
-        albums: albumCountRes[0]?.count ?? 0,
-        moments: momentCountRes[0]?.count ?? 0,
-        totalPoints: pointsSumRes[0]?.total ?? 0,
-        checkinToday: checkinTodayRes[0]?.count ?? 0,
-      },
+      data: stats,
+      stats, // Backward compatibility alias (#21)
     });
   } catch (err: any) {
     return c.json({ success: false, error: err.message || "Failed to fetch stats" }, 500);
@@ -99,11 +106,15 @@ adminRouter.get("/users", async (c) => {
   }
 });
 
-// Adjust User Points
+// Adjust User Points (Atomic update #105)
 adminRouter.put("/users/:id/points", async (c) => {
   try {
     const db = getDb(c.env.DB);
     const id = parseInt(c.req.param("id"));
+    if (isNaN(id)) {
+      return c.json({ success: false, error: "Invalid user ID" }, 400);
+    }
+
     const body = await c.req.json();
     const { delta, exactPoints } = body;
 
@@ -114,34 +125,45 @@ adminRouter.put("/users/:id/points", async (c) => {
       return c.json({ success: false, error: "User not found" }, 404);
     }
 
-    let newPoints = user.points;
     if (exactPoints !== undefined) {
-      newPoints = Math.max(0, parseInt(exactPoints) || 0);
+      const targetPoints = Math.max(0, parseInt(exactPoints) || 0);
+      await c.env.DB.prepare("UPDATE users SET points = ?, updated_at = unixepoch() WHERE id = ?")
+        .bind(targetPoints, id)
+        .run();
     } else if (delta !== undefined) {
-      newPoints = Math.max(0, user.points + (parseInt(delta) || 0));
+      const d = parseInt(delta) || 0;
+      await c.env.DB.prepare(
+        "UPDATE users SET points = MAX(0, points + ?), updated_at = unixepoch() WHERE id = ?"
+      )
+        .bind(d, id)
+        .run();
     }
 
-    await db
-      .update(schema.users)
-      .set({ points: newPoints, updatedAt: new Date() })
-      .where(eq(schema.users.id, id));
+    const updatedUser = await db.query.users.findFirst({
+      where: eq(schema.users.id, id),
+      columns: { points: true },
+    });
 
     return c.json({
       success: true,
-      message: `Points updated to ${newPoints}`,
-      currentPoints: newPoints,
+      message: `Points updated to ${updatedUser?.points ?? 0}`,
+      currentPoints: updatedUser?.points ?? 0,
     });
   } catch (err: any) {
     return c.json({ success: false, error: err.message || "Failed to update points" }, 500);
   }
 });
 
-// Change User Role
+// Change User Role (supports superadmin, admin, user #67, #68)
 adminRouter.put("/users/:id/role", async (c) => {
   try {
     const currentUser = c.get("user")!;
     const db = getDb(c.env.DB);
     const id = parseInt(c.req.param("id"));
+    if (isNaN(id)) {
+      return c.json({ success: false, error: "Invalid user ID" }, 400);
+    }
+
     const body = await c.req.json();
     const { role } = body;
 
@@ -149,8 +171,13 @@ adminRouter.put("/users/:id/role", async (c) => {
       return c.json({ success: false, error: "Cannot change your own role" }, 400);
     }
 
-    if (role !== "superadmin" && role !== "user") {
-      return c.json({ success: false, error: "Invalid role" }, 400);
+    // Only superadmin can promote/demote
+    if (currentUser.role !== "superadmin") {
+      return c.json({ success: false, error: "Only superadmin can change user roles" }, 403);
+    }
+
+    if (role !== "superadmin" && role !== "admin" && role !== "user") {
+      return c.json({ success: false, error: "Invalid role. Must be 'superadmin', 'admin', or 'user'" }, 400);
     }
 
     await db
@@ -170,6 +197,10 @@ adminRouter.put("/users/:id/status", async (c) => {
     const currentUser = c.get("user")!;
     const db = getDb(c.env.DB);
     const id = parseInt(c.req.param("id"));
+    if (isNaN(id)) {
+      return c.json({ success: false, error: "Invalid user ID" }, 400);
+    }
+
     const body = await c.req.json();
     const { status } = body;
 
@@ -178,7 +209,7 @@ adminRouter.put("/users/:id/status", async (c) => {
     }
 
     if (status !== "active" && status !== "banned") {
-      return c.json({ success: false, error: "Invalid status" }, 400);
+      return c.json({ success: false, error: "Invalid status. Must be 'active' or 'banned'" }, 400);
     }
 
     await db

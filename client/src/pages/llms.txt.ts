@@ -12,9 +12,10 @@ export const GET: APIRoute = async (context: APIContext) => {
 	const siteUrl = (context.site?.href ?? siteConfig.site ?? "https://shirine.mysqil.com").replace(/\/$/, "");
 	const allPosts = await getSortedPosts();
 
-	// 严格安全与隐私过滤：排除加密文章、草稿以及黑名单标签/分类
+	// 严格安全与隐私过滤：排除加密文章、草稿、受保护文章以及黑名单标签/分类
 	const publicPosts = allPosts.filter((post) => {
 		if (isEncryptedPost(post.data)) return false;
+		if ((post.data as any).permissionType && (post.data as any).permissionType !== "public") return false;
 		if (post.data.draft) return false;
 		if (
 			llmsConfig.excludeTags?.length &&

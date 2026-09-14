@@ -59,17 +59,18 @@ import {
 } from "@/config";
 
 const { slug } = Astro.params;
+if (!slug) {
+	return Astro.redirect("/404");
+}
+
+const apiBase = import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
+const cookieHeader = Astro.request.headers.get("cookie") || "";
+const authHeader = Astro.request.headers.get("authorization") || "";
 
 const blogEntries = await getSortedPosts();
 initPostIdMap(blogEntries);
 
-const discoveryCandidates = blogEntries.map((entry) => ({
-	slug: entry.id,
-	data: entry.data,
-}));
-const discoveryOptions = resolveArticleDiscoveryOptions(articleConfig);
-
-const entry = blogEntries.find((cand) => {
+let entry = blogEntries.find((cand) => {
 	const defaultSlug = removeFileExtension(cand.id);
 	if (defaultSlug === slug || cand.id === slug) return true;
 	if (cand.data.alias) {
@@ -80,9 +81,78 @@ const entry = blogEntries.find((cand) => {
 	return false;
 });
 
+// Fetch authoritative post detail from backend API (#6, #7, #8)
+let dynamicDetail: any = null;
+try {
+	const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts/${encodeURIComponent(slug)}`, {
+		headers: {
+			...(cookieHeader ? { cookie: cookieHeader } : {}),
+			...(authHeader ? { authorization: authHeader } : {}),
+		},
+		signal: AbortSignal.timeout(3000),
+	});
+	if (res.ok) {
+		const json = await res.json();
+		if (json.success && (json.data || json.post)) {
+			dynamicDetail = json.data || json.post;
+		}
+	}
+} catch (e) {
+	console.error("Failed to fetch post detail from API:", e);
+}
+
+// If post is not in local static markdown, create entry from dynamic detail
+if (!entry && dynamicDetail) {
+	entry = {
+		id: dynamicDetail.slug || String(dynamicDetail.id),
+		body: dynamicDetail.content || "",
+		collection: "posts" as const,
+		data: {
+			title: dynamicDetail.title,
+			published: new Date(dynamicDetail.createdAt),
+			updated: dynamicDetail.updatedAt ? new Date(dynamicDetail.updatedAt) : undefined,
+			description: dynamicDetail.description || "",
+			image: dynamicDetail.image || "",
+			category: dynamicDetail.category || "",
+			tags: Array.isArray(dynamicDetail.tags) ? dynamicDetail.tags : [],
+			pinned: Boolean(dynamicDetail.pinned),
+			draft: Boolean(dynamicDetail.draft),
+			comment: Boolean(dynamicDetail.commentEnabled ?? true),
+			encrypted: false,
+			permissionType: dynamicDetail.permissionType || "public",
+			requiredPoints: dynamicDetail.requiredPoints || 0,
+			isUnlocked: Boolean(dynamicDetail.isUnlocked),
+			alias: dynamicDetail.alias,
+			permalink: dynamicDetail.permalink,
+			prevTitle: "",
+			prevSlug: "",
+			nextTitle: "",
+			nextSlug: "",
+			dbId: dynamicDetail.id,
+		} as any,
+	} as any;
+}
+
 if (!entry) {
 	return Astro.redirect("/404");
 }
+
+// Update permission and content from authoritative backend detail
+if (dynamicDetail) {
+	(entry.data as any).isUnlocked = Boolean(dynamicDetail.isUnlocked);
+	(entry.data as any).permissionType = dynamicDetail.permissionType;
+	(entry.data as any).requiredPoints = dynamicDetail.requiredPoints;
+	(entry.data as any).dbId = dynamicDetail.id;
+	if (dynamicDetail.content) {
+		entry.body = dynamicDetail.content;
+	}
+}
+
+const discoveryCandidates = blogEntries.map((e) => ({
+	slug: e.id,
+	data: e.data,
+}));
+const discoveryOptions = resolveArticleDiscoveryOptions(articleConfig);
 
 const current = discoveryCandidates.find(
 	(candidate) => candidate.slug === entry.id,
@@ -166,10 +236,11 @@ const canonicalPostUrl = getPostUrl(entry);
 const permissionType = (entry.data as any).permissionType || "public";
 const requiredPoints = (entry.data as any).requiredPoints || 0;
 const isUnlocked = Boolean((entry.data as any).isUnlocked);
-const dbId = Number((entry.data as any).id || 0);
+const dbId = Number((entry.data as any).dbId || (entry.data as any).id || (dynamicDetail?.id ?? 0));
 
+const hasLoginCookie = Boolean(Astro.cookies.get("shirine_token")?.value);
 const isLocked =
-	(permissionType === "login_required" && !Astro.cookies.get("shirine_token")?.value) ||
+	(permissionType === "login_required" && !isUnlocked && !hasLoginCookie) ||
 	(permissionType === "points_required" && !isUnlocked);
 
 const jsonLd = {

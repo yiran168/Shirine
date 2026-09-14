@@ -49,8 +49,8 @@ export async function requireAdmin(
   if (!user) {
     return c.json({ success: false, error: "Unauthorized: Please log in" }, 401);
   }
-  if (user.role !== "superadmin") {
-    return c.json({ success: false, error: "Forbidden: Superadmin access required" }, 403);
+  if (user.role !== "superadmin" && user.role !== "admin") {
+    return c.json({ success: false, error: "Forbidden: Admin access required" }, 403);
   }
   await next();
 }

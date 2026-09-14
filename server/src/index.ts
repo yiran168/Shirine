@@ -53,7 +53,19 @@ app.route("/api/friends", friendsRouter);
 app.route("/api/config", configRouter);
 app.route("/api/admin", adminRouter);
 app.route("/api/upload", uploadRouter);
-app.route("/api", uploadRouter); // for /api/blob/*
+app.get("/api/blob/*", async (c) => {
+  const key = c.req.path.replace(/^\/api\/blob\/?/, "");
+  if (!key) return c.text("Key is required", 400);
+  if (!c.env.STORAGE) return c.text("Storage bucket not bound", 404);
+  const object = await c.env.STORAGE.get(decodeURIComponent(key));
+  if (!object) return c.text("Object not found", 404);
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("etag", object.httpEtag);
+  headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  headers.set("X-Content-Type-Options", "nosniff");
+  return new Response(object.body, { headers });
+});
 
 // 404 Handler
 app.notFound((c) => {

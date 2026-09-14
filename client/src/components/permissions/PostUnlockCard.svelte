@@ -1,16 +1,17 @@
 <script lang="ts">
   import { authStore } from "../../stores/auth";
-  import { postsApi } from "../../services/api";
+  import { postsApi, albumsApi } from "../../services/api";
 
   interface Props {
     postId: number;
     permissionType: string;
     requiredPoints?: number;
     userPoints?: number;
+    itemType?: "post" | "album";
     onUnlocked?: (newContent: string) => void;
   }
 
-  let { postId, permissionType, requiredPoints = 0, userPoints = 0, onUnlocked }: Props = $props();
+  let { postId, permissionType, requiredPoints = 0, userPoints = 0, itemType = "post", onUnlocked }: Props = $props();
 
   let loading = $state(false);
   let errorMsg = $state("");
@@ -25,7 +26,7 @@
     errorMsg = "";
 
     try {
-      const res = await postsApi.unlock(postId);
+      const res = itemType === "album" ? await albumsApi.unlock(postId) : await postsApi.unlock(postId);
       if (res.success) {
         if (typeof window !== "undefined") {
           try {

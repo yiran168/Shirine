@@ -64,11 +64,15 @@ export async function getFeedPosts(site: URL): Promise<FeedPostItem[]> {
 
 	return blog.map((post) => {
 		const isEncrypted = isEncryptedPost(post.data);
+		const permissionType = (post.data as any).permissionType || "public";
+		const isProtected = isEncrypted || permissionType !== "public";
 		let contentHtml: string;
 
 		if (isEncrypted) {
 			const notice = i18n(I18nKey.postRssEncryptedNotice);
 			contentHtml = `<p><em>🔒 ${notice}</em></p>`;
+		} else if (permissionType !== "public") {
+			contentHtml = `<p><em>🔒 本文为受保护内容（需登录或积分解锁），请前往站点浏览。</em></p>`;
 		} else {
 			const isMdx = post.filePath?.endsWith(".mdx") || post.id.endsWith(".mdx");
 			const rawContent =
@@ -88,18 +92,18 @@ export async function getFeedPosts(site: URL): Promise<FeedPostItem[]> {
 
 		return {
 			id: post.id,
-			title: isEncrypted ? `🔒 ${post.data.title}` : post.data.title,
+			title: isProtected ? `🔒 ${post.data.title}` : post.data.title,
 			link: postUrl,
 			pubDate,
 			updated,
 			description:
-				isEncrypted && post.data.hideHomeContent
+				isProtected && post.data.hideHomeContent
 					? i18n(I18nKey.postEncryptedSummary)
 					: post.data.description || "",
 			contentHtml,
 			category: post.data.category || undefined,
 			tags: post.data.tags || [],
-			isEncrypted,
+			isEncrypted: isProtected,
 		};
 	});
 }

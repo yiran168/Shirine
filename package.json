@@ -11,12 +11,12 @@
     "docs"
   ],
   "scripts": {
-    "dev:server": "npm run dev --prefix server",
-    "dev:client": "npm run dev --prefix client",
-    "dev:docs": "npm run dev --prefix docs",
-    "build:server": "npm run build --prefix server",
-    "build:client": "npm run build --prefix client",
-    "build:docs": "npm run build --prefix docs",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "dev:docs": "npm run dev --workspace=docs",
+    "build:server": "npm run build --workspace=server",
+    "build:client": "npm run build --workspace=client",
+    "build:docs": "npm run build --workspace=docs",
     "build": "npm run build:server && npm run build:client && npm run build:docs"
   },
   "keywords": [

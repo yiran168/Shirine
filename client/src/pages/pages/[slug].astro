@@ -1,0 +1,114 @@
+---
+export const prerender = false;
+
+import Card from "@components/atoms/display/Card.svelte";
+import AccentBar from "@components/atoms/display/AccentBar.svelte";
+import MainGridLayout from "@layouts/MainGridLayout.astro";
+import { renderDynamicMarkdown } from "@utils/dynamic-markdown";
+import { formatDateToYYYYMMDD } from "@utils/date-utils";
+import type { PageDto } from "@/types/dto";
+
+const { slug } = Astro.params;
+if (!slug) {
+	return Astro.redirect("/404");
+}
+
+const apiBase = import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
+let pageData: PageDto | null = null;
+
+try {
+	const cookieHeader = Astro.request.headers.get("cookie") || "";
+	const res = await fetch(`${apiBase.replace(/\/$/, "")}/pages/${slug}`, {
+		headers: cookieHeader ? { cookie: cookieHeader } : {},
+		signal: AbortSignal.timeout(3000),
+	});
+	if (res.ok) {
+		const json = await res.json();
+		if (json.success && (json.data || json.page)) {
+			pageData = json.data || json.page;
+		}
+	}
+} catch (e) {
+	console.error(`Failed to fetch custom page [${slug}]:`, e);
+}
+
+if (!pageData) {
+	return Astro.redirect("/404");
+}
+
+const htmlContent = pageData.content ? renderDynamicMarkdown(pageData.content) : "";
+const formattedDate = pageData.updatedAt
+	? formatDateToYYYYMMDD(pageData.updatedAt)
+	: pageData.createdAt
+	? formatDateToYYYYMMDD(pageData.createdAt)
+	: "";
+---
+
+<MainGridLayout title={pageData.title} description={pageData.title} bannerDate={formattedDate}>
+	<div class="flex w-full rounded-[var(--radius-large)] overflow-hidden relative mb-4">
+		<Card color="var(--card-bg)" radius="l" class="post-card z-10 px-6 md:px-9 pt-6 pb-8 relative w-full">
+			<div class="relative mb-6">
+				<div
+					class="transition w-full block font-bold mb-3
+					text-3xl md:text-[2.25rem]/[2.75rem]
+					text-[var(--on-surface)]
+					flex items-center gap-3"
+				>
+					<AccentBar size="large" />
+					<div class="inline-block">
+						{pageData.title}
+					</div>
+				</div>
+				{formattedDate && (
+					<div class="text-xs text-[var(--on-surface-variant)]">
+						更新于 {formattedDate}
+					</div>
+				)}
+			</div>
+
+			<div class="custom-md-content prose dark:prose-invert max-w-none text-[var(--on-surface)] leading-relaxed" set:html={htmlContent} />
+		</Card>
+	</div>
+</MainGridLayout>
+
+<style is:global>
+	.custom-md-content {
+		font-size: 1rem;
+		line-height: 1.75;
+	}
+	.custom-md-content h1,
+	.custom-md-content h2,
+	.custom-md-content h3,
+	.custom-md-content h4 {
+		color: var(--on-surface);
+		font-weight: 700;
+		margin-top: 1.5rem;
+		margin-bottom: 0.75rem;
+	}
+	.custom-md-content p {
+		margin-bottom: 1.25rem;
+	}
+	.custom-md-content a {
+		color: var(--primary);
+		text-decoration: underline;
+	}
+	.custom-md-content img {
+		border-radius: 0.75rem;
+		max-width: 100%;
+		height: auto;
+		margin: 1rem 0;
+	}
+	.custom-md-content code {
+		background: var(--surface-container-high);
+		padding: 0.2rem 0.4rem;
+		border-radius: 0.375rem;
+		font-size: 0.875em;
+	}
+	.custom-md-content pre {
+		background: var(--surface-container-highest);
+		padding: 1rem;
+		border-radius: 0.75rem;
+		overflow-x: auto;
+		margin: 1.25rem 0;
+	}
+</style>

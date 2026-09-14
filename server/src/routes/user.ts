@@ -1,13 +1,28 @@
 import { Hono } from "hono";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
 import { requireAuth } from "../core/middleware";
-import { hashPassword } from "../core/auth";
+import { hashPassword, generateSalt, verifyPassword } from "../core/auth";
 
 export const userRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// Daily Check-in
+function getLocalDateString(date: Date, timeZone = "Asia/Shanghai"): string {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(date); // YYYY-MM-DD
+}
+
+function getYesterdayDateString(date: Date, timeZone = "Asia/Shanghai"): string {
+  const yesterday = new Date(date.getTime() - 24 * 60 * 60 * 1000);
+  return getLocalDateString(yesterday, timeZone);
+}
+
+// Daily Check-in (Timezone-aware with Asia/Shanghai #103, atomic execution #102)
 userRouter.post("/checkin", requireAuth, async (c) => {
   try {
     const current = c.get("user")!;
@@ -20,12 +35,28 @@ userRouter.post("/checkin", requireAuth, async (c) => {
       return c.json({ success: false, error: "User not found" }, 404);
     }
 
+    // Read timezone from site config if configured
+    let siteTimeZone = "Asia/Shanghai";
+    try {
+      const siteConfigRow = await db.query.siteConfigs.findFirst({
+        where: eq(schema.siteConfigs.key, "site"),
+      });
+      if (siteConfigRow) {
+        const parsed = JSON.parse(siteConfigRow.value);
+        if (parsed.timeZone) siteTimeZone = parsed.timeZone;
+      }
+    } catch {}
+
     const now = new Date();
-    const today = now.toISOString().slice(0, 10); // YYYY-MM-DD
+    const today = getLocalDateString(now, siteTimeZone);
+    const yesterday = getYesterdayDateString(now, siteTimeZone);
 
     // Check if already checked in today
     const existingCheckin = await db.query.checkinRecords.findFirst({
-      where: (record, { and, eq }) => and(eq(record.userId, user.id), eq(record.checkinDate, today)),
+      where: and(
+        eq(schema.checkinRecords.userId, user.id),
+        eq(schema.checkinRecords.checkinDate, today)
+      ),
     });
 
     if (existingCheckin || user.lastCheckinDate === today) {
@@ -38,7 +69,7 @@ userRouter.post("/checkin", requireAuth, async (c) => {
     });
 
     let checkinRule = {
-      mode: "fixed", // "fixed" | "random"
+      mode: "fixed",
       fixedPoints: 10,
       randomMin: 5,
       randomMax: 20,
@@ -50,7 +81,7 @@ userRouter.post("/checkin", requireAuth, async (c) => {
       } catch {}
     }
 
-    let awarded = checkinRule.fixedPoints;
+    let awarded = Math.max(1, Number(checkinRule.fixedPoints) || 10);
     if (checkinRule.mode === "random") {
       const min = Math.max(1, Number(checkinRule.randomMin) || 1);
       const max = Math.max(min, Number(checkinRule.randomMax) || min);
@@ -58,47 +89,78 @@ userRouter.post("/checkin", requireAuth, async (c) => {
     }
 
     // Calculate streak
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const newStreak = user.lastCheckinDate === yesterday ? user.checkinStreak + 1 : 1;
     const newPoints = user.points + awarded;
 
-    // Record checkin & update user
-    await db.insert(schema.checkinRecords).values({
-      userId: user.id,
-      checkinDate: today,
-      pointsAwarded: awarded,
-    });
-
-    await db
-      .update(schema.users)
-      .set({
-        points: newPoints,
-        lastCheckinDate: today,
-        checkinStreak: newStreak,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.users.id, user.id));
+    // Atomic execution using D1 batch (#102)
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        "INSERT INTO checkin_records (user_id, checkin_date, points_awarded, created_at) VALUES (?, ?, ?, unixepoch())"
+      ).bind(user.id, today, awarded),
+      c.env.DB.prepare(
+        "UPDATE users SET points = ?, last_checkin_date = ?, checkin_streak = ?, updated_at = unixepoch() WHERE id = ?"
+      ).bind(newPoints, today, newStreak, user.id),
+    ]);
 
     return c.json({
       success: true,
-      pointsAwarded: awarded,
+      message: `Checked in successfully! You earned +${awarded} points.`,
+      awardedPoints: awarded,
       currentPoints: newPoints,
       checkinStreak: newStreak,
-      message: `Checked in successfully! You earned +${awarded} points.`,
+      checkinDate: today,
     });
   } catch (err: any) {
-    console.error("Check-in error:", err);
-    return c.json({ success: false, error: err.message || "Check-in failed" }, 500);
+    if (err.message?.includes("UNIQUE")) {
+      return c.json({ success: false, error: "You have already checked in today!" }, 400);
+    }
+    console.error("Checkin error:", err);
+    return c.json({ success: false, error: err.message || "Failed to complete daily check-in" }, 500);
   }
 });
 
-// Update Profile
+// Check-in History & Stats
+userRouter.get("/history", requireAuth, async (c) => {
+  try {
+    const current = c.get("user")!;
+    const db = getDb(c.env.DB);
+
+    const records = await db.query.checkinRecords.findMany({
+      where: eq(schema.checkinRecords.userId, current.id),
+      orderBy: [desc(schema.checkinRecords.createdAt)],
+      limit: 30,
+    });
+
+    const user = await db.query.users.findFirst({
+      where: eq(schema.users.id, current.id),
+      columns: {
+        points: true,
+        checkinStreak: true,
+        lastCheckinDate: true,
+      },
+    });
+
+    return c.json({
+      success: true,
+      data: {
+        records,
+        streak: user?.checkinStreak ?? 0,
+        points: user?.points ?? 0,
+        lastCheckinDate: user?.lastCheckinDate,
+      },
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || "Failed to fetch history" }, 500);
+  }
+});
+
+// Update Profile & Change Password (re-salts on change #97)
 userRouter.put("/profile", requireAuth, async (c) => {
   try {
     const current = c.get("user")!;
-    const body = await c.req.json();
-    const { nickname, avatar, newPassword, oldPassword } = body;
     const db = getDb(c.env.DB);
+    const body = await c.req.json();
+    const { nickname, avatar, oldPassword, newPassword } = body;
 
     const user = await db.query.users.findFirst({
       where: eq(schema.users.id, current.id),
@@ -111,71 +173,55 @@ userRouter.put("/profile", requireAuth, async (c) => {
       updatedAt: new Date(),
     };
 
-    if (nickname && typeof nickname === "string") {
-      updates.nickname = nickname.trim();
+    if (nickname !== undefined) {
+      updates.nickname = String(nickname).trim().slice(0, 50);
     }
-    if (avatar && typeof avatar === "string") {
-      updates.avatar = avatar.trim();
+    if (avatar !== undefined) {
+      updates.avatar = String(avatar).trim();
     }
 
+    // Password change
     if (newPassword) {
       if (!oldPassword) {
-        return c.json({ success: false, error: "Old password is required to set new password" }, 400);
+        return c.json({ success: false, error: "Current password is required to set a new password" }, 400);
       }
-      const oldHash = await hashPassword(oldPassword, user.salt);
-      if (oldHash !== user.passwordHash) {
-        return c.json({ success: false, error: "Incorrect old password" }, 400);
-      }
-      if (newPassword.length < 6) {
+      if (typeof newPassword !== "string" || newPassword.length < 6) {
         return c.json({ success: false, error: "New password must be at least 6 characters" }, 400);
       }
-      updates.passwordHash = await hashPassword(newPassword, user.salt);
+
+      const isOldMatch = await verifyPassword(oldPassword, user.salt, user.passwordHash);
+      if (!isOldMatch) {
+        return c.json({ success: false, error: "Current password is incorrect" }, 400);
+      }
+
+      // Re-salt on password update (#97)
+      const newSalt = generateSalt();
+      const newPasswordHash = await hashPassword(newPassword, newSalt);
+      updates.salt = newSalt;
+      updates.passwordHash = newPasswordHash;
     }
 
-    await db.update(schema.users).set(updates).where(eq(schema.users.id, user.id));
+    const updated = await db
+      .update(schema.users)
+      .set(updates)
+      .where(eq(schema.users.id, user.id))
+      .returning();
 
+    const u = updated[0];
     return c.json({
       success: true,
       message: "Profile updated successfully",
       user: {
-        id: user.id,
-        username: user.username,
-        nickname: updates.nickname || user.nickname,
-        avatar: updates.avatar || user.avatar,
-        role: user.role,
-        points: user.points,
+        id: u.id,
+        username: u.username,
+        nickname: u.nickname,
+        avatar: u.avatar,
+        role: u.role,
+        points: u.points,
+        checkinStreak: u.checkinStreak,
       },
     });
   } catch (err: any) {
     return c.json({ success: false, error: err.message || "Failed to update profile" }, 500);
   }
-});
-
-// Check-in history and unlocks
-userRouter.get("/history", requireAuth, async (c) => {
-  const current = c.get("user")!;
-  const db = getDb(c.env.DB);
-
-  const checkins = await db.query.checkinRecords.findMany({
-    where: eq(schema.checkinRecords.userId, current.id),
-    orderBy: [desc(schema.checkinRecords.createdAt)],
-    limit: 30,
-  });
-
-  const postUnlocks = await db.query.postUnlocks.findMany({
-    where: eq(schema.postUnlocks.userId, current.id),
-    orderBy: [desc(schema.postUnlocks.createdAt)],
-  });
-
-  const albumUnlocks = await db.query.albumUnlocks.findMany({
-    where: eq(schema.albumUnlocks.userId, current.id),
-    orderBy: [desc(schema.albumUnlocks.createdAt)],
-  });
-
-  return c.json({
-    success: true,
-    checkins,
-    postUnlocks,
-    albumUnlocks,
-  });
 });

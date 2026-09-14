@@ -1,11 +1,45 @@
 ---
+export const prerender = false;
+
 import FriendSection from "@components/organisms/FriendSection.svelte";
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import MainGridLayout from "@layouts/MainGridLayout.astro";
-import { getFriendsList } from "../data/friends";
+import { getFriendsList, type FriendItem } from "../data/friends";
+
+let allFriends: FriendItem[] = [...getFriendsList()];
+
+const apiBase = import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
+try {
+	const res = await fetch(`${apiBase.replace(/\/$/, "")}/friends`, {
+		signal: AbortSignal.timeout(3000),
+	});
+	if (res.ok) {
+		const json = await res.json();
+		const list = json.data || json.friends || [];
+		if (Array.isArray(list)) {
+			const existingUrls = new Set(allFriends.map((f) => f.siteurl.replace(/\/$/, "").toLowerCase()));
+			for (const f of list) {
+				const norm = (f.url || "").replace(/\/$/, "").toLowerCase();
+				if (norm && !existingUrls.has(norm)) {
+					existingUrls.add(norm);
+					allFriends.push({
+						id: f.id,
+						title: f.name,
+						imgurl: f.avatar,
+						desc: f.desc || "",
+						siteurl: f.url,
+						tags: ["Friend"],
+					});
+				}
+			}
+		}
+	}
+} catch (e) {
+	// Fallback silently to static list
+}
 ---
 
 <MainGridLayout title={i18n(I18nKey.friends)} description={i18n(I18nKey.friendsBanner)} page="friends">
-    <FriendSection friends={getFriendsList()} client:visible></FriendSection>
+    <FriendSection friends={allFriends} client:visible></FriendSection>
 </MainGridLayout>

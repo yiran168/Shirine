@@ -8,7 +8,7 @@ export interface Env {
 export interface UserPayload {
   id: number;
   username: string;
-  role: 'superadmin' | 'user';
+  role: 'superadmin' | 'admin' | 'user';
 }
 
 export type Variables = {

@@ -11,6 +11,7 @@
     friendsApi,
     configApi,
     uploadFile,
+    setToken,
   } from "../../services/api";
 
   type TabType = "overview" | "posts" | "albums" | "moments" | "pages" | "friends" | "users" | "settings";
@@ -87,6 +88,18 @@
   let momentLocation = $state("");
   let momentPhotos = $state<string[]>([]);
 
+  // Pages State
+  let pages = $state<any[]>([]);
+  let pageModalOpen = $state(false);
+  let editingPage = $state<any>(null);
+  let pageForm = $state({
+    id: 0,
+    title: "",
+    slug: "",
+    content: "",
+    status: "published",
+  });
+
   // Friends State
   let friends = $state<any[]>([]);
   let friendModalOpen = $state(false);
@@ -147,6 +160,9 @@
         if (res.user.role !== "superadmin" && res.user.role !== "admin") {
           showMessage("该账户不是管理员角色，无法进入后台控制台", true);
         } else {
+          if (res.token) {
+            setToken(res.token);
+          }
           authStore.setUser(res.user);
           loadDashboardData();
         }
@@ -190,6 +206,9 @@
       } else if (tab === "moments") {
         const res = await momentsApi.list();
         if (res.success) moments = res.data || [];
+      } else if (tab === "pages") {
+        const res = await pagesApi.list();
+        if (res.success) pages = res.data || [];
       } else if (tab === "friends") {
         const res = await friendsApi.list();
         if (res.success) friends = res.data || [];
@@ -237,22 +256,28 @@
     postModalOpen = true;
   }
 
-  function openEditPostModal(post: any) {
+  async function openEditPostModal(post: any) {
     editingPost = post;
-    postForm = {
-      id: post.id,
-      title: post.title,
-      slug: post.slug,
-      content: post.content || "",
-      description: post.description || "",
-      category: post.category || "Default",
-      tags: Array.isArray(post.tags) ? post.tags.join(", ") : post.tags || "",
-      image: post.image || "",
-      pinned: Boolean(post.pinned),
-      permissionType: post.permissionType || "public",
-      requiredPoints: post.requiredPoints || 0,
-    };
-    postModalOpen = true;
+    try {
+      const res = await postsApi.get(post.id);
+      const p = res.success && (res.data || res.post) ? res.data || res.post : post;
+      postForm = {
+        id: p.id,
+        title: p.title || "",
+        slug: p.slug || "",
+        content: p.content || "",
+        description: p.description || "",
+        category: p.category || "Default",
+        tags: Array.isArray(p.tags) ? p.tags.join(", ") : p.tags || "",
+        image: p.image || "",
+        pinned: Boolean(p.pinned),
+        permissionType: p.permissionType || "public",
+        requiredPoints: p.requiredPoints || 0,
+      };
+      postModalOpen = true;
+    } catch (e: any) {
+      showMessage("加载文章内容失败: " + e.message, true);
+    }
   }
 
   async function savePost() {
@@ -320,23 +345,29 @@
     albumModalOpen = true;
   }
 
-  function openEditAlbumModal(album: any) {
+  async function openEditAlbumModal(album: any) {
     editingAlbum = album;
-    albumForm = {
-      id: album.id,
-      title: album.title,
-      slug: album.slug,
-      description: album.description || "",
-      cover: album.cover || "",
-      layout: album.layout || "masonry",
-      columns: album.columns || 3,
-      permissionType: album.permissionType || "public",
-      requiredPoints: album.requiredPoints || 0,
-      photosText: Array.isArray(album.photos)
-        ? album.photos.map((p: any) => p.url || p).join("\n")
-        : "",
-    };
-    albumModalOpen = true;
+    try {
+      const res = await albumsApi.get(album.id);
+      const a = res.success && (res.data || res.album) ? res.data || res.album : album;
+      albumForm = {
+        id: a.id,
+        title: a.title || "",
+        slug: a.slug || "",
+        description: a.description || "",
+        cover: a.cover || "",
+        layout: a.layout || "masonry",
+        columns: a.columns || 3,
+        permissionType: a.permissionType || "public",
+        requiredPoints: a.requiredPoints || 0,
+        photosText: Array.isArray(a.photos)
+          ? a.photos.map((p: any) => p.src || p.url || p).join("\n")
+          : "",
+      };
+      albumModalOpen = true;
+    } catch (e: any) {
+      showMessage("加载相册详情失败: " + e.message, true);
+    }
   }
 
   async function saveAlbum() {
@@ -396,6 +427,7 @@
         mood: momentMood,
         location: momentLocation,
         photos: momentPhotos,
+        images: momentPhotos.map((url) => ({ src: url, alt: "" })),
       });
       if (res.success) {
         showMessage("动态日记发布成功！");
@@ -426,10 +458,78 @@
     }
   }
 
+  // --- Pages Operations ---
+  function openNewPageModal() {
+    editingPage = null;
+    pageForm = {
+      id: 0,
+      title: "",
+      slug: "",
+      content: "",
+      status: "published",
+    };
+    pageModalOpen = true;
+  }
+
+  function openEditPageModal(page: any) {
+    editingPage = page;
+    pageForm = {
+      id: page.id,
+      title: page.title || "",
+      slug: page.slug || "",
+      content: page.content || "",
+      status: page.status || "published",
+    };
+    pageModalOpen = true;
+  }
+
+  async function savePage() {
+    if (!pageForm.title.trim()) return showMessage("请输入页面标题", true);
+    if (!pageForm.slug.trim()) return showMessage("请输入页面路径 slug (例如: about)", true);
+    const payload = {
+      title: pageForm.title.trim(),
+      slug: pageForm.slug.trim().toLowerCase(),
+      content: pageForm.content,
+      status: pageForm.status,
+    };
+    try {
+      let res;
+      if (editingPage) {
+        res = await pagesApi.update(editingPage.slug, payload);
+      } else {
+        res = await pagesApi.create(payload);
+      }
+      if (res.success) {
+        showMessage("页面保存成功！可在 /pages/" + payload.slug + " 预览");
+        pageModalOpen = false;
+        loadTabData("pages");
+      } else {
+        showMessage(res.error || "保存失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message || "请求异常", true);
+    }
+  }
+
+  async function deletePage(id: number) {
+    if (!confirm("确定要删除此自定义独立页面吗？")) return;
+    try {
+      const res = await pagesApi.delete(id);
+      if (res.success) {
+        showMessage("页面已删除");
+        loadTabData("pages");
+      } else {
+        showMessage(res.error || "删除失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
   // --- Friends Operations ---
   async function approveFriend(id: number) {
     try {
-      const res = await friendsApi.update(id, { status: "approved" });
+      const res = await friendsApi.update(id, { status: "approved", accepted: 1 });
       if (res.success) {
         showMessage("已批准该友链申请");
         loadTabData("friends");
@@ -694,6 +794,14 @@
         >
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
           <span>动态日记</span>
+        </button>
+
+        <button
+          onclick={() => switchTab("pages")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'pages' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          <span>独立页面</span>
         </button>
 
         <button
@@ -966,6 +1074,62 @@
             {/each}
           </div>
 
+        {:else if currentTab === "pages"}
+          <!-- Custom Pages Management -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl font-bold">自定义独立页面</h1>
+              <p class="text-xs text-[var(--on-surface-variant)] mt-1">创建和维护独立单页（例如：关于页、隐私政策等），支持即时编辑与发布</p>
+            </div>
+            <button
+              onclick={openNewPageModal}
+              class="px-5 py-2.5 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105 transition-all flex items-center gap-1.5"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>新建独立页面</span>
+            </button>
+          </div>
+
+          <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/30 rounded-2xl overflow-hidden shadow-sm">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-[var(--surface-container-low)] border-b border-[var(--outline-variant)]/20 text-xs text-[var(--on-surface-variant)]">
+                <tr>
+                  <th class="px-6 py-3.5">页面标题</th>
+                  <th class="px-4 py-3.5">路径 (Slug)</th>
+                  <th class="px-4 py-3.5">状态</th>
+                  <th class="px-4 py-3.5">更新时间</th>
+                  <th class="px-6 py-3.5 text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[var(--outline-variant)]/10">
+                {#each pages as page}
+                  <tr class="hover:bg-[var(--surface-container-lowest)] transition-colors">
+                    <td class="px-6 py-4 font-semibold text-[var(--on-surface)]">
+                      {page.title}
+                    </td>
+                    <td class="px-4 py-4 text-xs font-mono text-primary">
+                      <a href={`/pages/${page.slug}`} target="_blank" class="hover:underline">/pages/{page.slug}</a>
+                    </td>
+                    <td class="px-4 py-4 text-xs">
+                      {#if page.status === 'published'}
+                        <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-medium">已发布</span>
+                      {:else}
+                        <span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 font-medium">草稿</span>
+                      {/if}
+                    </td>
+                    <td class="px-4 py-4 text-xs text-[var(--on-surface-variant)]">
+                      {page.updatedAt ? new Date(page.updatedAt).toLocaleDateString() : (page.createdAt ? new Date(page.createdAt).toLocaleDateString() : "-")}
+                    </td>
+                    <td class="px-6 py-4 text-right space-x-2">
+                      <button onclick={() => openEditPageModal(page)} class="text-primary font-medium text-xs hover:underline">编辑</button>
+                      <button onclick={() => deletePage(page.id)} class="text-error font-medium text-xs hover:underline">删除</button>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+
         {:else if currentTab === "friends"}
           <!-- Friends Links Management -->
           <div class="mb-6">
@@ -997,14 +1161,14 @@
                       <a href={friend.url} target="_blank" class="text-primary hover:underline">{friend.url}</a>
                     </td>
                     <td class="px-4 py-4 text-xs">
-                      {#if friend.status === 'approved'}
+                      {#if friend.status === 'approved' || friend.accepted === 1}
                         <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-medium">已批准</span>
                       {:else}
                         <span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 font-medium">待审核</span>
                       {/if}
                     </td>
                     <td class="px-6 py-4 text-right space-x-2">
-                      {#if friend.status !== 'approved'}
+                      {#if friend.status !== 'approved' && friend.accepted !== 1}
                         <button onclick={() => approveFriend(friend.id)} class="text-emerald-600 font-medium text-xs hover:underline">批准通过</button>
                       {/if}
                       <button onclick={() => deleteFriend(friend.id)} class="text-error font-medium text-xs hover:underline">删除</button>
@@ -1029,7 +1193,7 @@
                   <th class="px-6 py-3.5">用户</th>
                   <th class="px-4 py-3.5">角色</th>
                   <th class="px-4 py-3.5">当前积分</th>
-                  <th class="px-4 py-3.5">签到天数</th>
+                  <th class="px-4 py-3.5">连续签到</th>
                   <th class="px-4 py-3.5">状态</th>
                   <th class="px-6 py-3.5 text-right">操作</th>
                 </tr>
@@ -1053,7 +1217,7 @@
                       {user.points} 点
                     </td>
                     <td class="px-4 py-4 text-xs text-[var(--on-surface-variant)]">
-                      {user.checkinCount || 0} 天
+                      {user.checkinStreak ?? user.checkinCount ?? 0} 天
                     </td>
                     <td class="px-4 py-4 text-xs">
                       {#if user.status === 'banned'}
@@ -1416,6 +1580,56 @@
         <div class="pt-4 border-t border-[var(--outline-variant)]/20 flex items-center justify-end gap-3">
           <button onclick={() => (albumModalOpen = false)} class="px-5 py-2 rounded-full border border-[var(--outline-variant)]/40 text-xs font-medium hover:bg-[var(--surface-container)]">取消</button>
           <button onclick={saveAlbum} class="px-6 py-2 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105">保存相册</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Page Edit/Create Modal -->
+  {#if pageModalOpen}
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+        <div class="flex items-center justify-between pb-4 border-b border-[var(--outline-variant)]/20">
+          <h2 class="text-xl font-bold">{editingPage ? "编辑独立页面" : "新建独立页面"}</h2>
+          <button onclick={() => (pageModalOpen = false)} class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto py-4 space-y-4 pr-2">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="text-xs font-semibold block mb-1">页面标题 *</label>
+              <input type="text" bind:value={pageForm.title} placeholder="例如：关于我们" class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold block mb-1">访问路径 (Slug) *</label>
+              <input type="text" bind:value={pageForm.slug} placeholder="例如：about" class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono" />
+            </div>
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold block mb-1">发布状态</label>
+            <select bind:value={pageForm.status} class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none">
+              <option value="published">立即发布 (published)</option>
+              <option value="draft">保存为草稿 (draft)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold block mb-1">Markdown 内容</label>
+            <textarea
+              bind:value={pageForm.content}
+              rows="12"
+              placeholder="在此输入页面正文 Markdown 内容..."
+              class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] font-mono text-sm focus:border-primary outline-none"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-[var(--outline-variant)]/20 flex items-center justify-end gap-3">
+          <button onclick={() => (pageModalOpen = false)} class="px-5 py-2 rounded-full border border-[var(--outline-variant)]/40 text-xs font-medium hover:bg-[var(--surface-container)]">取消</button>
+          <button onclick={savePage} class="px-6 py-2 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105">保存页面</button>
         </div>
       </div>
     </div>

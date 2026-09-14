@@ -1,8 +1,9 @@
 import { Hono } from "hono";
-import { eq, desc, and, sql, or } from "drizzle-orm";
+import { eq, desc, and, sql, or, like } from "drizzle-orm";
 import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
 import { requireAuth, requireAdmin } from "../core/middleware";
+import type { PostListDto, PostDetailDto } from "../types/dto";
 
 export const postsRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -20,11 +21,25 @@ postsRouter.get("/", async (c) => {
     // Filter conditions
     const conditions = [];
     // Only admins can see drafts
-    if (!user || user.role !== "superadmin") {
+    const isAdmin = user && (user.role === "superadmin" || user.role === "admin");
+    if (!isAdmin) {
       conditions.push(eq(schema.posts.draft, 0));
     }
     if (category) {
       conditions.push(eq(schema.posts.category, category));
+    }
+    if (tag) {
+      // Tags stored as JSON array string, e.g. ["Astro", "Cloudflare"]
+      conditions.push(like(schema.posts.tags, `%"${tag}"%`));
+    }
+    if (search && search.trim()) {
+      const q = search.trim();
+      conditions.push(
+        or(
+          like(schema.posts.title, `%${q}%`),
+          like(schema.posts.description, `%${q}%`)
+        )
+      );
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -52,15 +67,22 @@ postsRouter.get("/", async (c) => {
     }
 
     // Map posts with permission flags
-    const postsWithPerms = allPosts.map((post) => {
+    const postsWithPerms: PostListDto[] = allPosts.map((post) => {
       let isUnlocked = true;
       if (post.permissionType === "login_required") {
         isUnlocked = !!user;
       } else if (post.permissionType === "points_required") {
         isUnlocked = !!(
           user &&
-          (user.role === "superadmin" || user.id === post.uid || unlockedPostIds.has(post.id))
+          (user.role === "superadmin" || user.role === "admin" || user.id === post.uid || unlockedPostIds.has(post.id))
         );
+      }
+
+      let parsedTags: string[] = [];
+      try {
+        parsedTags = JSON.parse(post.tags || "[]");
+      } catch {
+        parsedTags = [];
       }
 
       return {
@@ -72,10 +94,10 @@ postsRouter.get("/", async (c) => {
         description: post.description,
         image: post.image,
         category: post.category,
-        tags: JSON.parse(post.tags || "[]"),
+        tags: parsedTags,
         pinned: post.pinned === 1,
         draft: post.draft === 1,
-        permissionType: post.permissionType,
+        permissionType: post.permissionType as any,
         requiredPoints: post.requiredPoints,
         isUnlocked,
         commentEnabled: post.commentEnabled === 1,
@@ -100,7 +122,7 @@ postsRouter.get("/", async (c) => {
   }
 });
 
-// Post detail
+// Post detail (by slug, alias, permalink, or numeric id)
 postsRouter.get("/:slugOrId", async (c) => {
   try {
     const user = c.get("user");
@@ -118,7 +140,11 @@ postsRouter.get("/:slugOrId", async (c) => {
 
     if (!post) {
       post = await db.query.posts.findFirst({
-        where: or(eq(schema.posts.slug, slugOrId), eq(schema.posts.alias, slugOrId)),
+        where: or(
+          eq(schema.posts.slug, slugOrId),
+          eq(schema.posts.alias, slugOrId),
+          eq(schema.posts.permalink, slugOrId)
+        ),
       });
     }
 
@@ -126,8 +152,9 @@ postsRouter.get("/:slugOrId", async (c) => {
       return c.json({ success: false, error: "Post not found" }, 404);
     }
 
-    // Check draft
-    if (post.draft === 1 && (!user || user.role !== "superadmin")) {
+    // Check draft permission: only superadmin or admin can see drafts
+    const isAdmin = user && (user.role === "superadmin" || user.role === "admin");
+    if (post.draft === 1 && !isAdmin) {
       return c.json({ success: false, error: "Post not published" }, 404);
     }
 
@@ -144,7 +171,7 @@ postsRouter.get("/:slugOrId", async (c) => {
       if (!user) {
         isUnlocked = false;
         lockReason = "login_required";
-      } else if (user.role !== "superadmin" && user.id !== post.uid) {
+      } else if (!isAdmin && user.id !== post.uid) {
         const unlock = await db.query.postUnlocks.findFirst({
           where: and(
             eq(schema.postUnlocks.userId, user.id),
@@ -174,43 +201,64 @@ postsRouter.get("/:slugOrId", async (c) => {
       userPoints = u?.points ?? 0;
     }
 
+    let parsedTags: string[] = [];
+    try {
+      parsedTags = JSON.parse(post.tags || "[]");
+    } catch {
+      parsedTags = [];
+    }
+
+    const postDetail: PostDetailDto = {
+      id: post.id,
+      slug: post.slug,
+      alias: post.alias,
+      permalink: post.permalink,
+      title: post.title,
+      description: post.description,
+      image: post.image,
+      category: post.category,
+      tags: parsedTags,
+      pinned: post.pinned === 1,
+      draft: post.draft === 1,
+      commentEnabled: post.commentEnabled === 1,
+      permissionType: post.permissionType as any,
+      requiredPoints: post.requiredPoints,
+      content: isUnlocked ? post.content : null,
+      isUnlocked,
+      lockReason,
+      userPoints,
+      author: author
+        ? {
+            id: author.id,
+            username: author.username,
+            nickname: author.nickname || author.username,
+            avatar: author.avatar || "",
+          }
+        : null,
+      createdAt: post.createdAt,
+      updatedAt: post.updatedAt,
+    };
+
     return c.json({
       success: true,
-      post: {
-        id: post.id,
-        slug: post.slug,
-        alias: post.alias,
-        permalink: post.permalink,
-        title: post.title,
-        description: post.description,
-        image: post.image,
-        category: post.category,
-        tags: JSON.parse(post.tags || "[]"),
-        pinned: post.pinned === 1,
-        draft: post.draft === 1,
-        commentEnabled: post.commentEnabled === 1,
-        permissionType: post.permissionType,
-        requiredPoints: post.requiredPoints,
-        content: isUnlocked ? post.content : null,
-        isUnlocked,
-        lockReason,
-        userPoints,
-        author,
-        createdAt: post.createdAt,
-        updatedAt: post.updatedAt,
-      },
+      data: postDetail,
+      post: postDetail, // Backward compatibility alias
     });
   } catch (err: any) {
     return c.json({ success: false, error: err.message || "Failed to fetch post" }, 500);
   }
 });
 
-// Unlock Post with points
+// Unlock Post with points (Atomic transaction)
 postsRouter.post("/:id/unlock", requireAuth, async (c) => {
   try {
     const user = c.get("user")!;
     const db = getDb(c.env.DB);
     const id = parseInt(c.req.param("id"));
+
+    if (isNaN(id)) {
+      return c.json({ success: false, error: "Invalid post ID" }, 400);
+    }
 
     const post = await db.query.posts.findFirst({
       where: eq(schema.posts.id, id),
@@ -220,58 +268,76 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
       return c.json({ success: false, error: "Post not found" }, 404);
     }
 
-    if (post.permissionType !== "points_required") {
-      return c.json({ success: true, message: "This post does not require points to unlock" });
+    // Refuse unlocking draft posts (prevents leaking drafts via unlock)
+    const isAdmin = user.role === "superadmin" || user.role === "admin";
+    if (post.draft === 1 && !isAdmin) {
+      return c.json({ success: false, error: "Cannot unlock unpublished draft post" }, 403);
     }
 
-    // Check if already unlocked
+    if (post.permissionType !== "points_required") {
+      return c.json({
+        success: true,
+        message: "This post does not require points to unlock",
+        content: post.content,
+      });
+    }
+
+    // Check if already unlocked (Idempotent)
     const existingUnlock = await db.query.postUnlocks.findFirst({
       where: and(
         eq(schema.postUnlocks.userId, user.id),
         eq(schema.postUnlocks.postId, post.id)
       ),
     });
-    if (existingUnlock || user.role === "superadmin" || user.id === post.uid) {
-      return c.json({ success: true, message: "Post already unlocked" });
+    if (existingUnlock || isAdmin || user.id === post.uid) {
+      return c.json({
+        success: true,
+        message: "Post already unlocked",
+        content: post.content,
+      });
     }
 
-    // Check user points balance
-    const currentUser = await db.query.users.findFirst({
-      where: eq(schema.users.id, user.id),
-    });
-    if (!currentUser) {
-      return c.json({ success: false, error: "User not found" }, 404);
-    }
+    // Atomic conditional deduction: only subtract if points >= requiredPoints
+    const deductRes = await c.env.DB.prepare(
+      "UPDATE users SET points = points - ?, updated_at = unixepoch() WHERE id = ? AND points >= ?"
+    )
+      .bind(post.requiredPoints, user.id, post.requiredPoints)
+      .run();
 
-    if (currentUser.points < post.requiredPoints) {
+    if (!deductRes.meta?.changes || deductRes.meta.changes === 0) {
+      const currentUser = await db.query.users.findFirst({
+        where: eq(schema.users.id, user.id),
+      });
+      const currentPoints = currentUser?.points ?? 0;
       return c.json(
         {
           success: false,
-          error: `Insufficient points. You need ${post.requiredPoints} points, but have ${currentUser.points}. Check in daily to earn more!`,
+          error: `Insufficient points. You need ${post.requiredPoints} points, but have ${currentPoints}. Check in daily to earn more!`,
           requiredPoints: post.requiredPoints,
-          userPoints: currentUser.points,
+          userPoints: currentPoints,
         },
         400
       );
     }
 
-    // Atomic transaction: deduct points & record unlock
-    const newPoints = currentUser.points - post.requiredPoints;
-    await db.insert(schema.postUnlocks).values({
-      userId: user.id,
-      postId: post.id,
-      pointsSpent: post.requiredPoints,
-    });
-
+    // Insert unlock record idempotently
     await db
-      .update(schema.users)
-      .set({ points: newPoints, updatedAt: new Date() })
-      .where(eq(schema.users.id, user.id));
+      .insert(schema.postUnlocks)
+      .values({
+        userId: user.id,
+        postId: post.id,
+        pointsSpent: post.requiredPoints,
+      })
+      .onConflictDoNothing();
+
+    const updatedUser = await db.query.users.findFirst({
+      where: eq(schema.users.id, user.id),
+    });
 
     return c.json({
       success: true,
       message: `Successfully unlocked post! Spent ${post.requiredPoints} points.`,
-      remainingPoints: newPoints,
+      remainingPoints: updatedUser?.points ?? 0,
       content: post.content,
     });
   } catch (err: any) {
@@ -302,18 +368,36 @@ postsRouter.post("/", requireAdmin, async (c) => {
       requiredPoints = 0,
     } = body;
 
-    if (!title || !content) {
-      return c.json({ success: false, error: "Title and content are required" }, 400);
+    if (!title || typeof title !== "string" || !title.trim()) {
+      return c.json({ success: false, error: "Title is required" }, 400);
+    }
+    if (!content || typeof content !== "string") {
+      return c.json({ success: false, error: "Content is required" }, 400);
     }
 
-    const finalSlug =
-      slug?.trim() ||
-      title
-        .toLowerCase()
-        .replace(/[^\w\u4e00-\u9fa5]+/g, "-")
-        .replace(/^-|-$/g, "") +
+    // Sanitize and derive slug
+    let finalSlug = slug?.trim();
+    if (!finalSlug) {
+      finalSlug =
+        title
+          .toLowerCase()
+          .replace(/[^\w\u4e00-\u9fa5]+/g, "-")
+          .replace(/^-|-$/g, "") +
         "-" +
         Date.now();
+    } else {
+      finalSlug = finalSlug
+        .replace(/[^\w\u4e00-\u9fa5\-]+/g, "-")
+        .replace(/^-|-$/g, "");
+    }
+
+    // Check slug uniqueness
+    const existingPost = await db.query.posts.findFirst({
+      where: eq(schema.posts.slug, finalSlug),
+    });
+    if (existingPost) {
+      return c.json({ success: false, error: `Slug "${finalSlug}" is already taken` }, 409);
+    }
 
     const inserted = await db
       .insert(schema.posts)
@@ -321,21 +405,31 @@ postsRouter.post("/", requireAdmin, async (c) => {
         slug: finalSlug,
         title: title.trim(),
         content,
-        description,
-        image,
-        category,
+        description: description?.trim() || "",
+        image: image?.trim() || "",
+        category: category?.trim() || "",
         tags: JSON.stringify(Array.isArray(tags) ? tags : []),
         pinned: pinned ? 1 : 0,
         draft: draft ? 1 : 0,
         commentEnabled: commentEnabled ? 1 : 0,
-        permissionType,
+        permissionType:
+          permissionType === "login_required" || permissionType === "points_required"
+            ? permissionType
+            : "public",
         requiredPoints: Math.max(0, parseInt(requiredPoints) || 0),
         uid: user.id,
       })
       .returning();
 
-    return c.json({ success: true, post: inserted[0] });
+    return c.json({
+      success: true,
+      data: inserted[0],
+      post: inserted[0],
+    });
   } catch (err: any) {
+    if (err.message?.includes("UNIQUE")) {
+      return c.json({ success: false, error: "A post with this slug already exists" }, 409);
+    }
     return c.json({ success: false, error: err.message || "Failed to create post" }, 500);
   }
 });
@@ -345,26 +439,47 @@ postsRouter.put("/:id", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
     const id = parseInt(c.req.param("id"));
+    if (isNaN(id)) {
+      return c.json({ success: false, error: "Invalid post ID" }, 400);
+    }
+
     const body = await c.req.json();
+
+    const existing = await db.query.posts.findFirst({
+      where: eq(schema.posts.id, id),
+    });
+    if (!existing) {
+      return c.json({ success: false, error: "Post not found" }, 404);
+    }
 
     const updates: Partial<typeof schema.posts.$inferInsert> = {
       updatedAt: new Date(),
     };
 
     if (body.title !== undefined) updates.title = body.title.trim();
-    if (body.slug !== undefined) updates.slug = body.slug.trim();
+    if (body.slug !== undefined && body.slug.trim()) {
+      updates.slug = body.slug.trim().replace(/[^\w\u4e00-\u9fa5\-]+/g, "-");
+    }
+    // Prevent accidental content wipe (if body.content is provided, apply it)
     if (body.content !== undefined) updates.content = body.content;
     if (body.description !== undefined) updates.description = body.description;
     if (body.image !== undefined) updates.image = body.image;
     if (body.category !== undefined) updates.category = body.category;
-    if (body.tags !== undefined)
+    if (body.tags !== undefined) {
       updates.tags = JSON.stringify(Array.isArray(body.tags) ? body.tags : []);
+    }
     if (body.pinned !== undefined) updates.pinned = body.pinned ? 1 : 0;
     if (body.draft !== undefined) updates.draft = body.draft ? 1 : 0;
     if (body.commentEnabled !== undefined) updates.commentEnabled = body.commentEnabled ? 1 : 0;
-    if (body.permissionType !== undefined) updates.permissionType = body.permissionType;
-    if (body.requiredPoints !== undefined)
+    if (body.permissionType !== undefined) {
+      updates.permissionType =
+        body.permissionType === "login_required" || body.permissionType === "points_required"
+          ? body.permissionType
+          : "public";
+    }
+    if (body.requiredPoints !== undefined) {
       updates.requiredPoints = Math.max(0, parseInt(body.requiredPoints) || 0);
+    }
 
     const updated = await db
       .update(schema.posts)
@@ -372,8 +487,15 @@ postsRouter.put("/:id", requireAdmin, async (c) => {
       .where(eq(schema.posts.id, id))
       .returning();
 
-    return c.json({ success: true, post: updated[0] });
+    return c.json({
+      success: true,
+      data: updated[0],
+      post: updated[0],
+    });
   } catch (err: any) {
+    if (err.message?.includes("UNIQUE")) {
+      return c.json({ success: false, error: "A post with this slug already exists" }, 409);
+    }
     return c.json({ success: false, error: err.message || "Failed to update post" }, 500);
   }
 });
@@ -383,6 +505,16 @@ postsRouter.delete("/:id", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
     const id = parseInt(c.req.param("id"));
+    if (isNaN(id)) {
+      return c.json({ success: false, error: "Invalid post ID" }, 400);
+    }
+
+    const existing = await db.query.posts.findFirst({
+      where: eq(schema.posts.id, id),
+    });
+    if (!existing) {
+      return c.json({ success: false, error: "Post not found" }, 404);
+    }
 
     await db.delete(schema.posts).where(eq(schema.posts.id, id));
     return c.json({ success: true, message: "Post deleted successfully" });

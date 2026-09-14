@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { eq, sql } from "drizzle-orm";
 import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
-import { hashPassword, generateSalt, signToken } from "../core/auth";
+import { hashPassword, verifyPassword, generateSalt, signToken } from "../core/auth";
 import { verifyTurnstile } from "../core/turnstile";
 import { requireAuth } from "../core/middleware";
 
@@ -120,8 +120,8 @@ authRouter.post("/login", async (c) => {
       return c.json({ success: false, error: "This account has been banned" }, 403);
     }
 
-    const hash = await hashPassword(password, user.salt);
-    if (hash !== user.passwordHash) {
+    const isMatch = await verifyPassword(password, user.salt, user.passwordHash);
+    if (!isMatch) {
       return c.json({ success: false, error: "Invalid username or password" }, 401);
     }
 

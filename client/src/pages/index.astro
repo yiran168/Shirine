@@ -1,0 +1,39 @@
+---
+export const prerender = false;
+
+import Pagination from "@components/molecules/Pagination.astro";
+import PostPage from "@components/organisms/PostPage.astro";
+import { postListConfig } from "@/config/postListConfig";
+import MainGridLayout from "../layouts/MainGridLayout.astro";
+import { getSortedPosts } from "../utils/content-utils";
+
+const allBlogPosts = await getSortedPosts();
+const pageSize = postListConfig.pageSize || 10;
+const total = allBlogPosts.length;
+const totalPages = Math.max(1, Math.ceil(total / pageSize));
+const page1Posts = allBlogPosts.slice(0, pageSize);
+
+const page = {
+	data: page1Posts,
+	start: 0,
+	end: Math.min(pageSize - 1, total - 1),
+	total,
+	currentPage: 1,
+	size: pageSize,
+	lastPage: totalPages,
+	url: {
+		current: "/",
+		next: totalPages > 1 ? "/2/" : undefined,
+		prev: undefined,
+		first: "/",
+		last: `/${totalPages}/`,
+	},
+} as any;
+
+const len = page1Posts.length;
+---
+
+<MainGridLayout page="home">
+    <PostPage page={page}></PostPage>
+    <Pagination class="mx-auto onload-animation" page={page} style={`animation-delay: calc(var(--content-delay) + ${(len)*50}ms)`}></Pagination>
+</MainGridLayout>
