@@ -126,6 +126,26 @@
     themeHue: 315,
     themeStyle: "tonalSpot",
     topAppBarAlign: "center",
+    wallpaperMode: "banner",
+    texturePreset: "starlight",
+    textureOpacity: 0.12,
+    bannerDesktop: "assets/images/banner/desktop/1.webp",
+    bannerMobile: "assets/images/banner/mobile/1.webp",
+    bannerSubtitles: "特別なことはないけど、君がいると十分です\n今でもあなたは私の光\n君ってさ、知らないうちに我的毎日になってたよ\n君と話すと、なんか毎日がちょっと楽しくなるんだ\n今日はなんでもない日。但是、ちょっとだけいい日",
+    authorName: "Shirine",
+    bio: "The rain remembers what the sky forgot to say.",
+    avatar: "assets/images/demo-avatar.webp",
+    announcementEnable: true,
+    announcementTitle: "",
+    announcementContent: "The only way to do great work is to love what you do",
+    announcementLinkText: "GitHub",
+    announcementLinkUrl: "https://github.com",
+    musicEnable: true,
+    musicProvider: "mixed",
+    musicVolume: 0.7,
+    musicMetingServer: "netease",
+    musicMetingId: "14164869977",
+    musicTracks: [] as any[],
   });
 
   let systemConfigState = $state({
@@ -221,7 +241,39 @@
           configApi.getAdminSystem(),
         ]);
         if (siteRes.success && siteRes.data) {
-          siteConfigState = { ...siteConfigState, ...siteRes.data };
+          const s = siteRes.data.site || {};
+          const p = siteRes.data.profile || {};
+          const m = siteRes.data.music || {};
+          const a = siteRes.data.announcement || {};
+          siteConfigState = {
+            ...siteConfigState,
+            title: s.title ?? siteConfigState.title,
+            subtitle: s.subtitle ?? siteConfigState.subtitle,
+            themeHue: s.themeColor?.hue ?? siteConfigState.themeHue,
+            topAppBarAlign: s.topAppBar?.contentAlign ?? siteConfigState.topAppBarAlign,
+            wallpaperMode: s.wallpaperMode?.defaultMode ?? siteConfigState.wallpaperMode,
+            texturePreset: s.texture?.defaultPreset ?? siteConfigState.texturePreset,
+            textureOpacity: s.texture?.defaultOpacity ?? siteConfigState.textureOpacity,
+            bannerDesktop: s.banner?.src?.desktop?.[0] ?? siteConfigState.bannerDesktop,
+            bannerMobile: s.banner?.src?.mobile?.[0] ?? siteConfigState.bannerMobile,
+            bannerSubtitles: Array.isArray(s.banner?.homeText?.subtitle)
+              ? s.banner.homeText.subtitle.join("\n")
+              : siteConfigState.bannerSubtitles,
+            authorName: p.name ?? siteConfigState.authorName,
+            bio: p.bio ?? siteConfigState.bio,
+            avatar: p.avatar ?? siteConfigState.avatar,
+            announcementEnable: a.enable ?? siteConfigState.announcementEnable,
+            announcementTitle: a.title ?? siteConfigState.announcementTitle,
+            announcementContent: a.content ?? siteConfigState.announcementContent,
+            announcementLinkText: a.link?.text ?? siteConfigState.announcementLinkText,
+            announcementLinkUrl: a.link?.url ?? siteConfigState.announcementLinkUrl,
+            musicEnable: m.enable ?? siteConfigState.musicEnable,
+            musicProvider: m.provider ?? siteConfigState.musicProvider,
+            musicVolume: m.defaultVolume ?? siteConfigState.musicVolume,
+            musicMetingServer: m.meting?.server ?? siteConfigState.musicMetingServer,
+            musicMetingId: m.meting?.id ?? siteConfigState.musicMetingId,
+            musicTracks: Array.isArray(m.tracks) ? m.tracks : siteConfigState.musicTracks,
+          };
         }
         if (sysRes.success && sysRes.data) {
           systemConfigState = { ...systemConfigState, ...sysRes.data };
@@ -527,6 +579,72 @@
   }
 
   // --- Friends Operations ---
+  let editingFriend = $state<any>(null);
+
+  function openNewFriendModal() {
+    editingFriend = null;
+    friendForm = {
+      id: 0,
+      name: "",
+      url: "",
+      avatar: "",
+      desc: "",
+      status: "approved",
+    };
+    friendModalOpen = true;
+  }
+
+  function openEditFriendModal(friend: any) {
+    editingFriend = friend;
+    friendForm = {
+      id: friend.id,
+      name: friend.name,
+      url: friend.url,
+      avatar: friend.avatar,
+      desc: friend.desc || "",
+      status: friend.status || (friend.accepted === 1 ? "approved" : "pending"),
+    };
+    friendModalOpen = true;
+  }
+
+  async function saveFriend() {
+    if (!friendForm.name.trim() || !friendForm.url.trim() || !friendForm.avatar.trim()) {
+      showMessage("请填写友链站点名称、网址与头像链接", true);
+      return;
+    }
+    const payload = {
+      name: friendForm.name.trim(),
+      url: friendForm.url.trim(),
+      avatar: friendForm.avatar.trim(),
+      desc: friendForm.desc.trim(),
+      status: friendForm.status,
+      accepted: friendForm.status === "approved" ? 1 : 0,
+    };
+    try {
+      if (editingFriend) {
+        const res = await friendsApi.update(editingFriend.id, payload);
+        if (res.success) {
+          showMessage("友链信息更新成功！");
+          friendModalOpen = false;
+          loadTabData("friends");
+        } else {
+          showMessage(res.error || "更新失败", true);
+        }
+      } else {
+        const res = await friendsApi.create(payload);
+        if (res.success) {
+          showMessage("添加友链成功！");
+          friendModalOpen = false;
+          loadTabData("friends");
+        } else {
+          showMessage(res.error || "添加失败", true);
+        }
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
   async function approveFriend(id: number) {
     try {
       const res = await friendsApi.update(id, { status: "approved", accepted: 1 });
@@ -612,15 +730,67 @@
     }
   }
 
+  // --- Music Operations ---
+  function addMusicTrack() {
+    siteConfigState.musicTracks = [
+      ...siteConfigState.musicTracks,
+      {
+        id: "track-" + Date.now(),
+        title: "新音乐曲目",
+        artist: "未知歌手",
+        cover: "assets/images/music/dazbee.webp",
+        source: "/assets/music/url/dazbee.mp3",
+        duration: 240,
+      },
+    ];
+  }
+
+  function removeMusicTrack(index: number) {
+    siteConfigState.musicTracks = siteConfigState.musicTracks.filter((_, i) => i !== index);
+  }
+
+  // --- Seed Presets Operations ---
+  async function handleSeedPresets(overwrite = false) {
+    if (
+      !confirm(
+        overwrite
+          ? "确定要恢复预设示例数据吗？此操作将重置数据库中现有的示例文章、相册、动态和友链。"
+          : "确定将系统预设的示例数据（22 篇文章、6 条动态、精选相册与照片、3 个友链、4 首预设音乐）同步导入到数据库吗？"
+      )
+    )
+      return;
+
+    loading = true;
+    try {
+      const res = await adminApi.seedPresets(overwrite);
+      if (res.success) {
+        showMessage("预设示例数据已成功同步到 D1 数据库！前台刷新即现，后台可自由编辑删除");
+        await loadDashboardData();
+      } else {
+        showMessage(res.error || "同步失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    } finally {
+      loading = false;
+    }
+  }
+
   // --- Settings Save ---
   async function saveAllSettings() {
     try {
+      const sitePayload = {
+        ...siteConfigState,
+        bannerDesktop: [siteConfigState.bannerDesktop].filter(Boolean),
+        bannerMobile: [siteConfigState.bannerMobile].filter(Boolean),
+        bannerSubtitles: siteConfigState.bannerSubtitles.split("\n").map((s: string) => s.trim()).filter(Boolean),
+      };
       const [siteRes, sysRes] = await Promise.all([
-        configApi.updateSite(siteConfigState),
+        configApi.updateSite(sitePayload),
         configApi.updateSystem(systemConfigState),
       ]);
       if (siteRes.success && sysRes.success) {
-        showMessage("全站配置与系统设置已保存生效！");
+        showMessage("全站外观设定、音乐曲目、背景图与系统设置已保存生效！");
       } else {
         showMessage(siteRes.error || sysRes.error || "保存失败", true);
       }
@@ -1132,9 +1302,18 @@
 
         {:else if currentTab === "friends"}
           <!-- Friends Links Management -->
-          <div class="mb-6">
-            <h1 class="text-2xl font-bold">友链管理与申请</h1>
-            <p class="text-xs text-[var(--on-surface-variant)] mt-1">审核访客提交的友链申请，或直接添加新的友链</p>
+          <div class="mb-6 flex items-center justify-between">
+            <div>
+              <h1 class="text-2xl font-bold">友链管理与申请</h1>
+              <p class="text-xs text-[var(--on-surface-variant)] mt-1">审核访客提交的友链申请，或直接添加/编辑友链</p>
+            </div>
+            <button
+              onclick={openNewFriendModal}
+              class="px-4 py-2 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105 flex items-center gap-1.5 transition-all active:scale-98"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>添加友链</span>
+            </button>
           </div>
 
           <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/30 rounded-2xl overflow-hidden shadow-sm">
@@ -1168,6 +1347,7 @@
                       {/if}
                     </td>
                     <td class="px-6 py-4 text-right space-x-2">
+                      <button onclick={() => openEditFriendModal(friend)} class="text-primary font-medium text-xs hover:underline">编辑</button>
                       {#if friend.status !== 'approved' && friend.accepted !== 1}
                         <button onclick={() => approveFriend(friend.id)} class="text-emerald-600 font-medium text-xs hover:underline">批准通过</button>
                       {/if}
@@ -1416,12 +1596,338 @@
               </div>
             </div>
 
+            <!-- Banner & Wallpaper Settings -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <h2 class="text-lg font-bold mb-1 flex items-center gap-2">
+                <span>🖼️ 横幅背景与壁纸主题</span>
+              </h2>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">自定义首页顶部横幅、手机端壁纸及打字机打字特效字幕</p>
+
+              <div class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label class="text-xs font-semibold block mb-1.5">桌面端横幅图片 URL</label>
+                    <input
+                      type="text"
+                      bind:value={siteConfigState.bannerDesktop}
+                      placeholder="assets/images/banner/desktop/1.webp 或 https://..."
+                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label class="text-xs font-semibold block mb-1.5">移动端横幅图片 URL</label>
+                    <input
+                      type="text"
+                      bind:value={siteConfigState.bannerMobile}
+                      placeholder="assets/images/banner/mobile/1.webp 或 https://..."
+                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label class="text-xs font-semibold block mb-1.5">全站壁纸呈现模式</label>
+                    <select
+                      bind:value={siteConfigState.wallpaperMode}
+                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                    >
+                      <option value="banner">仅横幅壁纸 (Banner)</option>
+                      <option value="full">全屏壁纸铺展 (Full)</option>
+                      <option value="none">纯色极简无壁纸 (None)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-xs font-semibold block mb-1.5">背景纹理叠加 (Texture)</label>
+                    <select
+                      bind:value={siteConfigState.texturePreset}
+                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                    >
+                      <option value="starlight">星光细砂 (Starlight)</option>
+                      <option value="dot">波点阵列 (Dot)</option>
+                      <option value="grid">极细网格 (Grid)</option>
+                      <option value="none">无纹理 (None)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-xs font-semibold block mb-1.5">纹理不透明度 ({Math.round(siteConfigState.textureOpacity * 100)}%)</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="0.5"
+                      step="0.01"
+                      bind:value={siteConfigState.textureOpacity}
+                      class="w-full accent-primary mt-2"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label class="text-xs font-semibold block mb-1.5">首页打字机轮播台词（每行一条）</label>
+                  <textarea
+                    bind:value={siteConfigState.bannerSubtitles}
+                    rows="4"
+                    placeholder="输入打字机轮播台词，每行一条..."
+                    class="w-full p-3.5 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono"
+                  ></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- Profile & Bio Settings -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <h2 class="text-lg font-bold mb-1 flex items-center gap-2">
+                <span>👤 站长名片与个人资料</span>
+              </h2>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">修改侧边栏个人名片的作者名字、头像地址以及简介描述</p>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="text-xs font-semibold block mb-1.5">站长昵称 / 姓名</label>
+                  <input
+                    type="text"
+                    bind:value={siteConfigState.authorName}
+                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="text-xs font-semibold block mb-1.5">头像图片 URL</label>
+                  <input
+                    type="text"
+                    bind:value={siteConfigState.avatar}
+                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                  />
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <label class="text-xs font-semibold block mb-1.5">个性签名 / 自我介绍 Bio</label>
+                <textarea
+                  bind:value={siteConfigState.bio}
+                  rows="2"
+                  class="w-full p-3 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                ></textarea>
+              </div>
+            </div>
+
+            <!-- Announcement Settings -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                  <span>📢 侧边栏公告栏 (Announcement)</span>
+                </h2>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" bind:checked={siteConfigState.announcementEnable} class="sr-only peer" />
+                  <div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">在前台侧边栏顶部展示全站置顶重要通知或标语</p>
+
+              {#if siteConfigState.announcementEnable}
+                <div class="space-y-4">
+                  <div>
+                    <label class="text-xs font-semibold block mb-1.5">公告栏自定义标题 (可留空)</label>
+                    <input
+                      type="text"
+                      bind:value={siteConfigState.announcementTitle}
+                      placeholder="特别公告"
+                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label class="text-xs font-semibold block mb-1.5">公告正文内容</label>
+                    <textarea
+                      bind:value={siteConfigState.announcementContent}
+                      rows="3"
+                      placeholder="在此输入公告通知内容..."
+                      class="w-full p-3 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                    ></textarea>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label class="text-xs font-semibold block mb-1.5">跳转链接按钮文字</label>
+                      <input
+                        type="text"
+                        bind:value={siteConfigState.announcementLinkText}
+                        placeholder="了解更多"
+                        class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label class="text-xs font-semibold block mb-1.5">跳转链接 URL</label>
+                      <input
+                        type="text"
+                        bind:value={siteConfigState.announcementLinkUrl}
+                        placeholder="https://..."
+                        class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              {/if}
+            </div>
+
+            <!-- Music Player Settings -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                  <span>🎵 全局背景音乐播放器</span>
+                </h2>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" bind:checked={siteConfigState.musicEnable} class="sr-only peer" />
+                  <div class="w-11 h-6 bg-surface-container peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">支持 Meting API 在线网易云/QQ音乐歌单，以及自建音频曲目播放列表</p>
+
+              {#if siteConfigState.musicEnable}
+                <div class="space-y-4">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label class="text-xs font-semibold block mb-1.5">播放源模式</label>
+                      <select
+                        bind:value={siteConfigState.musicProvider}
+                        class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                      >
+                        <option value="mixed">混合模式 (Meting歌单 + 自定义曲目)</option>
+                        <option value="meting">仅 Meting 在线歌单</option>
+                        <option value="local">仅自定义本地曲目</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="text-xs font-semibold block mb-1.5">默认播放音量 ({Math.round(siteConfigState.musicVolume * 100)}%)</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        bind:value={siteConfigState.musicVolume}
+                        class="w-full accent-primary mt-2"
+                      />
+                    </div>
+                  </div>
+
+                  {#if siteConfigState.musicProvider === 'meting' || siteConfigState.musicProvider === 'mixed'}
+                    <div class="p-4 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3">
+                      <h3 class="text-xs font-bold text-primary">Meting 歌单配置</h3>
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label class="text-xs font-semibold block mb-1">音乐平台 Server</label>
+                          <select
+                            bind:value={siteConfigState.musicMetingServer}
+                            class="w-full px-3 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-sm outline-none"
+                          >
+                            <option value="netease">网易云音乐 (netease)</option>
+                            <option value="tencent">QQ 音乐 (tencent)</option>
+                            <option value="kugou">酷狗音乐 (kugou)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label class="text-xs font-semibold block mb-1">歌单 ID (Playlist ID)</label>
+                          <input
+                            type="text"
+                            bind:value={siteConfigState.musicMetingId}
+                            placeholder="例如: 8152976493"
+                            class="w-full px-3 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-sm outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  {/if}
+
+                  {#if siteConfigState.musicProvider === 'local' || siteConfigState.musicProvider === 'mixed'}
+                    <div class="space-y-3">
+                      <div class="flex items-center justify-between">
+                        <label class="text-xs font-bold text-[var(--on-surface)]">自定义音乐列表 ({siteConfigState.musicTracks?.length || 0} 首)</label>
+                        <button
+                          onclick={addMusicTrack}
+                          class="px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                          <span>添加新曲目</span>
+                        </button>
+                      </div>
+
+                      <div class="space-y-2 max-h-80 overflow-y-auto pr-1">
+                        {#each siteConfigState.musicTracks as track, idx}
+                          <div class="p-3.5 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                            <img src={track.cover || "assets/images/music/dazbee.webp"} alt={track.title} class="w-10 h-10 rounded-xl object-cover shrink-0 bg-surface" />
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 w-full">
+                              <input
+                                type="text"
+                                bind:value={track.title}
+                                placeholder="曲目标题"
+                                class="px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/20 bg-[var(--surface)] text-xs font-semibold outline-none"
+                              />
+                              <input
+                                type="text"
+                                bind:value={track.artist}
+                                placeholder="艺术家 / 歌手"
+                                class="px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/20 bg-[var(--surface)] text-xs outline-none"
+                              />
+                              <input
+                                type="text"
+                                bind:value={track.source}
+                                placeholder="音频 URL (/assets/music/... 或 https://...)"
+                                class="px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/20 bg-[var(--surface)] text-xs outline-none font-mono"
+                              />
+                              <input
+                                type="text"
+                                bind:value={track.cover}
+                                placeholder="封面图片 URL"
+                                class="px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/20 bg-[var(--surface)] text-xs outline-none font-mono"
+                              />
+                            </div>
+                            <button
+                              onclick={() => removeMusicTrack(idx)}
+                              class="p-2 text-error hover:bg-error/10 rounded-xl transition-colors shrink-0"
+                              title="移除此曲目"
+                            >
+                              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+              {/if}
+            </div>
+
+            <!-- Seed & Presets Sync Management -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <h2 class="text-lg font-bold mb-1 flex items-center gap-2">
+                <span>📦 预设示例数据与数据库同步</span>
+              </h2>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">
+                一键将 22 篇示例博文、6 条随想动态、精选画廊相册、友链及背景图同步写入 D1 数据库。数据库为前台唯一事实来源，所有预设均可在后台增删改查。
+              </p>
+
+              <div class="flex flex-wrap gap-3">
+                <button
+                  onclick={() => handleSeedPresets(false)}
+                  class="px-5 py-2.5 rounded-full border border-primary/40 bg-primary/10 text-primary font-semibold text-xs hover:bg-primary/20 active:scale-98 transition-all flex items-center gap-2"
+                >
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                  <span>补充同步预设数据 (不覆盖已有数据)</span>
+                </button>
+                <button
+                  onclick={() => handleSeedPresets(true)}
+                  class="px-5 py-2.5 rounded-full border border-error/40 bg-error/10 text-error font-semibold text-xs hover:bg-error/20 active:scale-98 transition-all flex items-center gap-2"
+                >
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                  <span>一键重置恢复全部预设示例</span>
+                </button>
+              </div>
+            </div>
+
             <!-- Save Button -->
             <button
               onclick={saveAllSettings}
-              class="px-8 py-3 rounded-full bg-primary text-on-primary font-bold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all"
+              class="px-8 py-3 rounded-full bg-primary text-on-primary font-bold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all flex items-center gap-2"
             >
-              保存所有配置修改
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span>保存所有外观与系统设定</span>
             </button>
           </div>
         {/if}
@@ -1655,6 +2161,78 @@
         <div class="flex items-center justify-end gap-2">
           <button onclick={() => (userPointsModalOpen = false)} class="px-4 py-2 rounded-full border border-[var(--outline-variant)]/40 text-xs hover:bg-[var(--surface-container)]">取消</button>
           <button onclick={saveAdjustPoints} class="px-5 py-2 rounded-full bg-primary text-on-primary text-xs font-semibold">确认调整</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Friend Modal -->
+  {#if friendModalOpen}
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-md shadow-2xl">
+        <div class="flex items-center justify-between pb-4 border-b border-[var(--outline-variant)]/20">
+          <h2 class="text-xl font-bold">{editingFriend ? "编辑友链" : "添加友链"}</h2>
+          <button onclick={() => (friendModalOpen = false)} class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="py-4 space-y-4">
+          <div>
+            <label class="text-xs font-semibold block mb-1">站点名称 *</label>
+            <input
+              type="text"
+              bind:value={friendForm.name}
+              placeholder="例如：Shirine"
+              class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+            />
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold block mb-1">站点网址 (URL) *</label>
+            <input
+              type="text"
+              bind:value={friendForm.url}
+              placeholder="https://example.com"
+              class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono"
+            />
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold block mb-1">站点图标 / 头像 URL *</label>
+            <input
+              type="text"
+              bind:value={friendForm.avatar}
+              placeholder="https://example.com/avatar.png"
+              class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono"
+            />
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold block mb-1">站点简介描述</label>
+            <textarea
+              bind:value={friendForm.desc}
+              rows="2"
+              placeholder="一句简短的站点描述..."
+              class="w-full p-3 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+            ></textarea>
+          </div>
+
+          <div>
+            <label class="text-xs font-semibold block mb-1">审核状态</label>
+            <select
+              bind:value={friendForm.status}
+              class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+            >
+              <option value="approved">已批准通过 (Approved)</option>
+              <option value="pending">待审核 (Pending)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-[var(--outline-variant)]/20 flex items-center justify-end gap-3">
+          <button onclick={() => (friendModalOpen = false)} class="px-5 py-2 rounded-full border border-[var(--outline-variant)]/40 text-xs font-medium hover:bg-[var(--surface-container)]">取消</button>
+          <button onclick={saveFriend} class="px-6 py-2 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105">保存友链</button>
         </div>
       </div>
     </div>

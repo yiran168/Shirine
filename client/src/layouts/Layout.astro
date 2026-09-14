@@ -7,13 +7,16 @@ import { resolveAsset } from "@utils/asset-utils";
 import { pathsEqual, toAbsoluteUrl, url } from "@utils/url-utils";
 import {
 	expressiveCodeConfig,
-	profileConfig,
+	profileConfig as staticProfileConfig,
 	resolvedFontOptions,
 	resolveTextureOptions,
 	resolveUmamiOptions,
-	siteConfig,
+	siteConfig as staticSiteConfig,
 	umamiConfig,
 } from "@/config";
+import { getDynamicSiteConfig } from "@utils/dynamic-config";
+
+const { site: siteConfig, profile: profileConfig } = await getDynamicSiteConfig();
 import type { SidebarPage } from "@/types/sidebarConfig";
 import {
 	AUTO_MODE,

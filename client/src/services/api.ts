@@ -180,6 +180,8 @@ export const adminApi = {
     request(`/admin/users/${id}/role`, { method: "PUT", body: JSON.stringify({ role }) }),
   updateUserStatus: (id: number, status: "active" | "banned") =>
     request(`/admin/users/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
+  seedPresets: (overwrite = false) =>
+    request("/admin/seed", { method: "POST", body: JSON.stringify({ overwrite }) }),
 };
 
 // -------------------------------------------------------------

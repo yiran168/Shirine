@@ -43,8 +43,12 @@ export async function getSiteStats(): Promise<SiteStats> {
 	let earliest = Number.POSITIVE_INFINITY;
 	let latestActivity = 0;
 	for (const post of posts) {
-		const { remarkPluginFrontmatter } = await render(post);
-		words += remarkPluginFrontmatter.words ?? 0;
+		try {
+			const { remarkPluginFrontmatter } = await render(post);
+			words += remarkPluginFrontmatter.words ?? 0;
+		} catch {
+			words += (post.body || "").length;
+		}
 		const published = new Date(post.data.published).getTime();
 		if (published < earliest) earliest = published;
 		const updated = post.data.updated

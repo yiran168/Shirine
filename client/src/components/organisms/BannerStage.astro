@@ -4,8 +4,11 @@ import BannerWaves from "@components/molecules/BannerWaves.astro";
 import { resolveImageAsset } from "@utils/asset-utils";
 import { url } from "@utils/url-utils";
 import { Icon } from "astro-icon/components";
-import { siteConfig } from "@/config";
+import { siteConfig as staticSiteConfig } from "@/config";
+import { getDynamicSiteConfig } from "@utils/dynamic-config";
 import type { SidebarPage } from "@/types/sidebarConfig";
+
+const { site: siteConfig } = await getDynamicSiteConfig();
 
 interface Props {
 	page?: SidebarPage;

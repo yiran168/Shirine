@@ -8,9 +8,11 @@
 import IconButton from "@components/atoms/action/IconButton.svelte";
 import { resolveNavBarLinks, resolvePageKey } from "@utils/nav-utils";
 import { url } from "@utils/url-utils";
-import { Icon } from "astro-icon/components";
-import { siteConfig } from "@/config";
+import { siteConfig as staticSiteConfig } from "@/config";
+import { getDynamicSiteConfig } from "@utils/dynamic-config";
 import { navBarConfig } from "@/config/navBarConfig";
+
+const { site: siteConfig } = await getDynamicSiteConfig();
 import DisplaySettings from "./DisplaySettings.svelte";
 import LightDarkSwitch from "./LightDarkSwitch.svelte";
 import Search from "./Search.svelte";

@@ -7,6 +7,7 @@ import { scanVisibleAlbums, toAlbumIndexItem } from "@utils/album-scanner";
 
 const apiBase = import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
 let dynamicAlbums: any[] = [];
+let apiConnected = false;
 try {
 	const res = await fetch(`${apiBase.replace(/\/$/, "")}/albums`, {
 		signal: AbortSignal.timeout(3000),
@@ -14,6 +15,7 @@ try {
 	if (res.ok) {
 		const json = await res.json();
 		if (json.success && Array.isArray(json.data)) {
+			apiConnected = true;
 			dynamicAlbums = json.data.map((a: any) => ({
 				id: a.slug || String(a.id),
 				dbId: a.id,
@@ -36,16 +38,13 @@ try {
 } catch {}
 
 let localAlbums: any[] = [];
-try {
-	localAlbums = scanVisibleAlbums().map(toAlbumIndexItem);
-} catch {}
-
-const combinedAlbums = [...dynamicAlbums];
-for (const loc of localAlbums) {
-	if (!combinedAlbums.some((a) => a.title === loc.title || a.id === loc.id)) {
-		combinedAlbums.push(loc);
-	}
+if (!apiConnected) {
+	try {
+		localAlbums = scanVisibleAlbums().map(toAlbumIndexItem);
+	} catch {}
 }
+
+const albumsToUse = apiConnected ? dynamicAlbums : localAlbums;
 ---
 
 <MainGridLayout title={i18n(I18nKey.albums)} description={i18n(I18nKey.albumsBanner)} page="albums">

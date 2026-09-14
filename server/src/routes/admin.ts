@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { eq, desc, sql, like, or } from "drizzle-orm";
 import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
+import { seedPresetData } from "../db/seed";
 import { requireAdmin } from "../core/middleware";
 import type { AdminStatsDto, UserDto } from "../types/dto";
 
@@ -222,3 +223,21 @@ adminRouter.put("/users/:id/status", async (c) => {
     return c.json({ success: false, error: err.message || "Failed to change status" }, 500);
   }
 });
+
+// Seed or Reset Preset Demo Data
+adminRouter.post("/seed", async (c) => {
+  try {
+    const db = getDb(c.env.DB);
+    const body = await c.req.json().catch(() => ({}));
+    const overwrite = Boolean(body.overwrite);
+    const summary = await seedPresetData(db, overwrite);
+    return c.json({
+      success: true,
+      message: "Preset demo data seeded successfully into D1 database",
+      data: summary,
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || "Failed to seed preset data" }, 500);
+  }
+});
+

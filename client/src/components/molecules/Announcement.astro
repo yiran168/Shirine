@@ -1,11 +1,12 @@
 ---
 import { Icon } from "astro-icon/components";
-import { announcementConfig } from "@/config/announcementConfig";
+import { announcementConfig as staticAnnouncementConfig } from "@/config/announcementConfig";
+import { getDynamicSiteConfig } from "@utils/dynamic-config";
 import I18nKey from "@/i18n/i18nKey";
 import { i18n } from "@/i18n/translation";
 import WidgetLayout from "./WidgetLayout.astro";
 
-const config = announcementConfig;
+const { announcement: config } = await getDynamicSiteConfig();
 
 interface Props {
 	class?: string;

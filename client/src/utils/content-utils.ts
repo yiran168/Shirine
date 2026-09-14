@@ -15,13 +15,15 @@ async function getRawSortedPosts(): Promise<CollectionEntry<"posts">[]> {
 		import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
 
 	let apiPosts: CollectionEntry<"posts">[] = [];
+	let apiConnected = false;
 	try {
-		const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts?pageSize=100`, {
+		const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts?pageSize=500`, {
 			signal: AbortSignal.timeout(3000),
 		});
 		if (res.ok) {
 			const json = await res.json();
-			if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+			if (json.success && Array.isArray(json.data)) {
+				apiConnected = true;
 				apiPosts = json.data.map((p: any) => ({
 					id: p.slug || String(p.id),
 					body: p.content || "",
@@ -54,22 +56,19 @@ async function getRawSortedPosts(): Promise<CollectionEntry<"posts">[]> {
 		}
 	} catch {}
 
-	let localPosts: CollectionEntry<"posts">[] = [];
-	try {
-		localPosts = await getCollection("posts", ({ data }) => {
-			return import.meta.env.PROD ? data.draft !== true : true;
-		});
-	} catch {}
-
-	const combined = [...apiPosts];
-	for (const local of localPosts) {
-		if (!combined.some((p) => p.id === local.id)) {
-			combined.push(local);
-		}
+	let postsToUse: CollectionEntry<"posts">[] = [];
+	if (apiConnected) {
+		postsToUse = apiPosts;
+	} else {
+		try {
+			postsToUse = await getCollection("posts", ({ data }) => {
+				return import.meta.env.PROD ? data.draft !== true : true;
+			});
+		} catch {}
 	}
 
-	for (const post of combined) validatePublicationMetadata(post);
-	const sorted = combined.sort(comparePublicationEntries);
+	for (const post of postsToUse) validatePublicationMetadata(post);
+	const sorted = postsToUse.sort(comparePublicationEntries);
 	initPostIdMap(sorted);
 	return sorted;
 }
@@ -116,13 +115,11 @@ export type Tag = {
 };
 
 export async function getTagList(): Promise<Tag[]> {
-	const allBlogPosts = await getCollection<"posts">("posts", ({ data }) => {
-		return import.meta.env.PROD ? data.draft !== true : true;
-	});
+	const allBlogPosts = await getRawSortedPosts();
 
 	const countMap: { [key: string]: number } = {};
 	allBlogPosts.forEach((post: { data: { tags: string[] } }) => {
-		post.data.tags.forEach((tag: string) => {
+		(post.data.tags || []).forEach((tag: string) => {
 			if (!countMap[tag]) countMap[tag] = 0;
 			countMap[tag]++;
 		});
@@ -143,9 +140,7 @@ export type Category = {
 };
 
 export async function getCategoryList(): Promise<Category[]> {
-	const allBlogPosts = await getCollection<"posts">("posts", ({ data }) => {
-		return import.meta.env.PROD ? data.draft !== true : true;
-	});
+	const allBlogPosts = await getRawSortedPosts();
 	const count: { [key: string]: number } = {};
 	allBlogPosts.forEach((post: { data: { category: string | null } }) => {
 		if (!post.data.category) {
@@ -241,13 +236,15 @@ export async function getSortedMoments(): Promise<MomentItem[]> {
 		import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
 
 	let apiMoments: MomentItem[] = [];
+	let apiConnected = false;
 	try {
 		const res = await fetch(`${apiBase.replace(/\/$/, "")}/moments`, {
 			signal: AbortSignal.timeout(3000),
 		});
 		if (res.ok) {
 			const json = await res.json();
-			if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+			if (json.success && Array.isArray(json.data)) {
+				apiConnected = true;
 				apiMoments = json.data.map((m: any) => ({
 					id: String(m.id),
 					published: new Date(m.createdAt).toISOString(),
@@ -262,42 +259,40 @@ export async function getSortedMoments(): Promise<MomentItem[]> {
 		}
 	} catch {}
 
-	let entries: CollectionEntry<"moments">[] = [];
-	try {
-		entries = await getCollection("moments", ({ data }) => {
-			return import.meta.env.PROD ? data.draft !== true : true;
-		});
-	} catch {}
-
-	momentsRendererPromise ??= siteMarkdownProcessor.createRenderer({});
-	const renderer = await momentsRendererPromise;
-
-	const localMoments = await Promise.all(
-		entries.map(async (entry) => {
-			const { code } = await renderer.render(entry.body ?? "", {
-				frontmatter: entry.data as unknown as Record<string, unknown>,
+	let momentsToUse: MomentItem[] = [];
+	if (apiConnected) {
+		momentsToUse = apiMoments;
+	} else {
+		let entries: CollectionEntry<"moments">[] = [];
+		try {
+			entries = await getCollection("moments", ({ data }) => {
+				return import.meta.env.PROD ? data.draft !== true : true;
 			});
-			return {
-				id: entry.id,
-				published: new Date(entry.data.published).toISOString(),
-				html: code,
-				pinned: entry.data.pinned,
-				location: entry.data.location,
-				mood: entry.data.mood,
-				tags: entry.data.tags,
-				images: entry.data.images.map(withMomentThumbnails),
-			} satisfies MomentItem;
-		}),
-	);
+		} catch {}
 
-	const combined = [...apiMoments];
-	for (const local of localMoments) {
-		if (!combined.some((m) => m.id === local.id)) {
-			combined.push(local);
-		}
+		momentsRendererPromise ??= siteMarkdownProcessor.createRenderer({});
+		const renderer = await momentsRendererPromise;
+
+		momentsToUse = await Promise.all(
+			entries.map(async (entry) => {
+				const { code } = await renderer.render(entry.body ?? "", {
+					frontmatter: entry.data as unknown as Record<string, unknown>,
+				});
+				return {
+					id: entry.id,
+					published: new Date(entry.data.published).toISOString(),
+					html: code,
+					pinned: entry.data.pinned,
+					location: entry.data.location,
+					mood: entry.data.mood,
+					tags: entry.data.tags,
+					images: entry.data.images.map(withMomentThumbnails),
+				} satisfies MomentItem;
+			}),
+		);
 	}
 
-	return combined.sort((a, b) => {
+	return momentsToUse.sort((a, b) => {
 		if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
 		return new Date(b.published).getTime() - new Date(a.published).getTime();
 	});

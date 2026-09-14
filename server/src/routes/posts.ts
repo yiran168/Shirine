@@ -15,7 +15,7 @@ postsRouter.get("/", async (c) => {
     const { page = "1", pageSize = "10", category, tag, search } = c.req.query();
 
     const p = Math.max(1, parseInt(page) || 1);
-    const limit = Math.max(1, Math.min(50, parseInt(pageSize) || 10));
+    const limit = Math.max(1, Math.min(500, parseInt(pageSize) || 10));
     const offset = (p - 1) * limit;
 
     // Filter conditions
@@ -92,6 +92,7 @@ postsRouter.get("/", async (c) => {
         permalink: post.permalink,
         title: post.title,
         description: post.description,
+        content: post.content,
         image: post.image,
         category: post.category,
         tags: parsedTags,
@@ -254,7 +255,7 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
   try {
     const user = c.get("user")!;
     const db = getDb(c.env.DB);
-    const id = parseInt(c.req.param("id"));
+    const id = parseInt(c.req.param("id") || "0", 10);
 
     if (isNaN(id)) {
       return c.json({ success: false, error: "Invalid post ID" }, 400);
@@ -438,7 +439,7 @@ postsRouter.post("/", requireAdmin, async (c) => {
 postsRouter.put("/:id", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
-    const id = parseInt(c.req.param("id"));
+    const id = parseInt(c.req.param("id") || "0", 10);
     if (isNaN(id)) {
       return c.json({ success: false, error: "Invalid post ID" }, 400);
     }
@@ -504,7 +505,7 @@ postsRouter.put("/:id", requireAdmin, async (c) => {
 postsRouter.delete("/:id", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
-    const id = parseInt(c.req.param("id"));
+    const id = parseInt(c.req.param("id") || "0", 10);
     if (isNaN(id)) {
       return c.json({ success: false, error: "Invalid post ID" }, 400);
     }

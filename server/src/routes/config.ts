@@ -39,8 +39,8 @@ export const defaultSiteConfig = {
     },
     banner: {
       src: {
-        desktop: ["/assets/banner/1.webp"],
-        mobile: ["/assets/banner/1.webp"],
+        desktop: ["assets/images/banner/desktop/1.webp"],
+        mobile: ["assets/images/banner/mobile/1.webp"],
       },
       position: "center",
       dim: { enable: true, opacity: 0.24 },
@@ -48,10 +48,11 @@ export const defaultSiteConfig = {
         enable: true,
         title: "Shirine",
         subtitle: [
-          "唯美、灵动与自由的记忆碎片",
-          "Every moment is worth remembering",
+          "特別なことはないけど、君がいると十分です",
           "今でもあなたは私の光",
+          "君ってさ、知らないうちに我的毎日になってたよ",
           "君と話すと、なんか毎日がちょっと楽しくなるんだ",
+          "今日はなんでもない日。でも、ちょっとだけいい日",
         ],
         typewriter: {
           enable: true,
@@ -69,14 +70,79 @@ export const defaultSiteConfig = {
     },
   },
   profile: {
-    avatar: "/assets/avatar/avatar.webp",
+    avatar: "assets/images/demo-avatar.webp",
     name: "Shirine",
-    bio: "Love & Freedom. Coding with anime aesthetics.",
+    bio: "The rain remembers what the sky forgot to say.",
     links: [
+      {
+        name: "Twitter",
+        icon: "fa6-brands:twitter",
+        url: "https://twitter.com",
+      },
+      {
+        name: "Steam",
+        icon: "fa6-brands:steam",
+        url: "https://store.steampowered.com",
+      },
       {
         name: "GitHub",
         icon: "fa6-brands:github",
-        url: "https://github.com/yiran168/Shirine",
+        url: "https://github.com/LyraVoid/Shirine",
+      },
+    ],
+  },
+  announcement: {
+    enable: true,
+    title: "",
+    content: "The only way to do great work is to love what you do",
+    link: {
+      enable: true,
+      text: "GitHub",
+      url: "https://github.com",
+    },
+  },
+  music: {
+    enable: true,
+    provider: "mixed",
+    defaultVolume: 0.7,
+    defaultMode: "sequence",
+    meting: {
+      server: "netease",
+      type: "playlist",
+      id: "14164869977",
+    },
+    tracks: [
+      {
+        id: "dazbee",
+        title: "口笛で愛は歌えない",
+        artist: "Dazbee",
+        cover: "assets/images/music/dazbee.webp",
+        source: "/assets/music/url/dazbee.mp3",
+        duration: 241,
+      },
+      {
+        id: "hitori",
+        title: "ひとり上手",
+        artist: "Kaya",
+        cover: "assets/images/music/hitori.webp",
+        source: "/assets/music/url/hitori.mp3",
+        duration: 253,
+      },
+      {
+        id: "xryx",
+        title: "眩耀夜行",
+        artist: "スリーズブーケ",
+        cover: "assets/images/music/xryx.webp",
+        source: "/assets/music/url/xryx.mp3",
+        duration: 245,
+      },
+      {
+        id: "cl",
+        title: "春雷の頃",
+        artist: "22/7",
+        cover: "assets/images/music/cl.webp",
+        source: "/assets/music/url/cl.mp3",
+        duration: 242,
       },
     ],
   },
@@ -184,13 +250,50 @@ configRouter.put("/site", requireAdmin, async (c) => {
     const db = getDb(c.env.DB);
     const body = await c.req.json();
 
-    // Check if flat fields from admin settings are submitted
-    if ("title" in body || "subtitle" in body || "themeHue" in body || "topAppBarAlign" in body) {
+    // 1. Check if flat site fields from admin settings are submitted
+    if (
+      "title" in body ||
+      "subtitle" in body ||
+      "themeHue" in body ||
+      "topAppBarAlign" in body ||
+      "wallpaperMode" in body ||
+      "texturePreset" in body ||
+      "textureOpacity" in body ||
+      "bannerDesktop" in body ||
+      "bannerMobile" in body ||
+      "bannerSubtitles" in body
+    ) {
       const siteUpdates: Record<string, any> = {};
       if (body.title !== undefined) siteUpdates.title = body.title;
       if (body.subtitle !== undefined) siteUpdates.subtitle = body.subtitle;
       if (body.themeHue !== undefined) siteUpdates.themeColor = { hue: Number(body.themeHue) || 315 };
       if (body.topAppBarAlign !== undefined) siteUpdates.topAppBar = { contentAlign: body.topAppBarAlign };
+      if (body.wallpaperMode !== undefined) siteUpdates.wallpaperMode = { defaultMode: body.wallpaperMode };
+      if (body.texturePreset !== undefined || body.textureOpacity !== undefined) {
+        siteUpdates.texture = {
+          enable: body.texturePreset !== "none",
+          defaultPreset: body.texturePreset || "starlight",
+          defaultOpacity: Number(body.textureOpacity) || 0.12,
+          allowMotion: true,
+        };
+      }
+      if (body.bannerDesktop !== undefined || body.bannerMobile !== undefined || body.bannerSubtitles !== undefined) {
+        siteUpdates.banner = {};
+        if (body.bannerDesktop !== undefined) {
+          const arr = Array.isArray(body.bannerDesktop) ? body.bannerDesktop : [body.bannerDesktop].filter(Boolean);
+          siteUpdates.banner.src = { ...(siteUpdates.banner.src || {}), desktop: arr };
+        }
+        if (body.bannerMobile !== undefined) {
+          const arr = Array.isArray(body.bannerMobile) ? body.bannerMobile : [body.bannerMobile].filter(Boolean);
+          siteUpdates.banner.src = { ...(siteUpdates.banner.src || {}), mobile: arr };
+        }
+        if (body.bannerSubtitles !== undefined) {
+          const subs = Array.isArray(body.bannerSubtitles)
+            ? body.bannerSubtitles
+            : String(body.bannerSubtitles).split("\n").map((s: string) => s.trim()).filter(Boolean);
+          siteUpdates.banner.homeText = { subtitle: subs };
+        }
+      }
 
       const existingRow = await db.query.siteConfigs.findFirst({
         where: eq(schema.siteConfigs.key, "site"),
@@ -215,7 +318,124 @@ configRouter.put("/site", requireAdmin, async (c) => {
         });
     }
 
-    // Check if domain updates are submitted
+    // 2. Profile updates
+    if ("authorName" in body || "bio" in body || "avatar" in body || "profileLinks" in body) {
+      const profileUpdates: Record<string, any> = {};
+      if (body.authorName !== undefined) profileUpdates.name = body.authorName;
+      if (body.bio !== undefined) profileUpdates.bio = body.bio;
+      if (body.avatar !== undefined) profileUpdates.avatar = body.avatar;
+      if (body.profileLinks !== undefined && Array.isArray(body.profileLinks)) {
+        profileUpdates.links = body.profileLinks;
+      }
+
+      const existingProfile = await db.query.siteConfigs.findFirst({
+        where: eq(schema.siteConfigs.key, "profile"),
+      });
+      let baseProfile = defaultSiteConfig.profile;
+      if (existingProfile) {
+        try {
+          baseProfile = deepMerge(defaultSiteConfig.profile, JSON.parse(existingProfile.value));
+        } catch {}
+      }
+      const updatedProfile = deepMerge(baseProfile, profileUpdates);
+      await db
+        .insert(schema.siteConfigs)
+        .values({
+          key: "profile",
+          value: JSON.stringify(updatedProfile),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.siteConfigs.key,
+          set: { value: JSON.stringify(updatedProfile), updatedAt: new Date() },
+        });
+    }
+
+    // 3. Music updates
+    if (
+      "musicEnable" in body ||
+      "musicProvider" in body ||
+      "musicVolume" in body ||
+      "musicTracks" in body ||
+      "musicMetingId" in body ||
+      "musicMetingServer" in body
+    ) {
+      const musicUpdates: Record<string, any> = {};
+      if (body.musicEnable !== undefined) musicUpdates.enable = Boolean(body.musicEnable);
+      if (body.musicProvider !== undefined) musicUpdates.provider = body.musicProvider;
+      if (body.musicVolume !== undefined) musicUpdates.defaultVolume = Number(body.musicVolume);
+      if (body.musicTracks !== undefined && Array.isArray(body.musicTracks)) {
+        musicUpdates.tracks = body.musicTracks;
+      }
+      if (body.musicMetingId !== undefined || body.musicMetingServer !== undefined) {
+        musicUpdates.meting = {
+          server: body.musicMetingServer || "netease",
+          type: "playlist",
+          id: String(body.musicMetingId || "14164869977"),
+        };
+      }
+
+      const existingMusic = await db.query.siteConfigs.findFirst({
+        where: eq(schema.siteConfigs.key, "music"),
+      });
+      let baseMusic = defaultSiteConfig.music;
+      if (existingMusic) {
+        try {
+          baseMusic = deepMerge(defaultSiteConfig.music, JSON.parse(existingMusic.value));
+        } catch {}
+      }
+      const updatedMusic = deepMerge(baseMusic, musicUpdates);
+      await db
+        .insert(schema.siteConfigs)
+        .values({
+          key: "music",
+          value: JSON.stringify(updatedMusic),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.siteConfigs.key,
+          set: { value: JSON.stringify(updatedMusic), updatedAt: new Date() },
+        });
+    }
+
+    // 4. Announcement updates
+    if ("announcementTitle" in body || "announcementContent" in body || "announcementLinkText" in body || "announcementLinkUrl" in body || "announcementEnable" in body) {
+      const annUpdates: Record<string, any> = {};
+      if (body.announcementEnable !== undefined) annUpdates.enable = Boolean(body.announcementEnable);
+      if (body.announcementTitle !== undefined) annUpdates.title = body.announcementTitle;
+      if (body.announcementContent !== undefined) annUpdates.content = body.announcementContent;
+      if (body.announcementLinkText !== undefined || body.announcementLinkUrl !== undefined) {
+        annUpdates.link = {
+          enable: Boolean(body.announcementLinkUrl),
+          text: body.announcementLinkText || "链接",
+          url: body.announcementLinkUrl || "",
+        };
+      }
+
+      const existingAnn = await db.query.siteConfigs.findFirst({
+        where: eq(schema.siteConfigs.key, "announcement"),
+      });
+      let baseAnn = defaultSiteConfig.announcement;
+      if (existingAnn) {
+        try {
+          baseAnn = deepMerge(defaultSiteConfig.announcement, JSON.parse(existingAnn.value));
+        } catch {}
+      }
+      const updatedAnn = deepMerge(baseAnn, annUpdates);
+      await db
+        .insert(schema.siteConfigs)
+        .values({
+          key: "announcement",
+          value: JSON.stringify(updatedAnn),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.siteConfigs.key,
+          set: { value: JSON.stringify(updatedAnn), updatedAt: new Date() },
+        });
+    }
+
+    // 5. Domain updates: { domain: "...", config: {...} }
     if (typeof body.domain === "string" && "config" in body) {
       const domainKey = body.domain;
       const defaultDomain = (defaultSiteConfig as any)[domainKey] || {};
@@ -240,9 +460,10 @@ configRouter.put("/site", requireAdmin, async (c) => {
           target: schema.siteConfigs.key,
           set: { value: JSON.stringify(mergedVal), updatedAt: new Date() },
         });
-    } else if (body.site || body.profile || body.sidebar || body.footer) {
+    } else if (body.site || body.profile || body.music || body.announcement || body.sidebar || body.footer) {
       // Domain-structured full object
       for (const [key, val] of Object.entries(body)) {
+        if (!(key in defaultSiteConfig)) continue;
         const defaultDomain = (defaultSiteConfig as any)[key] || {};
         const mergedVal = deepMerge(defaultDomain, val);
         await db

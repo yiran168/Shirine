@@ -35,9 +35,9 @@ import {
 	removeFileExtension,
 } from "@utils/permalink-utils";
 import { getDir, getPostUrl, getPostUrlBySlug } from "@utils/url-utils";
-import { Icon } from "astro-icon/components";
 import katexStylesheet from "katex/dist/katex.css?url";
 import overlayScrollbarsStylesheet from "overlayscrollbars/overlayscrollbars.css?url";
+import { renderDynamicMarkdown } from "@utils/dynamic-markdown";
 import {
 	articleConfig,
 	commentConfig,
@@ -107,8 +107,27 @@ const isEncrypted = Boolean(
 );
 const scope = `post:${entry.id}`;
 
-const { Content, headings, remarkPluginFrontmatter } = await render(entry);
-const renderedMarkdownSyntaxes = remarkPluginFrontmatter.markdownSyntaxes;
+let Content: any = null;
+let headings: any[] = [];
+let remarkPluginFrontmatter: any = { words: 0, minutes: 0, markdownSyntaxes: [] };
+let dynamicHtml = "";
+
+try {
+	const rendered = await render(entry);
+	Content = rendered.Content;
+	headings = rendered.headings;
+	remarkPluginFrontmatter = rendered.remarkPluginFrontmatter;
+} catch {
+	dynamicHtml = renderDynamicMarkdown(entry.body);
+	const words = entry.body.length;
+	remarkPluginFrontmatter = {
+		words,
+		minutes: Math.ceil(words / 300) || 1,
+		markdownSyntaxes: [],
+	};
+}
+
+const renderedMarkdownSyntaxes = remarkPluginFrontmatter?.markdownSyntaxes || [];
 const sourceMarkdownSyntaxes = hasMarkdownSyntax(
 	renderedMarkdownSyntaxes,
 	"expressive-code",
@@ -266,12 +285,14 @@ const jsonLd = {
                     scope={scope}
                     hint={entry.data.passwordHint}
                 >
-                    <Content />
+                    {Content ? <Content /> : <div class="prose max-w-none text-[var(--on-surface)]" set:html={dynamicHtml} />}
                 </EncryptedContent>
-            ) : (
+            ) : Content ? (
                 <Markdown class="mb-6 onload-animation">
                     <Content />
                 </Markdown>
+            ) : (
+                <div class="mb-6 onload-animation prose prose-neutral dark:prose-invert max-w-none text-[var(--on-surface)] leading-relaxed" set:html={dynamicHtml}></div>
             )}
 
 			{licenseConfig.enable && <License title={entry.data.title} slug={entry.id} pubDate={entry.data.published} class="mb-6 rounded-xl license-container onload-animation"></License>}

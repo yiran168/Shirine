@@ -164,13 +164,16 @@ pagesRouter.post("/", requireAdmin, async (c) => {
 pagesRouter.put("/:idOrSlug", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
-    const idOrSlug = c.req.param("idOrSlug");
+    const idOrSlug = c.req.param("idOrSlug") || "";
+    if (!idOrSlug) {
+      return c.json({ success: false, error: "Page slug or ID is required" }, 400);
+    }
     const isId = /^\d+$/.test(idOrSlug);
 
     let existing = null;
     if (isId) {
       existing = await db.query.pages.findFirst({
-        where: eq(schema.pages.id, parseInt(idOrSlug)),
+        where: eq(schema.pages.id, parseInt(idOrSlug, 10)),
       });
     }
     if (!existing) {
@@ -222,13 +225,16 @@ pagesRouter.put("/:idOrSlug", requireAdmin, async (c) => {
 pagesRouter.delete("/:idOrSlug", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
-    const idOrSlug = c.req.param("idOrSlug");
+    const idOrSlug = c.req.param("idOrSlug") || "";
+    if (!idOrSlug) {
+      return c.json({ success: false, error: "Page slug or ID is required" }, 400);
+    }
     const isId = /^\d+$/.test(idOrSlug);
 
     let existing = null;
     if (isId) {
       existing = await db.query.pages.findFirst({
-        where: eq(schema.pages.id, parseInt(idOrSlug)),
+        where: eq(schema.pages.id, parseInt(idOrSlug, 10)),
       });
     }
     if (!existing) {

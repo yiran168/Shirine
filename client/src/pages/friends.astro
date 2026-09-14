@@ -7,7 +7,8 @@ import { i18n } from "@i18n/translation";
 import MainGridLayout from "@layouts/MainGridLayout.astro";
 import { getFriendsList, type FriendItem } from "../data/friends";
 
-let allFriends: FriendItem[] = [...getFriendsList()];
+let allFriends: FriendItem[] = [];
+let apiConnected = false;
 
 const apiBase = import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
 try {
@@ -18,25 +19,23 @@ try {
 		const json = await res.json();
 		const list = json.data || json.friends || [];
 		if (Array.isArray(list)) {
-			const existingUrls = new Set(allFriends.map((f) => f.siteurl.replace(/\/$/, "").toLowerCase()));
-			for (const f of list) {
-				const norm = (f.url || "").replace(/\/$/, "").toLowerCase();
-				if (norm && !existingUrls.has(norm)) {
-					existingUrls.add(norm);
-					allFriends.push({
-						id: f.id,
-						title: f.name,
-						imgurl: f.avatar,
-						desc: f.desc || "",
-						siteurl: f.url,
-						tags: ["Friend"],
-					});
-				}
-			}
+			apiConnected = true;
+			allFriends = list.map((f: any) => ({
+				id: f.id,
+				title: f.name,
+				imgurl: f.avatar,
+				desc: f.desc || "",
+				siteurl: f.url,
+				tags: Array.isArray(f.tags) ? f.tags : ["Friend"],
+			}));
 		}
 	}
 } catch (e) {
 	// Fallback silently to static list
+}
+
+if (!apiConnected) {
+	allFriends = [...getFriendsList()];
 }
 ---
 

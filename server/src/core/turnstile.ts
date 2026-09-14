@@ -4,7 +4,7 @@ import { getDb, schema } from "../db";
 import { eq } from "drizzle-orm";
 
 export async function verifyTurnstile(
-  c: Context<{ Bindings: Env }>,
+  c: Context<any>,
   token?: string
 ): Promise<{ success: boolean; message?: string }> {
   try {

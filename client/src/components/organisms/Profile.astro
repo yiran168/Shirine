@@ -8,7 +8,8 @@ import Tooltip from "@components/atoms/overlay/Tooltip.svelte";
 import UmamiStats from "@components/organisms/UmamiStats.astro";
 import { resolveImageAsset } from "@utils/asset-utils";
 import { Icon } from "astro-icon/components";
-import { profileConfig } from "@/config";
+import { profileConfig as staticProfileConfig } from "@/config";
+import { getDynamicSiteConfig } from "@utils/dynamic-config";
 import type { ProfileWidget } from "@/types/sidebarConfig";
 import { url } from "../../utils/url-utils";
 
@@ -23,7 +24,7 @@ const className = Astro.props.class;
 const style = Astro.props.style;
 const priority = Astro.props.priority ?? false;
 
-const config = profileConfig;
+const { profile: config } = await getDynamicSiteConfig();
 const avatarAsset = await resolveImageAsset(config.avatar ?? "");
 let avatarUrl = typeof avatarAsset === "string" ? avatarAsset : avatarAsset.src;
 let avatarSrcset: string | undefined;

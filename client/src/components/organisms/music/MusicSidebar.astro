@@ -5,8 +5,9 @@ import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import { resolveImageAsset } from "@utils/asset-utils";
 import stylus from "stylus";
-import { musicConfig, resolveMusicOptions } from "@/config/musicConfig";
+import { musicConfig as staticMusicConfig, resolveMusicOptions } from "@/config/musicConfig";
 import { musicTracks } from "@/data/music";
+import { getDynamicSiteConfig } from "@utils/dynamic-config";
 import type { MusicWidget } from "@/types/sidebarConfig";
 import MusicSidebarClient from "./MusicSidebarClient.svelte";
 import { musicSidebarStylus } from "./musicSidebarStyles";
@@ -19,6 +20,8 @@ interface Props {
 
 const className = Astro.props.class;
 const style = Astro.props.style;
+const { music: dynamicMusic } = await getDynamicSiteConfig();
+const musicConfig = dynamicMusic ?? staticMusicConfig;
 const options = resolveMusicOptions(musicConfig);
 const configuredTracks =
 	musicConfig.tracks ??

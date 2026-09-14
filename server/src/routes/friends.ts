@@ -136,7 +136,7 @@ friendsRouter.post("/", requireAdmin, async (c) => {
 friendsRouter.put("/:id", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
-    const id = parseInt(c.req.param("id"));
+    const id = parseInt(c.req.param("id") || "0", 10);
     if (isNaN(id)) {
       return c.json({ success: false, error: "Invalid friend ID" }, 400);
     }
@@ -193,7 +193,7 @@ friendsRouter.put("/:id", requireAdmin, async (c) => {
 friendsRouter.delete("/:id", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
-    const id = parseInt(c.req.param("id"));
+    const id = parseInt(c.req.param("id") || "0", 10);
     if (isNaN(id)) {
       return c.json({ success: false, error: "Invalid friend ID" }, 400);
     }

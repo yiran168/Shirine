@@ -49,7 +49,18 @@ const imageBasePath = entry.filePath
 	? path.relative(path.resolve("src"), path.dirname(entry.filePath))
 	: path.join("content/posts/", getDir(entry.id));
 
-const { remarkPluginFrontmatter } = await render(entry);
+let remarkPluginFrontmatter: any = { words: 0, minutes: 0, excerpt: "" };
+try {
+	const rendered = await render(entry);
+	remarkPluginFrontmatter = rendered.remarkPluginFrontmatter;
+} catch {
+	const words = (entry.body || "").length;
+	remarkPluginFrontmatter = {
+		words,
+		minutes: Math.ceil(words / 300) || 1,
+		excerpt: description || "",
+	};
+}
 
 // 解析封面：本地相对路径 → 构建产物 URL（与 ImageWrapper 同法）
 let coverUrl = image;
@@ -121,6 +132,10 @@ const categoryLink = category
 const tagLinks = tags.map((t) => ({ name: t.trim(), href: getTagUrl(t) }));
 
 const isEncrypted = isEncryptedPost(entry.data);
+const permissionType = (entry.data as any)?.permissionType || "public";
+const requiredPoints = (entry.data as any)?.requiredPoints || 0;
+const isUnlocked = (entry.data as any)?.isUnlocked ?? true;
+
 const words = remarkPluginFrontmatter.words ?? 0;
 const wordCount =
 	isEncrypted && entry.data.hideHomeContent
@@ -151,4 +166,7 @@ const excerpt =
 	category={categoryLink}
 	tags={tagLinks}
 	wordCount={wordCount}
+	permissionType={permissionType}
+	requiredPoints={requiredPoints}
+	isUnlocked={isUnlocked}
 />

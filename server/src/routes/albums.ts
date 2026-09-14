@@ -224,7 +224,7 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
   try {
     const user = c.get("user")!;
     const db = getDb(c.env.DB);
-    const id = parseInt(c.req.param("id"));
+    const id = parseInt(c.req.param("id") || "0", 10);
 
     if (isNaN(id)) {
       return c.json({ success: false, error: "Invalid album ID" }, 400);
@@ -394,7 +394,7 @@ albumsRouter.post("/", requireAdmin, async (c) => {
 albumsRouter.put("/:id", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
-    const id = parseInt(c.req.param("id"));
+    const id = parseInt(c.req.param("id") || "0", 10);
     if (isNaN(id)) {
       return c.json({ success: false, error: "Invalid album ID" }, 400);
     }
@@ -468,7 +468,7 @@ albumsRouter.put("/:id", requireAdmin, async (c) => {
 albumsRouter.delete("/:id", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
-    const id = parseInt(c.req.param("id"));
+    const id = parseInt(c.req.param("id") || "0", 10);
     if (isNaN(id)) {
       return c.json({ success: false, error: "Invalid album ID" }, 400);
     }
@@ -491,7 +491,7 @@ albumsRouter.delete("/:id", requireAdmin, async (c) => {
 albumsRouter.post("/:id/photos", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
-    const albumId = parseInt(c.req.param("id"));
+    const albumId = parseInt(c.req.param("id") || "0", 10);
     if (isNaN(albumId)) {
       return c.json({ success: false, error: "Invalid album ID" }, 400);
     }
@@ -533,7 +533,7 @@ albumsRouter.post("/:id/photos", requireAdmin, async (c) => {
 albumsRouter.delete("/photos/:photoId", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
-    const photoId = parseInt(c.req.param("photoId"));
+    const photoId = parseInt(c.req.param("photoId") || "0", 10);
     if (isNaN(photoId)) {
       return c.json({ success: false, error: "Invalid photo ID" }, 400);
     }

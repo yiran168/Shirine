@@ -115,7 +115,7 @@ momentsRouter.post("/", requireAdmin, async (c) => {
 momentsRouter.put("/:id", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
-    const id = parseInt(c.req.param("id"));
+    const id = parseInt(c.req.param("id") || "0", 10);
     if (isNaN(id)) {
       return c.json({ success: false, error: "Invalid moment ID" }, 400);
     }
@@ -165,7 +165,7 @@ momentsRouter.put("/:id", requireAdmin, async (c) => {
 momentsRouter.delete("/:id", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
-    const id = parseInt(c.req.param("id"));
+    const id = parseInt(c.req.param("id") || "0", 10);
     if (isNaN(id)) {
       return c.json({ success: false, error: "Invalid moment ID" }, 400);
     }

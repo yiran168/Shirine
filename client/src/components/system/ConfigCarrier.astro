@@ -1,7 +1,9 @@
 ---
-import { resolveTextureOptions, siteConfig } from "@/config";
+import { resolveTextureOptions } from "@/config";
+import { getDynamicSiteConfig } from "@utils/dynamic-config";
 
-const textureOptions = resolveTextureOptions();
+const { site: siteConfig } = await getDynamicSiteConfig();
+const textureOptions = resolveTextureOptions(siteConfig.texture, siteConfig.displaySettings?.texture);
 ---
 
 <div
