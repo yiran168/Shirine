@@ -31,6 +31,47 @@
   let loginPassword = $state("");
   let loginLoading = $state(false);
 
+  // Initial Setup Wizard State
+  let needsSetup = $state(false);
+  let setupUsername = $state("");
+  let setupPassword = $state("");
+  let setupConfirmPassword = $state("");
+  let setupNickname = $state("");
+  let setupToken = $state("");
+  let setupLoading = $state(false);
+
+  async function handleSetupAdmin() {
+    if (setupPassword !== setupConfirmPassword) {
+      showMessage("两次输入的密码不一致", true);
+      return;
+    }
+    setupLoading = true;
+    errorMsg = "";
+    try {
+      const res = await authApi.setupAdmin({
+        username: setupUsername,
+        password: setupPassword,
+        nickname: setupNickname,
+        setupToken: setupToken ? setupToken : undefined,
+      });
+      if (res.success && res.user) {
+        if (res.token) {
+          setToken(res.token);
+        }
+        authStore.setUser(res.user);
+        needsSetup = false;
+        showMessage("首位超级管理员初始化成功！欢迎使用 Shirine！");
+        loadDashboardData();
+      } else {
+        showMessage(res.error || "初始化失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message || "请求异常", true);
+    } finally {
+      setupLoading = false;
+    }
+  }
+
   // Overview Stats
   let stats = $state<{
     totalPosts: number;
@@ -820,7 +861,15 @@
   }
 
   onMount(async () => {
-    // Check current auth status
+    // 1. Check if initial setup is needed
+    try {
+      const setupRes = await authApi.getSetupStatus();
+      if (setupRes.success && setupRes.needsSetup) {
+        needsSetup = true;
+      }
+    } catch {}
+
+    // 2. Check current auth status
     const meRes = await authApi.me();
     if (meRes.success && meRes.user) {
       authStore.setUser(meRes.user);
@@ -890,47 +939,122 @@
 
   <!-- Content Container -->
   {#if !isAdmin}
-    <!-- Auth Gate / Admin Login -->
-    <div class="flex-1 flex items-center justify-center p-6">
-      <div class="w-full max-w-md p-8 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-2xl text-center">
-        <div class="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4">
-          <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+    {#if needsSetup}
+      <!-- Setup Wizard: Bootstrap Initial SuperAdmin -->
+      <div class="flex-1 flex items-center justify-center p-6">
+        <div class="w-full max-w-md p-8 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-2xl text-center">
+          <div class="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <h2 class="text-2xl font-bold mb-2">系统初始化向导</h2>
+          <p class="text-sm text-[var(--on-surface-variant)] mb-6">
+            欢迎部署 Shirine！检测到系统尚未初始化管理员账号，请在此创建首位超级管理员。
+          </p>
+          <form onsubmit={(e) => { e.preventDefault(); handleSetupAdmin(); }} class="space-y-4 text-left">
+            <div>
+              <label class="text-xs font-medium block mb-1.5">超级管理员账号</label>
+              <input
+                type="text"
+                bind:value={setupUsername}
+                placeholder="例如 admin"
+                required
+                minlength="3"
+                class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none"
+              />
+            </div>
+            <div>
+              <label class="text-xs font-medium block mb-1.5">管理员昵称</label>
+              <input
+                type="text"
+                bind:value={setupNickname}
+                placeholder="例如 Shirine Admin"
+                class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none"
+              />
+            </div>
+            <div>
+              <label class="text-xs font-medium block mb-1.5">登录密码 (至少6位)</label>
+              <input
+                type="password"
+                bind:value={setupPassword}
+                placeholder="请输入密码"
+                required
+                minlength="6"
+                class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none"
+              />
+            </div>
+            <div>
+              <label class="text-xs font-medium block mb-1.5">确认密码</label>
+              <input
+                type="password"
+                bind:value={setupConfirmPassword}
+                placeholder="请再次输入密码"
+                required
+                minlength="6"
+                class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none"
+              />
+            </div>
+            <div>
+              <label class="text-xs font-medium block mb-1.5">安装验证密钥 (若 Worker 未设置 SETUP_TOKEN 可留空)</label>
+              <input
+                type="text"
+                bind:value={setupToken}
+                placeholder="可选验证密钥"
+                class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={setupLoading}
+              class="w-full py-3 rounded-full bg-primary text-on-primary font-semibold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all disabled:opacity-50 mt-4"
+            >
+              {setupLoading ? "正在初始化系统..." : "完成初始化并登入"}
+            </button>
+          </form>
         </div>
-        <h2 class="text-2xl font-bold mb-2">需要管理员登录</h2>
-        <p class="text-sm text-[var(--on-surface-variant)] mb-6">
-          当前后台仅对超级管理员或管理员开放。首位注册者已自动获取超级管理员权限。
-        </p>
-        <form onsubmit={(e) => { e.preventDefault(); handleAdminLogin(); }} class="space-y-4 text-left">
-          <div>
-            <label class="text-xs font-medium block mb-1.5">用户名 / 邮箱</label>
-            <input
-              type="text"
-              bind:value={loginUsername}
-              placeholder="请输入管理员账号"
-              required
-              class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none"
-            />
-          </div>
-          <div>
-            <label class="text-xs font-medium block mb-1.5">登录密码</label>
-            <input
-              type="password"
-              bind:value={loginPassword}
-              placeholder="请输入密码"
-              required
-              class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loginLoading}
-            class="w-full py-3 rounded-full bg-primary text-on-primary font-semibold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all disabled:opacity-50 mt-4"
-          >
-            {loginLoading ? "验证中..." : "进入管理面板"}
-          </button>
-        </form>
       </div>
-    </div>
+    {:else}
+      <!-- Auth Gate / Admin Login -->
+      <div class="flex-1 flex items-center justify-center p-6">
+        <div class="w-full max-w-md p-8 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-2xl text-center">
+          <div class="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </div>
+          <h2 class="text-2xl font-bold mb-2">需要管理员登录</h2>
+          <p class="text-sm text-[var(--on-surface-variant)] mb-6">
+            当前后台仅对超级管理员或管理员开放。
+          </p>
+          <form onsubmit={(e) => { e.preventDefault(); handleAdminLogin(); }} class="space-y-4 text-left">
+            <div>
+              <label class="text-xs font-medium block mb-1.5">用户名 / 邮箱</label>
+              <input
+                type="text"
+                bind:value={loginUsername}
+                placeholder="请输入管理员账号"
+                required
+                class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none"
+              />
+            </div>
+            <div>
+              <label class="text-xs font-medium block mb-1.5">登录密码</label>
+              <input
+                type="password"
+                bind:value={loginPassword}
+                placeholder="请输入密码"
+                required
+                class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loginLoading}
+              class="w-full py-3 rounded-full bg-primary text-on-primary font-semibold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all disabled:opacity-50 mt-4"
+            >
+              {loginLoading ? "验证中..." : "进入管理面板"}
+            </button>
+          </form>
+        </div>
+      </div>
+    {/if}
   {:else}
     <!-- Main Admin Layout -->
     <div class="flex-1 flex flex-col md:flex-row">

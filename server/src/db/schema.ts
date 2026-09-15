@@ -20,6 +20,7 @@ export const users = sqliteTable("users", {
   nickname: text("nickname").default(""),
   points: integer("points").default(0).notNull(),
   status: text("status", { enum: ["active", "banned"] }).default("active").notNull(),
+  sessionVersion: integer("session_version").default(1).notNull(),
   lastCheckinDate: text("last_checkin_date"), // YYYY-MM-DD
   checkinStreak: integer("checkin_streak").default(0).notNull(),
   createdAt,
@@ -52,6 +53,7 @@ export const posts = sqliteTable("posts", {
   image: text("image").default("").notNull(),
   category: text("category").default("").notNull(),
   tags: text("tags").default("[]").notNull(), // JSON Array
+  lang: text("lang").default("zh_CN"),
   pinned: integer("pinned").default(0).notNull(),
   draft: integer("draft").default(0).notNull(),
   commentEnabled: integer("comment_enabled").default(1).notNull(),
@@ -63,7 +65,7 @@ export const posts = sqliteTable("posts", {
   password: text("password").default(""),
   passwordHint: text("password_hint").default(""),
   hideHomeContent: integer("hide_home_content").default(1).notNull(),
-  uid: integer("uid").references(() => users.id).notNull(),
+  uid: integer("uid").references(() => users.id, { onDelete: "set null" }),
   createdAt,
   updatedAt,
 }, (table) => ({
@@ -92,12 +94,14 @@ export const albums = sqliteTable("albums", {
   cover: text("cover").default("").notNull(),
   layout: text("layout").default("masonry").notNull(),
   columns: integer("columns").default(3).notNull(),
+  tags: text("tags").default("[]"),
+  hidden: integer("hidden").default(0).notNull(),
   permissionType: text("permission_type", { enum: ["public", "login_required", "points_required"] })
     .default("public")
     .notNull(),
   requiredPoints: integer("required_points").default(0).notNull(),
   draft: integer("draft").default(0).notNull(),
-  uid: integer("uid").references(() => users.id).notNull(),
+  uid: integer("uid").references(() => users.id, { onDelete: "set null" }),
   createdAt,
   updatedAt,
 });
@@ -138,7 +142,7 @@ export const moments = sqliteTable("moments", {
   tags: text("tags").default("[]").notNull(),
   pinned: integer("pinned").default(0).notNull(),
   draft: integer("draft").default(0).notNull(),
-  uid: integer("uid").references(() => users.id).notNull(),
+  uid: integer("uid").references(() => users.id, { onDelete: "set null" }),
   createdAt,
   updatedAt,
 });
@@ -150,7 +154,7 @@ export const pages = sqliteTable("pages", {
   title: text("title").notNull(),
   content: text("content").notNull(),
   draft: integer("draft").default(0).notNull(),
-  uid: integer("uid").references(() => users.id).notNull(),
+  uid: integer("uid").references(() => users.id, { onDelete: "set null" }),
   createdAt,
   updatedAt,
 });

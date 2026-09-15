@@ -62,6 +62,9 @@ async function request<T = any>(
 // Auth API
 // -------------------------------------------------------------
 export const authApi = {
+  getSetupStatus: () => request<{ needsSetup: boolean }>("/auth/setup/status", { method: "GET" }),
+  setupAdmin: (body: { username: string; password: string; nickname?: string; setupToken?: string }) =>
+    request("/auth/setup/admin", { method: "POST", body: JSON.stringify(body) }),
   register: (body: { username: string; password: string; nickname?: string; turnstileToken?: string }) =>
     request("/auth/register", { method: "POST", body: JSON.stringify(body) }),
   login: (body: { username: string; password: string; turnstileToken?: string }) =>

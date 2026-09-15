@@ -18,7 +18,8 @@
     }
   ],
   "vars": {
-    "JWT_SECRET": "shirine_super_secret_jwt_key_2026",
+    // Note: For production deployments, configure via `wrangler secret put JWT_SECRET`
+    "JWT_SECRET": "dev_fallback_jwt_secret_please_set_in_wrangler_secrets",
     "PUBLIC_R2_URL": ""
   }
 }

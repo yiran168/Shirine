@@ -13,11 +13,16 @@ export interface SeedPost {
   image: string;
   category: string;
   tags: string[];
+  lang?: string;
   pinned: number;
   draft: number;
   commentEnabled: number;
   permissionType: "public" | "login_required" | "points_required";
   requiredPoints: number;
+  encrypted?: number;
+  password?: string;
+  passwordHint?: string;
+  hideHomeContent?: number;
   createdAt: number;
 }
 
@@ -48,7 +53,10 @@ export interface SeedAlbum {
   layout: string;
   columns: number;
   tags: string[];
+  hidden: number;
   permissionType: "public" | "login_required" | "points_required";
+  requiredPoints: number;
+  draft: number;
   photos: SeedAlbumPhoto[];
 }
 
@@ -77,11 +85,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Admonition",
       "Shirine"
     ],
+    "lang": "en",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1787788800000
   },
   {
@@ -97,11 +110,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Example",
       "Audio Reader"
     ],
+    "lang": "zh_CN",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1787961600000
   },
   {
@@ -119,11 +137,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Collapse",
       "Shirine"
     ],
+    "lang": "en",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1787875200000
   },
   {
@@ -141,11 +164,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Annotation",
       "Shirine"
     ],
+    "lang": "en",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1787788800000
   },
   {
@@ -162,11 +190,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Blogging",
       "Demo"
     ],
+    "lang": "zh_CN",
     "pinned": 0,
     "draft": 1,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1656633600000
   },
   {
@@ -184,11 +217,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Encryption",
       "Markdown"
     ],
+    "lang": "en",
     "pinned": 1,
-    "draft": 0,
+    "draft": 1,
     "commentEnabled": 1,
-    "permissionType": "public",
+    "permissionType": "login_required",
     "requiredPoints": 0,
+    "encrypted": 1,
+    "password": "shirine-secret",
+    "passwordHint": "Hint: the demo unlock password is shirine-secret",
+    "hideHomeContent": 1,
     "createdAt": 1787184000000
   },
   {
@@ -205,11 +243,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Blogging",
       "Demo"
     ],
+    "lang": "zh_CN",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1712707200000
   },
   {
@@ -228,11 +271,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "M3E",
       "Blogging"
     ],
+    "lang": "zh_CN",
     "pinned": 1,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1787702400000
   },
   {
@@ -250,11 +298,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Image Grid",
       "Demo"
     ],
+    "lang": "zh_CN",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1783900800000
   },
   {
@@ -272,11 +325,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Typography",
       "Shirine"
     ],
+    "lang": "en",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1787875200000
   },
   {
@@ -295,11 +353,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Theme",
       "Shirine"
     ],
+    "lang": "en",
     "pinned": 1,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1787097600000
   },
   {
@@ -317,11 +380,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Markdown",
       "Fuwari"
     ],
+    "lang": "zh_CN",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1714521600000
   },
   {
@@ -334,11 +402,16 @@ export const PRESET_POSTS: SeedPost[] = [
     "image": "",
     "category": "",
     "tags": [],
+    "lang": "zh_CN",
     "pinned": 0,
     "draft": 1,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1788048000000
   },
   {
@@ -354,11 +427,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Markdown",
       "Shirine"
     ],
+    "lang": "zh_CN",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1787875200000
   },
   {
@@ -376,11 +454,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Markdown",
       "Mermaid"
     ],
+    "lang": "en",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1714608000000
   },
   {
@@ -397,11 +480,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Blogging",
       "Demo"
     ],
+    "lang": "zh_CN",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1696118400000
   },
   {
@@ -419,35 +507,17 @@ export const PRESET_POSTS: SeedPost[] = [
       "Typography",
       "Shirine"
     ],
+    "lang": "en",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1787875200000
-  },
-  {
-    "slug": "mdx-showcase",
-    "alias": null,
-    "permalink": null,
-    "title": "MDX Integration and M3E Atomic Components",
-    "description": "A comprehensive guide to composing rich interactive articles in Shirine using MDX, Svelte 5 interactive islands, and Material 3 Expressive design tokens.",
-    "content": "import Button from \"@components/atoms/action/Button.svelte\";\nimport Chips from \"@components/atoms/action/Chips.svelte\";\nimport Card from \"@components/atoms/display/Card.svelte\";\nimport AccentBar from \"@components/atoms/display/AccentBar.svelte\";\nimport Badge from \"@components/atoms/display/Badge.svelte\";\nimport Divider from \"@components/atoms/display/Divider.svelte\";\nimport Skeleton from \"@components/atoms/display/Skeleton.svelte\";\nimport LoadingIndicator from \"@components/atoms/feedback/LoadingIndicator.svelte\";\nimport ProgressIndicator from \"@components/atoms/feedback/ProgressIndicator.svelte\";\nimport TextField from \"@components/atoms/input/TextField.svelte\";\nimport Switch from \"@components/atoms/selection/Switch.svelte\";\nimport Checkbox from \"@components/atoms/selection/Checkbox.svelte\";\nimport SegmentedButton from \"@components/atoms/selection/SegmentedButton.svelte\";\nimport Slider from \"@components/atoms/selection/Slider.svelte\";\n\nexport const authorInfo = {\n  framework: \"Astro 7\",\n  ui: \"Svelte 5\",\n  tokens: \"M3E Design Tokens\",\n  architecture: \"Islands Architecture\"\n};\n\nexport const showcaseItems = [\n  { name: \"Atomic Component Embedding\", desc: \"Directly import and render 60+ M3E atoms and molecules in article content\" },\n  { name: \"Svelte 5 Islands\", desc: \"Selective hydration via client:visible ensures zero unnecessary JavaScript overhead\" },\n  { name: \"JSX Expressions\", desc: \"Native JavaScript variables, data mappings, and conditional rendering\" },\n  { name: \"Extension Pipeline\", desc: \"Unified SSOT compilation for Mermaid, KaTeX, Admonitions, and Expressive Code\" }\n];\n\nexport const filterChipOptions = [\n  { value: \"all\", label: \"All Components\" },\n  { value: \"display\", label: \"Display Atoms\" },\n  { value: \"feedback\", label: \"Feedback\" },\n  { value: \"action\", label: \"Interactive\" }\n];\n\nexport const segmentedOptions = [\n  { value: \"linear\", label: \"Linear\" },\n  { value: \"circular\", label: \"Circular\" },\n  { value: \"morph\", label: \"Morphing\" }\n];\n\n:::tip\n**MDX (Markdown + JSX)** bridges the gap between static writing and application interfaces. In Shirine, authors can seamlessly mix dynamic logic, reactive Svelte 5 components, and Material 3 design tokens directly within post content.\n:::\n\n## 1. Markdown vs MDX Capability Matrix\n\n| Feature | Standard Markdown (`.md`) | Shirine MDX (`.mdx`) | Execution Mode |\n| :--- | :--- | :--- | :--- |\n| **Typography & Structure** | Full Support | Full Support | Static SSR |\n| **Code Highlighting** | Line Numbers, Frames, Collapsible | Line Numbers, Frames, Collapsible | Static SSR (Expressive Code) |\n| **Diagrams & Mathematics** | Mermaid, KaTeX | Mermaid, KaTeX | Client Enhanced |\n| **Callout Admonitions** | Note, Tip, Important, Warning, Caution | Note, Tip, Important, Warning, Caution | Static SSR |\n| **M3E Display Atoms** | Not Available | Direct Integration (`<Card>`, `<Skeleton>`) | Pure SSR (Zero Client JS) |\n| **Svelte 5 Reactive Islands** | Not Available | On-Demand Hydration (`<Button>`, `<Switch>`) | `client:visible` Lazy Hydrated |\n| **Feedback & Loading Atoms** | Not Available | Animated Morph (`<LoadingIndicator>`) | `client:visible` Reactive |\n| **Dynamic JSX Expressions** | Not Available | Native Evaluation (`{authorInfo.ui}`) | Compile-Time / Client |\n\n---\n\n## 2. Dynamic Expressions and Data Mapping\n\nMDX allows declaring scoped constants using `export const` at the top of the file, which can be evaluated inline or mapped across templates:\n\n- **Core Framework**: {authorInfo.framework}\n- **UI Engine**: {authorInfo.ui}\n- **Design Tokens**: {authorInfo.tokens}\n- **Architecture Pattern**: {authorInfo.architecture}\n\nArrays and collections can be rendered dynamically into grid layouts:\n\n<div class=\"grid grid-cols-1 md:grid-cols-2 gap-4 my-6\">\n  {showcaseItems.map((item, idx) => (\n    <div key={item.name} class=\"p-4 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-low)]\">\n      <div class=\"flex items-center gap-2 mb-1\">\n        <span class=\"w-6 h-6 rounded-full bg-[var(--primary)] text-[var(--on-primary)] text-xs flex items-center justify-center font-bold\">\n          {idx + 1}\n        </span>\n        <span class=\"font-bold text-[var(--on-surface)]\">{item.name}</span>\n      </div>\n      <p class=\"text-sm text-[var(--on-surface-variant)] m-0\">{item.desc}</p>\n    </div>\n  ))}\n</div>\n\n---\n\n## 3. M3E Display and Layout Primitives (SSR-Only)\n\nIn accordance with Shirine's component architecture (`docs/atomic-structure.md`), stateless display components output clean, accessible semantic HTML with no client-side runtime payload.\n\n### 3.1 Card Containers (`Card.svelte`)\n\n<div class=\"grid grid-cols-1 md:grid-cols-3 gap-4 my-6\">\n  <Card variant=\"filled\" class=\"!p-5\">\n    <div class=\"font-bold text-[var(--primary)] mb-2\">Filled Card</div>\n    <div class=\"text-sm text-[var(--on-surface-variant)]\">Default container background with no elevation shadow. Ideal for grouped content blocks.</div>\n  </Card>\n\n  <Card variant=\"elevated\" class=\"!p-5\">\n    <div class=\"font-bold text-[var(--primary)] mb-2\">Elevated Card</div>\n    <div class=\"text-sm text-[var(--on-surface-variant)]\">Level 1 container elevation with interactive state layering for heightened visual focus.</div>\n  </Card>\n\n  <Card variant=\"outlined\" class=\"!p-5\">\n    <div class=\"font-bold text-[var(--primary)] mb-2\">Outlined Card</div>\n    <div class=\"text-sm text-[var(--on-surface-variant)]\">A crisp 1px outline boundary providing clean separation on neutral surfaces.</div>\n  </Card>\n</div>\n\n### 3.2 Accent Bars and Badges (`AccentBar` & `Badge`)\n\n<div class=\"flex items-center gap-4 my-4 p-4 rounded-lg bg-[var(--surface-container-high)]\">\n  <AccentBar size=\"large\" />\n  <div class=\"flex-1\">\n    <span class=\"font-bold text-lg\">System Announcement</span>\n    <p class=\"text-xs text-[var(--on-surface-variant)] m-0\">Combine AccentBar with Badge to build prominent visual callouts</p>\n  </div>\n  <Badge>M3E v0.192</Badge>\n</div>\n\n### 3.3 Skeleton Placeholders (`Skeleton.svelte`)\n\nFor previewing layout skeletons or prototyping async states:\n\n<div class=\"flex flex-col gap-3 my-6 p-5 rounded-xl border border-[var(--outline-variant)] bg-[var(--surface-container-low)]\">\n  <div class=\"flex items-center gap-3\">\n    <Skeleton variant=\"circle\" width=\"2.5rem\" height=\"2.5rem\" />\n    <div class=\"flex flex-col gap-1.5 flex-1\">\n      <Skeleton variant=\"text\" width=\"40%\" height=\"0.875rem\" />\n      <Skeleton variant=\"text\" width=\"25%\" height=\"0.75rem\" />\n    </div>\n  </div>\n  <Skeleton variant=\"rect\" width=\"100%\" height=\"3rem\" radius=\"0.5rem\" />\n</div>\n\n---\n\n## 4. Feedback and Loading Indicators\n\nShirine features full-fidelity Material 3 Expressive motion and feedback atoms:\n\n### 4.1 Morphing Loading Indicator (`LoadingIndicator.svelte`)\n\nImplemented with `androidx.graphics.shapes` polygon morphing, providing smooth spring-interpolated 7-shape animations:\n\n<div class=\"grid grid-cols-1 md:grid-cols-3 gap-4 my-6 p-6 rounded-2xl bg-[var(--surface-container)] border border-[var(--outline-variant)] text-center\">\n  <div class=\"flex flex-col items-center gap-2\">\n    <div class=\"h-16 flex items-center justify-center\">\n      <LoadingIndicator client:visible />\n    </div>\n    <span class=\"text-xs text-[var(--on-surface-variant)]\">Indeterminate Shape Morph</span>\n  </div>\n\n  <div class=\"flex flex-col items-center gap-2\">\n    <div class=\"h-16 flex items-center justify-center\">\n      <LoadingIndicator client:visible contained />\n    </div>\n    <span class=\"text-xs text-[var(--on-surface-variant)]\">Contained Circular Variant</span>\n  </div>\n\n  <div class=\"flex flex-col items-center gap-2\">\n    <div class=\"h-16 flex items-center justify-center\">\n      <LoadingIndicator client:visible progress={0.68} />\n    </div>\n    <span class=\"text-xs text-[var(--on-surface-variant)]\">Determinate Progress (68%)</span>\n  </div>\n</div>\n\n### 4.2 Linear and Indeterminate Progress (`ProgressIndicator.svelte`)\n\n<div class=\"flex flex-col gap-4 my-6 p-6 rounded-2xl bg-[var(--surface-container)] border border-[var(--outline-variant)]\">\n  <div class=\"flex flex-col gap-2\">\n    <div class=\"flex justify-between text-xs text-[var(--on-surface-variant)]\">\n      <span>Pipeline Compilation</span>\n      <span>80%</span>\n    </div>\n    <ProgressIndicator client:visible progress={0.8} />\n  </div>\n\n  <div class=\"flex flex-col gap-2 mt-2\">\n    <div class=\"text-xs text-[var(--on-surface-variant)]\">Continuous Dual-Line Animation</div>\n    <ProgressIndicator client:visible />\n  </div>\n</div>\n\n---\n\n## 5. Interactive Svelte 5 Islands\n\nComponents declared with `client:visible` are lazy-hydrated via `IntersectionObserver` when entering the viewport:\n\n### 5.1 Button Matrix (`Button.svelte`)\n\n<div class=\"flex flex-wrap items-center gap-3 my-6 p-4 rounded-xl border border-[var(--outline-variant)]\">\n  <Button client:visible variant=\"filled\">Filled Button</Button>\n  <Button client:visible variant=\"elevated\">Elevated</Button>\n  <Button client:visible variant=\"tonal\">Tonal Button</Button>\n  <Button client:visible variant=\"outlined\">Outlined</Button>\n  <Button client:visible variant=\"text\">Text Button</Button>\n</div>\n\n### 5.2 Filter Chips and Segmented Buttons (`Chips` & `SegmentedButton`)\n\n<div class=\"flex flex-col gap-4 my-6 p-6 rounded-2xl bg-[var(--surface-container)] border border-[var(--outline-variant)]\">\n  <div>\n    <div class=\"text-xs font-bold text-[var(--on-surface-variant)] mb-2\">M3E Filter Chips</div>\n    <Chips client:visible items={filterChipOptions} value=\"all\" />\n  </div>\n\n  <Divider />\n\n  <div>\n    <div class=\"text-xs font-bold text-[var(--on-surface-variant)] mb-2\">Segmented Control</div>\n    <SegmentedButton client:visible options={segmentedOptions} value=\"linear\" />\n  </div>\n</div>\n\n### 5.3 Switches, Checkboxes, and Sliders (`Switch`, `Checkbox`, `Slider`)\n\n<div class=\"flex flex-col gap-4 my-6 p-6 rounded-2xl bg-[var(--surface-container)] border border-[var(--outline-variant)]\">\n  <div class=\"flex items-center justify-between\">\n    <span class=\"font-bold text-sm\">Switch with Status Icons</span>\n    <Switch client:visible checked={true} icons label=\"Push notifications\" />\n  </div>\n\n  <Divider />\n\n  <div class=\"flex items-center justify-between\">\n    <span class=\"font-bold text-sm\">Selection Checkboxes</span>\n    <div class=\"flex items-center gap-4\">\n      <Checkbox client:visible checked={true} label=\"Selected\" />\n      <Checkbox client:visible checked={false} label=\"Unselected\" />\n      <Checkbox client:visible checked={null} triState label=\"Indeterminate\" />\n    </div>\n  </div>\n\n  <Divider />\n\n  <div class=\"flex flex-col gap-2\">\n    <span class=\"font-bold text-sm\">Hue Spectrum Slider</span>\n    <Slider client:visible value={60} label=\"Hue adjustment\" />\n  </div>\n</div>\n\n### 5.4 Input Controls (`TextField.svelte`)\n\n<div class=\"grid grid-cols-1 md:grid-cols-2 gap-4 my-6\">\n  <TextField client:visible variant=\"filled\" label=\"Filled Text Field\" placeholder=\"Enter text...\" />\n  <TextField client:visible variant=\"outlined\" label=\"Outlined Text Field\" placeholder=\"Enter text...\" />\n</div>\n\n---\n\n## 6. Markdown Extension Compatibility\n\nShirine's SSOT unified plugin pipeline preserves full compatibility with all Markdown extensions:\n\n### 6.1 GitHub Repository Cards\n\n::github{repo=\"saicaca/fuwari\"}\n\n### 6.2 Mermaid Architecture Diagrams\n\n```mermaid\nflowchart TD\n    MDX[MDX Source Entry] --> Compiler[\"@astrojs/mdx Compiler\"]\n    Compiler --> Plugins[\"Remark / Rehype SSOT Pipeline\"]\n    Plugins --> Islands[\"Svelte 5 Interactive Islands\"]\n    Islands --> Swup[\"Swup Client Navigation Shell\"]\n    Swup --> Screen[\"M3E Expressive Article View\"]\n```\n\n### 6.3 Mathematical Expressions (LaTeX / KaTeX)\n\nInline equation: Mass-energy equivalence $E = mc^2$ and Gaussian integral $\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$.\n\nBlock equation:\n\n$$\n\\mathcal{L}_{M3E} = \\sum_{i=1}^{N} \\left( \\text{Token}_i \\cdot \\text{ContrastRatio} \\right) + \\lambda \\|\\text{MotionElegance}\\|\n$$\n\n---\n\n## 7. Summary\n\nThe native integration of MDX empowers technical writers to build rich, interactive documentation while preserving Shirine's ultra-fast static performance. All components adhere to the Material 3 Expressive token design system, ensuring consistency, accessibility, and visual harmony.",
-    "image": "",
-    "category": "Guides",
-    "tags": [
-      "MDX",
-      "Components",
-      "Svelte",
-      "Markdown",
-      "Demo"
-    ],
-    "pinned": 0,
-    "draft": 0,
-    "commentEnabled": 1,
-    "permissionType": "public",
-    "requiredPoints": 0,
-    "createdAt": 1787184000000
   },
   {
     "slug": "option-groups",
@@ -464,11 +534,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Tabs",
       "Shirine"
     ],
+    "lang": "en",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1787875200000
   },
   {
@@ -486,11 +561,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Accessibility",
       "Shirine"
     ],
+    "lang": "en",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1787875200000
   },
   {
@@ -508,11 +588,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Steps",
       "Shirine"
     ],
+    "lang": "en",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1787788800000
   },
   {
@@ -528,11 +613,16 @@ export const PRESET_POSTS: SeedPost[] = [
       "Example",
       "Video"
     ],
+    "lang": "zh_CN",
     "pinned": 0,
     "draft": 0,
     "commentEnabled": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
+    "hideHomeContent": 1,
     "createdAt": 1690848000000
   }
 ];
@@ -688,249 +778,313 @@ export const PRESET_ALBUMS: SeedAlbum[] = [
       "webp",
       "example"
     ],
+    "hidden": 0,
     "permissionType": "public",
+    "requiredPoints": 0,
+    "draft": 0,
     "photos": [
       {
         "url": "/images/albums/AcgExample/01.webp",
-        "alt": "ACG Artwork 01",
-        "title": "ACG Artwork 01",
+        "alt": "Some lovely pictures 1",
+        "title": "Some lovely pictures 1",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 1
       },
       {
         "url": "/images/albums/AcgExample/02.webp",
-        "alt": "ACG Artwork 02",
-        "title": "ACG Artwork 02",
+        "alt": "Some lovely pictures 2",
+        "title": "Some lovely pictures 2",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 2
       },
       {
         "url": "/images/albums/AcgExample/03.webp",
-        "alt": "ACG Artwork 03",
-        "title": "ACG Artwork 03",
+        "alt": "Some lovely pictures 3",
+        "title": "Some lovely pictures 3",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 3
       },
       {
         "url": "/images/albums/AcgExample/04.webp",
-        "alt": "ACG Artwork 04",
-        "title": "ACG Artwork 04",
+        "alt": "Some lovely pictures 4",
+        "title": "Some lovely pictures 4",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 4
       },
       {
         "url": "/images/albums/AcgExample/05.webp",
-        "alt": "ACG Artwork 05",
-        "title": "ACG Artwork 05",
+        "alt": "Some lovely pictures 5",
+        "title": "Some lovely pictures 5",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 5
       },
       {
         "url": "/images/albums/AcgExample/06.webp",
-        "alt": "ACG Artwork 06",
-        "title": "ACG Artwork 06",
+        "alt": "Some lovely pictures 6",
+        "title": "Some lovely pictures 6",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 6
       },
       {
         "url": "/images/albums/AcgExample/07.webp",
-        "alt": "ACG Artwork 07",
-        "title": "ACG Artwork 07",
+        "alt": "Some lovely pictures 7",
+        "title": "Some lovely pictures 7",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 7
       },
       {
         "url": "/images/albums/AcgExample/08.webp",
-        "alt": "ACG Artwork 08",
-        "title": "ACG Artwork 08",
+        "alt": "Some lovely pictures 8",
+        "title": "Some lovely pictures 8",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 8
       },
       {
         "url": "/images/albums/AcgExample/09.webp",
-        "alt": "ACG Artwork 09",
-        "title": "ACG Artwork 09",
+        "alt": "Some lovely pictures 9",
+        "title": "Some lovely pictures 9",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 9
       },
       {
         "url": "/images/albums/AcgExample/10.webp",
-        "alt": "ACG Artwork 10",
-        "title": "ACG Artwork 10",
+        "alt": "Some lovely pictures 10",
+        "title": "Some lovely pictures 10",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 10
       },
       {
         "url": "/images/albums/AcgExample/11.webp",
-        "alt": "ACG Artwork 11",
-        "title": "ACG Artwork 11",
+        "alt": "Some lovely pictures 11",
+        "title": "Some lovely pictures 11",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 11
       },
       {
         "url": "/images/albums/AcgExample/12.webp",
-        "alt": "ACG Artwork 12",
-        "title": "ACG Artwork 12",
+        "alt": "Some lovely pictures 12",
+        "title": "Some lovely pictures 12",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 12
       },
       {
         "url": "/images/albums/AcgExample/13.webp",
-        "alt": "ACG Artwork 13",
-        "title": "ACG Artwork 13",
+        "alt": "Some lovely pictures 13",
+        "title": "Some lovely pictures 13",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 13
       },
       {
         "url": "/images/albums/AcgExample/14.webp",
-        "alt": "ACG Artwork 14",
-        "title": "ACG Artwork 14",
+        "alt": "Some lovely pictures 14",
+        "title": "Some lovely pictures 14",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 14
       },
       {
         "url": "/images/albums/AcgExample/15.webp",
-        "alt": "ACG Artwork 15",
-        "title": "ACG Artwork 15",
+        "alt": "Some lovely pictures 15",
+        "title": "Some lovely pictures 15",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 15
       },
       {
         "url": "/images/albums/AcgExample/16.webp",
-        "alt": "ACG Artwork 16",
-        "title": "ACG Artwork 16",
+        "alt": "Some lovely pictures 16",
+        "title": "Some lovely pictures 16",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 16
       },
       {
         "url": "/images/albums/AcgExample/17.webp",
-        "alt": "ACG Artwork 17",
-        "title": "ACG Artwork 17",
+        "alt": "Some lovely pictures 17",
+        "title": "Some lovely pictures 17",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 17
       },
       {
         "url": "/images/albums/AcgExample/18.webp",
-        "alt": "ACG Artwork 18",
-        "title": "ACG Artwork 18",
+        "alt": "Some lovely pictures 18",
+        "title": "Some lovely pictures 18",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 18
       },
       {
         "url": "/images/albums/AcgExample/19.webp",
-        "alt": "ACG Artwork 19",
-        "title": "ACG Artwork 19",
+        "alt": "Some lovely pictures 19",
+        "title": "Some lovely pictures 19",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 19
       },
       {
         "url": "/images/albums/AcgExample/20.webp",
-        "alt": "ACG Artwork 20",
-        "title": "ACG Artwork 20",
+        "alt": "Some lovely pictures 20",
+        "title": "Some lovely pictures 20",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 20
       },
       {
         "url": "/images/albums/AcgExample/21.webp",
-        "alt": "ACG Artwork 21",
-        "title": "ACG Artwork 21",
+        "alt": "Some lovely pictures 21",
+        "title": "Some lovely pictures 21",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 21
       },
       {
         "url": "/images/albums/AcgExample/22.webp",
-        "alt": "ACG Artwork 22",
-        "title": "ACG Artwork 22",
+        "alt": "Some lovely pictures 22",
+        "title": "Some lovely pictures 22",
         "description": "",
         "tags": [
-          "acg",
-          "illustration"
+          "local",
+          "webp",
+          "example"
         ],
         "sortOrder": 22
+      }
+    ]
+  },
+  {
+    "slug": "EncryptedExample",
+    "title": "Protected image set",
+    "description": "A password-protected album backed by the reusable protected-content protocol.",
+    "cover": "https://picsum.photos/seed/shirine-protected-cover/800/600",
+    "layout": "masonry",
+    "columns": 3,
+    "tags": [
+      "protected",
+      "password",
+      "example"
+    ],
+    "hidden": 0,
+    "permissionType": "login_required",
+    "requiredPoints": 0,
+    "draft": 1,
+    "photos": [
+      {
+        "url": "https://picsum.photos/seed/shirine-protected-1/1200/800",
+        "alt": "A protected garden landscape",
+        "title": "Private landscape",
+        "description": "",
+        "tags": [
+          "garden"
+        ],
+        "sortOrder": 1
+      },
+      {
+        "url": "https://picsum.photos/seed/shirine-protected-2/800/1200",
+        "alt": "A protected vertical photograph",
+        "title": "Private memory",
+        "description": "",
+        "tags": [
+          "memory"
+        ],
+        "sortOrder": 2
       }
     ]
   },
@@ -946,7 +1100,10 @@ export const PRESET_ALBUMS: SeedAlbum[] = [
       "remote",
       "example"
     ],
+    "hidden": 0,
     "permissionType": "public",
+    "requiredPoints": 0,
+    "draft": 0,
     "photos": [
       {
         "url": "https://picsum.photos/seed/shirine-remote-1/1200/800",
@@ -967,6 +1124,46 @@ export const PRESET_ALBUMS: SeedAlbum[] = [
         "tags": [
           "portrait",
           "remote"
+        ],
+        "sortOrder": 2
+      }
+    ]
+  },
+  {
+    "slug": "HiddenExample",
+    "title": "Hidden album",
+    "description": "This album is omitted from the index but remains available by direct URL.",
+    "cover": "/images/albums/HiddenExample/cover.webp",
+    "layout": "grid",
+    "columns": 3,
+    "tags": [
+      "hidden",
+      "example"
+    ],
+    "hidden": 1,
+    "permissionType": "public",
+    "requiredPoints": 0,
+    "draft": 0,
+    "photos": [
+      {
+        "url": "/images/albums/HiddenExample/hidden_01.webp",
+        "alt": "Hidden album 1",
+        "title": "Hidden album 1",
+        "description": "",
+        "tags": [
+          "hidden",
+          "example"
+        ],
+        "sortOrder": 1
+      },
+      {
+        "url": "/images/albums/HiddenExample/hidden_02.webp",
+        "alt": "Hidden album 2",
+        "title": "Hidden album 2",
+        "description": "",
+        "tags": [
+          "hidden",
+          "example"
         ],
         "sortOrder": 2
       }

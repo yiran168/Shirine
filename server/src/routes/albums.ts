@@ -256,12 +256,6 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
       return c.json({ success: true, message: "This album does not require points to unlock" });
     }
 
-    const existingUnlock = await db.query.albumUnlocks.findFirst({
-      where: and(
-        eq(schema.albumUnlocks.userId, user.id),
-        eq(schema.albumUnlocks.albumId, album.id)
-      ),
-    });
     // 1. Privileged bypass
     if (isAdmin || user.id === album.uid) {
       const dbPhotos = await db.query.albumPhotos.findMany({
@@ -288,14 +282,14 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
       });
     }
 
-    // 2. Atomic reservation: only unique winner gets to deduct points
-    const reserveRes = await c.env.DB.prepare(
-      "INSERT OR IGNORE INTO album_unlocks (user_id, album_id, points_spent, created_at) VALUES (?, ?, ?, unixepoch())"
-    )
-      .bind(user.id, album.id, album.requiredPoints)
-      .run();
-
-    if (!reserveRes.meta?.changes || reserveRes.meta.changes === 0) {
+    // 2. Check if already unlocked
+    const existingUnlock = await db.query.albumUnlocks.findFirst({
+      where: and(
+        eq(schema.albumUnlocks.userId, user.id),
+        eq(schema.albumUnlocks.albumId, album.id)
+      ),
+    });
+    if (existingUnlock) {
       const dbPhotos = await db.query.albumPhotos.findMany({
         where: eq(schema.albumPhotos.albumId, album.id),
         orderBy: [schema.albumPhotos.sortOrder],
@@ -320,21 +314,82 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
       });
     }
 
-    // 3. Atomic conditional deduction
-    const deductRes = await c.env.DB.prepare(
+    // 3. Free album unlock
+    if (album.requiredPoints <= 0) {
+      await db.insert(schema.albumUnlocks).values({
+        userId: user.id,
+        albumId: album.id,
+        pointsSpent: 0,
+      }).onConflictDoNothing();
+
+      const dbPhotos = await db.query.albumPhotos.findMany({
+        where: eq(schema.albumPhotos.albumId, album.id),
+        orderBy: [schema.albumPhotos.sortOrder],
+      });
+      return c.json({
+        success: true,
+        message: "Album unlocked",
+        photos: dbPhotos.map((p) => {
+          let tags: string[] = [];
+          try { tags = JSON.parse(p.tags || "[]"); } catch { tags = []; }
+          return {
+            id: p.id,
+            src: p.url,
+            url: p.url,
+            alt: p.alt || p.title || album.title,
+            title: p.title || "",
+            description: p.description || "",
+            tags,
+            sortOrder: p.sortOrder,
+          };
+        }),
+      });
+    }
+
+    // 4. Atomic transaction using D1 batch (zero TOCTOU window)
+    const stmtDeduct = c.env.DB.prepare(
       "UPDATE users SET points = points - ?, updated_at = unixepoch() WHERE id = ? AND points >= ?"
-    )
-      .bind(album.requiredPoints, user.id, album.requiredPoints)
-      .run();
+    ).bind(album.requiredPoints, user.id, album.requiredPoints);
 
-    if (!deductRes.meta?.changes || deductRes.meta.changes === 0) {
-      // Rollback reservation if insufficient points
-      await c.env.DB.prepare(
-        "DELETE FROM album_unlocks WHERE user_id = ? AND album_id = ?"
-      )
-        .bind(user.id, album.id)
-        .run();
+    const stmtUnlock = c.env.DB.prepare(
+      "INSERT INTO album_unlocks (user_id, album_id, points_spent, created_at) SELECT ?, ?, ?, unixepoch() FROM users WHERE id = ? AND points >= ?"
+    ).bind(user.id, album.id, album.requiredPoints, user.id, album.requiredPoints);
 
+    let batchResults;
+    try {
+      batchResults = await c.env.DB.batch([stmtDeduct, stmtUnlock]);
+    } catch (err: any) {
+      if (err.message?.includes("UNIQUE") || err.message?.includes("constraint")) {
+        const dbPhotos = await db.query.albumPhotos.findMany({
+          where: eq(schema.albumPhotos.albumId, album.id),
+          orderBy: [schema.albumPhotos.sortOrder],
+        });
+        return c.json({
+          success: true,
+          message: "Album already unlocked",
+          photos: dbPhotos.map((p) => {
+            let tags: string[] = [];
+            try { tags = JSON.parse(p.tags || "[]"); } catch { tags = []; }
+            return {
+              id: p.id,
+              src: p.url,
+              url: p.url,
+              alt: p.alt || p.title || album.title,
+              title: p.title || "",
+              description: p.description || "",
+              tags,
+              sortOrder: p.sortOrder,
+            };
+          }),
+        });
+      }
+      throw err;
+    }
+
+    const deductChanges = batchResults[0]?.meta?.changes ?? 0;
+    const unlockChanges = batchResults[1]?.meta?.changes ?? 0;
+
+    if (deductChanges === 0 || unlockChanges === 0) {
       const currentUser = await db.query.users.findFirst({ where: eq(schema.users.id, user.id) });
       const currentPoints = currentUser?.points ?? 0;
       return c.json(

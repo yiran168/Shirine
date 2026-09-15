@@ -63,6 +63,7 @@ export interface PostDetailDto extends PostListDto {
   content: string | null; // null if locked
   lockReason?: string;
   userPoints?: number;
+  passwordHint?: string;
   author?: {
     id: number;
     username: string;

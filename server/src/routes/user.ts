@@ -3,7 +3,7 @@ import { eq, desc, and } from "drizzle-orm";
 import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
 import { requireAuth } from "../core/middleware";
-import { hashPassword, generateSalt, verifyPassword } from "../core/auth";
+import { hashPassword, generateSalt, verifyPassword, signToken } from "../core/auth";
 
 export const userRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -194,11 +194,12 @@ userRouter.put("/profile", requireAuth, async (c) => {
         return c.json({ success: false, error: "Current password is incorrect" }, 400);
       }
 
-      // Re-salt on password update (#97)
+      // Re-salt on password update (#97) and increment sessionVersion for revocation
       const newSalt = generateSalt();
       const newPasswordHash = await hashPassword(newPassword, newSalt);
       updates.salt = newSalt;
       updates.passwordHash = newPasswordHash;
+      updates.sessionVersion = (user.sessionVersion || 1) + 1;
     }
 
     const updated = await db
@@ -208,9 +209,25 @@ userRouter.put("/profile", requireAuth, async (c) => {
       .returning();
 
     const u = updated[0];
+
+    let token: string | undefined;
+    if (newPassword) {
+      token = await signToken(
+        { id: u.id, username: u.username, role: u.role, sessionVersion: u.sessionVersion },
+        c.env.JWT_SECRET
+      );
+      const isLocal = c.req.url.includes("localhost") || c.req.url.includes("127.0.0.1");
+      const secureFlag = isLocal ? "" : "; Secure";
+      c.header(
+        "Set-Cookie",
+        `shirine_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}${secureFlag}`
+      );
+    }
+
     return c.json({
       success: true,
       message: "Profile updated successfully",
+      token,
       user: {
         id: u.id,
         username: u.username,

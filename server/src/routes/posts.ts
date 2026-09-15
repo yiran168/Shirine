@@ -162,12 +162,22 @@ postsRouter.get("/:slugOrId", async (c) => {
     let isUnlocked = true;
     let lockReason = "";
 
-    if (post.permissionType === "login_required") {
+    // 1. Password protection check
+    if (post.encrypted === 1 || (post.password && post.password.length > 0)) {
+      const providedPwd = c.req.header("X-Post-Password") || c.req.query("password");
+      if (!isAdmin && providedPwd !== post.password) {
+        isUnlocked = false;
+        lockReason = "password_required";
+      }
+    }
+
+    // 2. Login or points required check
+    if (isUnlocked && post.permissionType === "login_required") {
       if (!user) {
         isUnlocked = false;
         lockReason = "login_required";
       }
-    } else if (post.permissionType === "points_required") {
+    } else if (isUnlocked && post.permissionType === "points_required") {
       if (!user) {
         isUnlocked = false;
         lockReason = "login_required";
@@ -186,10 +196,12 @@ postsRouter.get("/:slugOrId", async (c) => {
     }
 
     // Get author info
-    const author = await db.query.users.findFirst({
-      where: eq(schema.users.id, post.uid),
-      columns: { id: true, username: true, nickname: true, avatar: true },
-    });
+    const author = post.uid
+      ? await db.query.users.findFirst({
+          where: eq(schema.users.id, post.uid),
+          columns: { id: true, username: true, nickname: true, avatar: true },
+        })
+      : null;
 
     // Get current user points if logged in
     let userPoints = 0;
@@ -227,6 +239,7 @@ postsRouter.get("/:slugOrId", async (c) => {
       isUnlocked,
       lockReason,
       userPoints,
+      passwordHint: post.passwordHint || "",
       author: author
         ? {
             id: author.id,
@@ -249,7 +262,7 @@ postsRouter.get("/:slugOrId", async (c) => {
   }
 });
 
-// Unlock Post with points (Atomic transaction)
+// Unlock Post with points (Zero TOCTOU Atomic batch transaction)
 postsRouter.post("/:id/unlock", requireAuth, async (c) => {
   try {
     const user = c.get("user")!;
@@ -291,14 +304,14 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
       });
     }
 
-    // 2. Atomic reservation: only the unique winner gets to deduct points
-    const reserveRes = await c.env.DB.prepare(
-      "INSERT OR IGNORE INTO post_unlocks (user_id, post_id, points_spent, created_at) VALUES (?, ?, ?, unixepoch())"
-    )
-      .bind(user.id, post.id, post.requiredPoints)
-      .run();
-
-    if (!reserveRes.meta?.changes || reserveRes.meta.changes === 0) {
+    // 2. Check if already unlocked
+    const existingUnlock = await db.query.postUnlocks.findFirst({
+      where: and(
+        eq(schema.postUnlocks.userId, user.id),
+        eq(schema.postUnlocks.postId, post.id)
+      ),
+    });
+    if (existingUnlock) {
       return c.json({
         success: true,
         message: "Post already unlocked",
@@ -306,21 +319,51 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
       });
     }
 
-    // 3. Deduct points with atomic condition
-    const deductRes = await c.env.DB.prepare(
+    // 3. Free post unlock
+    if (post.requiredPoints <= 0) {
+      await db.insert(schema.postUnlocks).values({
+        userId: user.id,
+        postId: post.id,
+        pointsSpent: 0,
+      }).onConflictDoNothing();
+
+      return c.json({
+        success: true,
+        message: "Post unlocked",
+        content: post.content,
+      });
+    }
+
+    // 4. Atomic transaction using D1 batch (zero TOCTOU window)
+    // Both deduction and unlock row creation occur in the exact same transaction.
+    // If points are insufficient, zero rows are updated and zero unlock rows are inserted.
+    const stmtDeduct = c.env.DB.prepare(
       "UPDATE users SET points = points - ?, updated_at = unixepoch() WHERE id = ? AND points >= ?"
-    )
-      .bind(post.requiredPoints, user.id, post.requiredPoints)
-      .run();
+    ).bind(post.requiredPoints, user.id, post.requiredPoints);
 
-    if (!deductRes.meta?.changes || deductRes.meta.changes === 0) {
-      // Rollback reservation if points insufficient
-      await c.env.DB.prepare(
-        "DELETE FROM post_unlocks WHERE user_id = ? AND post_id = ?"
-      )
-        .bind(user.id, post.id)
-        .run();
+    const stmtUnlock = c.env.DB.prepare(
+      "INSERT INTO post_unlocks (user_id, post_id, points_spent, created_at) SELECT ?, ?, ?, unixepoch() FROM users WHERE id = ? AND points >= ?"
+    ).bind(user.id, post.id, post.requiredPoints, user.id, post.requiredPoints);
 
+    let batchResults;
+    try {
+      batchResults = await c.env.DB.batch([stmtDeduct, stmtUnlock]);
+    } catch (err: any) {
+      // If unique constraint violation occurred (concurrent duplicate unlock)
+      if (err.message?.includes("UNIQUE") || err.message?.includes("constraint")) {
+        return c.json({
+          success: true,
+          message: "Post already unlocked",
+          content: post.content,
+        });
+      }
+      throw err;
+    }
+
+    const deductChanges = batchResults[0]?.meta?.changes ?? 0;
+    const unlockChanges = batchResults[1]?.meta?.changes ?? 0;
+
+    if (deductChanges === 0 || unlockChanges === 0) {
       const currentUser = await db.query.users.findFirst({
         where: eq(schema.users.id, user.id),
       });

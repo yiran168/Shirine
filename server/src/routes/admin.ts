@@ -195,7 +195,11 @@ adminRouter.put("/users/:id/role", async (c) => {
 
     await db
       .update(schema.users)
-      .set({ role, updatedAt: new Date() })
+      .set({
+        role,
+        sessionVersion: sql`${schema.users.sessionVersion} + 1`,
+        updatedAt: new Date(),
+      })
       .where(eq(schema.users.id, id));
 
     return c.json({ success: true, message: `User role changed to ${role}` });
@@ -242,7 +246,11 @@ adminRouter.put("/users/:id/status", async (c) => {
 
     await db
       .update(schema.users)
-      .set({ status, updatedAt: new Date() })
+      .set({
+        status,
+        sessionVersion: sql`${schema.users.sessionVersion} + 1`,
+        updatedAt: new Date(),
+      })
       .where(eq(schema.users.id, id));
 
     return c.json({ success: true, message: `User account status changed to ${status}` });

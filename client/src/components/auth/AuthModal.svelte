@@ -44,6 +44,7 @@
     if (!el || !(window as any).turnstile) return;
     if (turnstileWidgetId) {
       (window as any).turnstile.reset(turnstileWidgetId);
+      turnstileToken = "";
       return;
     }
     turnstileWidgetId = (window as any).turnstile.render(el, {
@@ -51,7 +52,22 @@
       callback: (token: string) => {
         turnstileToken = token;
       },
+      "expired-callback": () => {
+        turnstileToken = "";
+      },
+      "error-callback": () => {
+        turnstileToken = "";
+      },
     });
+  }
+
+  function resetTurnstile() {
+    turnstileToken = "";
+    if (turnstileWidgetId && typeof window !== "undefined" && (window as any).turnstile) {
+      try {
+        (window as any).turnstile.reset(turnstileWidgetId);
+      } catch {}
+    }
   }
 
   $effect(() => {
@@ -80,6 +96,7 @@
           resetForm();
         } else {
           errorMsg = res.error || "登录失败，请检查账号密码";
+          resetTurnstile();
         }
       } else {
         const res = await authApi.register({
@@ -96,10 +113,12 @@
           resetForm();
         } else {
           errorMsg = res.error || "注册失败，请更换用户名重试";
+          resetTurnstile();
         }
       }
     } catch (err: any) {
       errorMsg = err.message || "网络请求异常";
+      resetTurnstile();
     } finally {
       loading = false;
     }
@@ -110,10 +129,7 @@
     password = "";
     nickname = "";
     errorMsg = "";
-    turnstileToken = "";
-    if (turnstileWidgetId && (window as any).turnstile) {
-      (window as any).turnstile.reset(turnstileWidgetId);
-    }
+    resetTurnstile();
   }
 </script>
 

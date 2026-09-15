@@ -71,14 +71,24 @@ function collectPosts() {
       const fullPath = path.join(dir, file.name);
       if (file.isDirectory()) {
         scan(fullPath);
-      } else if (file.name.endsWith(".md") || file.name.endsWith(".mdx")) {
+      } else if (file.name.endsWith(".mdx")) {
+        console.warn(`[Seed Generator] Skipping MDX file: ${file.name} to prevent raw component syntax breakdown.`);
+      } else if (file.name.endsWith(".md")) {
         const content = fs.readFileSync(fullPath, "utf-8");
         const { frontmatter, body } = parseFrontmatterAndBody(content);
 
-        let slug = path.relative(POSTS_DIR, fullPath).replace(/\\/g, "/").replace(/\.(md|mdx)$/, "");
+        let slug = path.relative(POSTS_DIR, fullPath).replace(/\\/g, "/").replace(/\.md$/, "");
         if (slug.endsWith("/index")) {
           slug = slug.replace(/\/index$/, "");
         }
+
+        const isEncrypted = Boolean(frontmatter.encrypted || frontmatter.password);
+        const draft = isEncrypted ? 1 : (frontmatter.draft ? 1 : 0);
+        const permissionType = isEncrypted
+          ? "login_required"
+          : (frontmatter.permissionType === "login_required" || frontmatter.permissionType === "points_required"
+              ? frontmatter.permissionType
+              : "public");
 
         posts.push({
           slug,
@@ -90,11 +100,16 @@ function collectPosts() {
           image: frontmatter.image || "",
           category: frontmatter.category || "",
           tags: Array.isArray(frontmatter.tags) ? frontmatter.tags : [],
+          lang: frontmatter.lang || "zh_CN",
           pinned: frontmatter.pinned ? 1 : 0,
-          draft: frontmatter.draft ? 1 : 0,
+          draft,
           commentEnabled: frontmatter.comment !== false ? 1 : 0,
-          permissionType: frontmatter.permissionType || "public",
+          permissionType,
           requiredPoints: frontmatter.requiredPoints || 0,
+          encrypted: isEncrypted ? 1 : 0,
+          password: frontmatter.password || "",
+          passwordHint: frontmatter.passwordHint || "",
+          hideHomeContent: frontmatter.hideHomeContent === false ? 0 : 1,
           createdAt: frontmatter.published ? new Date(frontmatter.published).getTime() : Date.now(),
         });
       }
@@ -148,59 +163,86 @@ function collectMoments() {
 // 3. Collect Albums
 function collectAlbums() {
   const albums = [];
+  if (!fs.existsSync(ALBUMS_DIR)) return albums;
 
-  // AcgExample
-  const acgDir = path.join(ALBUMS_DIR, "AcgExample");
-  if (fs.existsSync(acgDir)) {
-    const info = JSON.parse(fs.readFileSync(path.join(acgDir, "info.json"), "utf-8"));
+  const entries = fs.readdirSync(ALBUMS_DIR, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const slug = entry.name;
+    const albumPath = path.join(ALBUMS_DIR, slug);
+    const infoFile = path.join(albumPath, "info.json");
+
+    let info = {};
+    if (fs.existsSync(infoFile)) {
+      try {
+        info = JSON.parse(fs.readFileSync(infoFile, "utf-8"));
+      } catch (err) {
+        console.warn(`[Seed Generator] Failed to parse ${infoFile}:`, err);
+      }
+    }
+
     const photos = [];
-    for (let i = 1; i <= 22; i++) {
-      const numStr = String(i).padStart(2, "0");
-      photos.push({
-        url: `/images/albums/AcgExample/${numStr}.webp`,
-        alt: `ACG Artwork ${numStr}`,
-        title: `ACG Artwork ${numStr}`,
-        description: "",
-        tags: ["acg", "illustration"],
-        sortOrder: i,
+    if (Array.isArray(info.photos) && info.photos.length > 0) {
+      info.photos.forEach((p, idx) => {
+        photos.push({
+          url: p.src || p.url,
+          alt: p.alt || p.title || `Photo ${idx + 1}`,
+          title: p.title || `Photo ${idx + 1}`,
+          description: p.description || "",
+          tags: Array.isArray(p.tags) ? p.tags : ["remote"],
+          sortOrder: idx + 1,
+        });
+      });
+    } else {
+      // Scan directory for image files
+      const dirFiles = fs.readdirSync(albumPath);
+      const imgFiles = dirFiles
+        .filter((f) => /\.(webp|png|jpg|jpeg|avif|gif)$/i.test(f) && !f.startsWith("cover."))
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+
+      imgFiles.forEach((file, idx) => {
+        photos.push({
+          url: `/images/albums/${slug}/${file}`,
+          alt: `${info.title || slug} ${idx + 1}`,
+          title: `${info.title || slug} ${idx + 1}`,
+          description: "",
+          tags: Array.isArray(info.tags) ? info.tags : ["local"],
+          sortOrder: idx + 1,
+        });
       });
     }
 
-    albums.push({
-      slug: "AcgExample",
-      title: info.title || "Some lovely pictures",
-      description: info.description || "A local album scanned from this directory.",
-      cover: "/images/albums/AcgExample/cover.webp",
-      layout: info.layout || "masonry",
-      columns: info.columns || 3,
-      tags: info.tags || ["local", "webp", "example"],
-      permissionType: "public",
-      photos,
-    });
-  }
+    const isEncrypted = Boolean(info.password);
+    const draft = isEncrypted ? 1 : (info.draft ? 1 : 0);
+    const permissionType = isEncrypted
+      ? "login_required"
+      : (info.permissionType === "login_required" || info.permissionType === "points_required"
+          ? info.permissionType
+          : "public");
 
-  // ExternalExample
-  const extDir = path.join(ALBUMS_DIR, "ExternalExample");
-  if (fs.existsSync(extDir)) {
-    const info = JSON.parse(fs.readFileSync(path.join(extDir, "info.json"), "utf-8"));
-    const photos = (info.photos || []).map((p, idx) => ({
-      url: p.src,
-      alt: p.alt || p.title || "External photo",
-      title: p.title || `Photo ${idx + 1}`,
-      description: "",
-      tags: p.tags || ["remote"],
-      sortOrder: idx + 1,
-    }));
+    // Determine cover
+    let cover = info.cover || "";
+    if (!cover) {
+      const potentialCover = path.join(albumPath, "cover.webp");
+      if (fs.existsSync(potentialCover)) {
+        cover = `/images/albums/${slug}/cover.webp`;
+      } else if (photos.length > 0) {
+        cover = photos[0].url;
+      }
+    }
 
     albums.push({
-      slug: "ExternalExample",
-      title: info.title || "External image set",
-      description: info.description || "A remote album using explicit photo metadata and thumbnails.",
-      cover: info.cover || "https://picsum.photos/seed/shirine-cover/800/600",
+      slug,
+      title: info.title || slug,
+      description: info.description || "",
+      cover,
       layout: info.layout || "masonry",
       columns: info.columns || 3,
-      tags: info.tags || ["external", "remote", "example"],
-      permissionType: "public",
+      tags: Array.isArray(info.tags) ? info.tags : [],
+      hidden: info.hidden ? 1 : 0,
+      permissionType,
+      requiredPoints: info.requiredPoints || 0,
+      draft,
       photos,
     });
   }
@@ -259,11 +301,16 @@ export interface SeedPost {
   image: string;
   category: string;
   tags: string[];
+  lang?: string;
   pinned: number;
   draft: number;
   commentEnabled: number;
   permissionType: "public" | "login_required" | "points_required";
   requiredPoints: number;
+  encrypted?: number;
+  password?: string;
+  passwordHint?: string;
+  hideHomeContent?: number;
   createdAt: number;
 }
 
@@ -294,7 +341,10 @@ export interface SeedAlbum {
   layout: string;
   columns: number;
   tags: string[];
+  hidden: number;
   permissionType: "public" | "login_required" | "points_required";
+  requiredPoints: number;
+  draft: number;
   photos: SeedAlbumPhoto[];
 }
 
@@ -327,26 +377,14 @@ function escapeSql(str) {
 
 let sql = `-- Shirine D1 Preset Seed SQL
 -- Auto-generated by scripts/generate-seeds.mjs
+-- Note: SuperAdmin user is initialized via /api/setup/admin wizard on first run.
 
--- 1. Ensure SuperAdmin user exists (id: 1, password: admin)
-INSERT OR IGNORE INTO users (id, username, password_hash, salt, role, nickname, points, status)
-VALUES (
-  1,
-  'admin',
-  '749e89182d447e42ad71b2f9ef82dd42a89a14b3b9e827a0039ac22ae78509b5',
-  '4c9f13e738d9b15d290fb43292415174',
-  'superadmin',
-  'Shirine Admin',
-  100,
-  'active'
-);
-
--- 2. Friends
+-- 1. Friends
 `;
 
 for (const f of friends) {
   sql += `INSERT INTO friends (name, desc, avatar, url, accepted, sort_order, uid)
-VALUES (${escapeSql(f.name)}, ${escapeSql(f.desc)}, ${escapeSql(f.avatar)}, ${escapeSql(f.url)}, ${f.accepted}, ${f.sortOrder}, 1)
+VALUES (${escapeSql(f.name)}, ${escapeSql(f.desc)}, ${escapeSql(f.avatar)}, ${escapeSql(f.url)}, ${f.accepted}, ${f.sortOrder}, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
 ON CONFLICT(url) DO UPDATE SET
   name = excluded.name,
   desc = excluded.desc,
@@ -355,10 +393,10 @@ ON CONFLICT(url) DO UPDATE SET
   sort_order = excluded.sort_order;\n`;
 }
 
-sql += `\n-- 3. Moments\n`;
+sql += `\n-- 2. Moments\n`;
 for (const m of moments) {
   sql += `INSERT INTO moments (content, location, mood, images, tags, pinned, uid, created_at)
-VALUES (${escapeSql(m.content)}, ${escapeSql(m.location)}, ${escapeSql(m.mood)}, ${escapeSql(JSON.stringify(m.images))}, ${escapeSql(JSON.stringify(m.tags))}, ${m.pinned}, 1, ${Math.floor(m.createdAt / 1000)})
+VALUES (${escapeSql(m.content)}, ${escapeSql(m.location)}, ${escapeSql(m.mood)}, ${escapeSql(JSON.stringify(m.images))}, ${escapeSql(JSON.stringify(m.tags))}, ${m.pinned}, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), ${Math.floor(m.createdAt / 1000)})
 ON CONFLICT(content) DO UPDATE SET
   location = excluded.location,
   mood = excluded.mood,
@@ -367,23 +405,33 @@ ON CONFLICT(content) DO UPDATE SET
   pinned = excluded.pinned;\n`;
 }
 
-sql += `\n-- 4. Albums & Photos\n`;
+sql += `\n-- 3. Albums & Photos\n`;
 for (const a of albums) {
-  sql += `INSERT INTO albums (slug, title, description, cover, layout, columns, permission_type, uid)
-VALUES (${escapeSql(a.slug)}, ${escapeSql(a.title)}, ${escapeSql(a.description)}, ${escapeSql(a.cover)}, ${escapeSql(a.layout)}, ${a.columns}, ${escapeSql(a.permissionType)}, 1)
+  sql += `INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, draft, uid)
+VALUES (${escapeSql(a.slug)}, ${escapeSql(a.title)}, ${escapeSql(a.description)}, ${escapeSql(a.cover)}, ${escapeSql(a.layout)}, ${a.columns}, ${escapeSql(JSON.stringify(a.tags))}, ${a.hidden}, ${escapeSql(a.permissionType)}, ${a.requiredPoints}, ${a.draft}, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
 ON CONFLICT(slug) DO UPDATE SET
   title = excluded.title,
   description = excluded.description,
   cover = excluded.cover,
   layout = excluded.layout,
   columns = excluded.columns,
-  permission_type = excluded.permission_type;\n`;
+  tags = excluded.tags,
+  hidden = excluded.hidden,
+  permission_type = excluded.permission_type,
+  required_points = excluded.required_points,
+  draft = excluded.draft;\n`;
+
+  for (const p of a.photos) {
+    sql += `INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
+SELECT id, ${escapeSql(p.url)}, ${escapeSql(p.alt)}, ${escapeSql(p.title)}, ${escapeSql(p.description)}, ${escapeSql(JSON.stringify(p.tags))}, ${p.sortOrder}
+FROM albums WHERE slug = ${escapeSql(a.slug)};\n`;
+  }
 }
 
-sql += `\n-- 5. Posts\n`;
+sql += `\n-- 4. Posts\n`;
 for (const p of posts) {
-  sql += `INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, pinned, draft, comment_enabled, permission_type, required_points, uid, created_at)
-VALUES (${escapeSql(p.slug)}, ${escapeSql(p.alias)}, ${escapeSql(p.permalink)}, ${escapeSql(p.title)}, ${escapeSql(p.description)}, ${escapeSql(p.content)}, ${escapeSql(p.image)}, ${escapeSql(p.category)}, ${escapeSql(JSON.stringify(p.tags))}, ${p.pinned}, ${p.draft}, ${p.commentEnabled}, ${escapeSql(p.permissionType)}, ${p.requiredPoints}, 1, ${Math.floor(p.createdAt / 1000)})
+  sql += `INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
+VALUES (${escapeSql(p.slug)}, ${escapeSql(p.alias)}, ${escapeSql(p.permalink)}, ${escapeSql(p.title)}, ${escapeSql(p.description)}, ${escapeSql(p.content)}, ${escapeSql(p.image)}, ${escapeSql(p.category)}, ${escapeSql(JSON.stringify(p.tags))}, ${escapeSql(p.lang)}, ${p.pinned}, ${p.draft}, ${p.commentEnabled}, ${escapeSql(p.permissionType)}, ${p.requiredPoints}, ${p.encrypted}, ${escapeSql(p.password)}, ${escapeSql(p.passwordHint)}, ${p.hideHomeContent}, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), ${Math.floor(p.createdAt / 1000)})
 ON CONFLICT(slug) DO UPDATE SET
   alias = excluded.alias,
   permalink = excluded.permalink,
@@ -393,11 +441,16 @@ ON CONFLICT(slug) DO UPDATE SET
   image = excluded.image,
   category = excluded.category,
   tags = excluded.tags,
+  lang = excluded.lang,
   pinned = excluded.pinned,
   draft = excluded.draft,
   comment_enabled = excluded.comment_enabled,
   permission_type = excluded.permission_type,
-  required_points = excluded.required_points;\n`;
+  required_points = excluded.required_points,
+  encrypted = excluded.encrypted,
+  password = excluded.password,
+  password_hint = excluded.password_hint,
+  hide_home_content = excluded.hide_home_content;\n`;
 }
 
 fs.writeFileSync(OUTPUT_SQL, sql, "utf-8");

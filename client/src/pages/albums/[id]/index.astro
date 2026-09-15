@@ -22,9 +22,14 @@ let apiConnected = false;
 
 const apiBase = import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
 try {
-	const cookieHeader = Astro.request.headers.get("cookie") || "";
+	const headers: Record<string, string> = {};
+	const cookieHeader = Astro.request.headers.get("cookie");
+	if (cookieHeader) headers["cookie"] = cookieHeader;
+	const authHeader = Astro.request.headers.get("authorization");
+	if (authHeader) headers["authorization"] = authHeader;
+
 	const res = await fetch(`${apiBase.replace(/\/$/, "")}/albums/${id}`, {
-		headers: cookieHeader ? { cookie: cookieHeader } : {},
+		headers,
 		signal: AbortSignal.timeout(3000),
 	});
 	if (res.ok) {
@@ -50,6 +55,7 @@ try {
 							description: p.description || "",
 					  }))
 					: [],
+				photoCount: a.count ?? a.photoCount ?? (Array.isArray(a.photos) ? a.photos.length : 0),
 				permissionType: a.permissionType || "public",
 				requiredPoints: a.requiredPoints || 0,
 				isUnlocked: Boolean(a.isUnlocked),
@@ -72,9 +78,15 @@ const requiredPoints = (resolvedAlbum as any).requiredPoints || 0;
 const isUnlocked = Boolean((resolvedAlbum as any).isUnlocked);
 const dbId = Number((resolvedAlbum as any).dbId || 0);
 
-const isLocked =
-	(permissionType === "login_required" && !Astro.cookies.get("shirine_token")?.value) ||
-	(permissionType === "points_required" && !isUnlocked);
+const isLocked = apiConnected
+	? !isUnlocked
+	: (permissionType === "login_required" && !Astro.cookies.get("shirine_token")?.value) ||
+	  (permissionType === "points_required" && !isUnlocked);
+
+// Never leak photo arrays in HTML or client props when locked
+if (isLocked) {
+	resolvedAlbum.photos = [];
+}
 
 const scope = `album:${resolvedAlbum.id}`;
 let payload: ProtectedPayload | null = null;

@@ -9,20 +9,6 @@ import {
 } from "./seed-data";
 import { defaultSiteConfig } from "../routes/config";
 
-// SuperAdmin initial hash for password "admin"
-const DEFAULT_ADMIN = {
-  id: 1,
-  username: "admin",
-  passwordHash:
-    "749e89182d447e42ad71b2f9ef82dd42a89a14b3b9e827a0039ac22ae78509b5",
-  salt: "4c9f13e738d9b15d290fb43292415174",
-  role: "superadmin" as const,
-  nickname: "Shirine Admin",
-  avatar: "",
-  points: 100,
-  status: "active" as const,
-};
-
 export async function seedPresetData(
   db: ReturnType<typeof getDb>,
   overwrite = false
@@ -35,13 +21,11 @@ export async function seedPresetData(
     friends: 0,
   };
 
-  // 1. Ensure SuperAdmin user exists
+  // 1. Resolve SuperAdmin if already registered via /setup/admin
   const existingAdmin = await db.query.users.findFirst({
-    where: eq(schema.users.id, 1),
+    where: eq(schema.users.role, "superadmin"),
   });
-  if (!existingAdmin) {
-    await db.insert(schema.users).values(DEFAULT_ADMIN);
-  }
+  const adminUid = existingAdmin ? existingAdmin.id : null;
 
   // 2. Friends
   for (const f of PRESET_FRIENDS) {
@@ -56,7 +40,7 @@ export async function seedPresetData(
         url: f.url,
         accepted: f.accepted,
         sortOrder: f.sortOrder,
-        uid: 1,
+        uid: adminUid,
       });
       summary.friends++;
     } else if (overwrite) {
@@ -88,7 +72,7 @@ export async function seedPresetData(
         images: JSON.stringify(m.images),
         tags: JSON.stringify(m.tags),
         pinned: m.pinned,
-        uid: 1,
+        uid: adminUid,
         createdAt: new Date(m.createdAt),
       });
       summary.moments++;
@@ -125,8 +109,12 @@ export async function seedPresetData(
           cover: a.cover,
           layout: a.layout,
           columns: a.columns,
+          tags: JSON.stringify(a.tags),
+          hidden: a.hidden,
           permissionType: a.permissionType,
-          uid: 1,
+          requiredPoints: a.requiredPoints,
+          draft: a.draft,
+          uid: adminUid,
         })
         .returning();
       albumId = inserted[0]?.id;
@@ -142,7 +130,11 @@ export async function seedPresetData(
             cover: a.cover,
             layout: a.layout,
             columns: a.columns,
+            tags: JSON.stringify(a.tags),
+            hidden: a.hidden,
             permissionType: a.permissionType,
+            requiredPoints: a.requiredPoints,
+            draft: a.draft,
             updatedAt: new Date(),
           })
           .where(eq(schema.albums.id, existing.id));
@@ -186,12 +178,17 @@ export async function seedPresetData(
         image: p.image,
         category: p.category,
         tags: JSON.stringify(p.tags),
+        lang: p.lang || "zh_CN",
         pinned: p.pinned,
         draft: p.draft,
         commentEnabled: p.commentEnabled,
         permissionType: p.permissionType,
         requiredPoints: p.requiredPoints,
-        uid: 1,
+        encrypted: p.encrypted || 0,
+        password: p.password || "",
+        passwordHint: p.passwordHint || "",
+        hideHomeContent: p.hideHomeContent ?? 1,
+        uid: adminUid,
         createdAt: new Date(p.createdAt),
       });
       summary.posts++;
@@ -207,11 +204,16 @@ export async function seedPresetData(
           image: p.image,
           category: p.category,
           tags: JSON.stringify(p.tags),
+          lang: p.lang || "zh_CN",
           pinned: p.pinned,
           draft: p.draft,
           commentEnabled: p.commentEnabled,
           permissionType: p.permissionType,
           requiredPoints: p.requiredPoints,
+          encrypted: p.encrypted || 0,
+          password: p.password || "",
+          passwordHint: p.passwordHint || "",
+          hideHomeContent: p.hideHomeContent ?? 1,
           updatedAt: new Date(),
         })
         .where(eq(schema.posts.id, existing.id));

@@ -54,7 +54,12 @@ export function generateSalt(): string {
 
 export async function signToken(payload: UserPayload, secret: string): Promise<string> {
   const secretKey = new TextEncoder().encode(secret);
-  return await new SignJWT({ ...payload })
+  return await new SignJWT({
+    id: payload.id,
+    username: payload.username,
+    role: payload.role,
+    sessionVersion: payload.sessionVersion ?? 1,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
@@ -73,6 +78,7 @@ export async function verifyToken(token: string, secret: string): Promise<UserPa
       id: Number(payload.id),
       username: String(payload.username),
       role,
+      sessionVersion: typeof payload.sessionVersion === "number" ? payload.sessionVersion : undefined,
     };
   } catch {
     return null;

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 移除文件扩展名（.md, .mdx, .markdown）
  */
 export function removeFileExtension(id: string): string {
@@ -170,6 +170,7 @@ export type PostLikeForPermalink = {
 		permalink?: string;
 		alias?: string;
 		draft?: boolean;
+		dbId?: number;
 	};
 };
 
@@ -216,7 +217,7 @@ export function generatePermalinkSlug(post: PostLikeForPermalink): string {
 	const category = post.data.category
 		? String(post.data.category).trim()
 		: "uncategorized";
-	const numericId = getPostNumericId(postId);
+	const numericId = post.data.dbId ?? getPostNumericId(postId);
 
 	const slug = format
 		.replace(/%year%/g, dateParts.year)

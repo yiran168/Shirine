@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
   nickname TEXT DEFAULT '',
   points INTEGER NOT NULL DEFAULT 0 CHECK(points >= 0),
   status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'banned')),
+  session_version INTEGER NOT NULL DEFAULT 1,
   last_checkin_date TEXT,
   checkin_streak INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS posts (
   image TEXT NOT NULL DEFAULT '',
   category TEXT NOT NULL DEFAULT '',
   tags TEXT NOT NULL DEFAULT '[]',
+  lang TEXT DEFAULT 'zh_CN',
   pinned INTEGER NOT NULL DEFAULT 0,
   draft INTEGER NOT NULL DEFAULT 0,
   comment_enabled INTEGER NOT NULL DEFAULT 1,
@@ -47,7 +49,7 @@ CREATE TABLE IF NOT EXISTS posts (
   password TEXT DEFAULT '',
   password_hint TEXT DEFAULT '',
   hide_home_content INTEGER NOT NULL DEFAULT 1,
-  uid INTEGER NOT NULL REFERENCES users(id),
+  uid INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
@@ -72,10 +74,12 @@ CREATE TABLE IF NOT EXISTS albums (
   cover TEXT NOT NULL DEFAULT '',
   layout TEXT NOT NULL DEFAULT 'masonry',
   columns INTEGER NOT NULL DEFAULT 3,
+  tags TEXT DEFAULT '[]',
+  hidden INTEGER NOT NULL DEFAULT 0,
   permission_type TEXT NOT NULL DEFAULT 'public' CHECK(permission_type IN ('public', 'login_required', 'points_required')),
   required_points INTEGER NOT NULL DEFAULT 0 CHECK(required_points >= 0),
   draft INTEGER NOT NULL DEFAULT 0,
-  uid INTEGER NOT NULL REFERENCES users(id),
+  uid INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
@@ -111,7 +115,7 @@ CREATE TABLE IF NOT EXISTS moments (
   tags TEXT NOT NULL DEFAULT '[]',
   pinned INTEGER NOT NULL DEFAULT 0,
   draft INTEGER NOT NULL DEFAULT 0,
-  uid INTEGER NOT NULL REFERENCES users(id),
+  uid INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
@@ -122,7 +126,7 @@ CREATE TABLE IF NOT EXISTS pages (
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   draft INTEGER NOT NULL DEFAULT 0,
-  uid INTEGER NOT NULL REFERENCES users(id),
+  uid INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
@@ -135,7 +139,7 @@ CREATE TABLE IF NOT EXISTS friends (
   url TEXT NOT NULL UNIQUE,
   accepted INTEGER NOT NULL DEFAULT 1,
   sort_order INTEGER NOT NULL DEFAULT 0,
-  uid INTEGER REFERENCES users(id),
+  uid INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
