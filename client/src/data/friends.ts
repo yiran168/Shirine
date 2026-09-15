@@ -1,5 +1,5 @@
 /**
- * 友情链接数据配置（结构与 Mizuki 同款，便于互相迁移）。
+ * Shirine 友情链接数据配置
  * 用于管理友情链接页面的数据：src/pages/friends.astro → organisms/FriendSection。
  *
  * 添加友链：在 friendsData 中追加一项即可，页面 / 筛选标签自动生成。

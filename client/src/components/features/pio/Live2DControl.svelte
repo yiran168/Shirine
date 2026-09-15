@@ -1,46 +1,144 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { configApi } from "../../../services/api";
 
-  let visible = $state(true);
+  interface Props {
+    mode?: "guest" | "admin";
+  }
 
-  onMount(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("shirine_live2d_visible");
-      if (saved !== null) {
-        visible = saved === "true";
-      }
-      applyVisibility(visible);
+  let { mode = "guest" }: Props = $props();
+
+  let enabledByBackend = $state(true);
+  let userVisible = $state(true);
+  let iframeEl: HTMLIFrameElement | null = $state(null);
+  let isLoaded = $state(false);
+  let iframeHeight = $state(500);
+
+  const WIDGET_WIDTH = 280;
+
+  onMount(async () => {
+    if (typeof window === "undefined") return;
+
+    // 1. Check user local preference
+    const saved = localStorage.getItem("shirine_live2d_visible");
+    if (saved !== null) {
+      userVisible = saved === "true";
     }
+
+    // 2. Fetch backend configuration
+    try {
+      if (mode === "admin") {
+        const res = await configApi.getAdminSystem();
+        const conf = res.data || res.config;
+        enabledByBackend = Boolean(conf?.live2dAdminEnable ?? conf?.live2dAdminEnabled ?? conf?.live2d?.adminEnabled ?? true);
+      } else {
+        const res = await configApi.getSystem();
+        const conf = res.data || res.config;
+        enabledByBackend = Boolean(conf?.live2dGuestEnable ?? conf?.live2dGuestEnabled ?? conf?.live2d?.guestEnabled ?? true);
+      }
+    } catch {
+      enabledByBackend = true;
+    }
+
+    // 3. Setup message listener for live2d-host.html
+    const handleMessage = (e: MessageEvent) => {
+      if (!iframeEl || e.source !== iframeEl.contentWindow) return;
+
+      if (e.data?.type === "l2d-loaded") {
+        isLoaded = true;
+        iframeHeight = e.data.contentHeight || 500;
+      } else if (e.data?.type === "l2d-action") {
+        if (e.data.action === "home") {
+          window.location.href = "/";
+        } else if (e.data.action === "scrollToTop") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+
+    // 4. Setup Swup listener if present
+    const onVisitEnd = () => {
+      initWidget();
+    };
+    if ((window as any).swup?.hooks) {
+      (window as any).swup.hooks.on("visit:end", onVisitEnd);
+    }
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      if ((window as any).swup?.hooks) {
+        try {
+          (window as any).swup.hooks.off("visit:end", onVisitEnd);
+        } catch {}
+      }
+    };
   });
 
-  function toggle() {
-    visible = !visible;
+  function initWidget() {
+    if (!iframeEl || !iframeEl.contentWindow) return;
+    const widgetConfig = {
+      model: { path: "/pio/models/NOIR/noir.model3.json" },
+      position: "bottom-left",
+      size: WIDGET_WIDTH,
+      transitionDuration: 1500,
+      transitionType: "slide",
+      _hideAbout: true,
+      menus: {
+        items: [
+          { icon: "fa-home", label: "首页", action: "home" },
+          { icon: "fa-arrow-up", label: "返回顶部", action: "scrollToTop" },
+          { icon: "fa-close", label: "关闭", action: "sleep" },
+        ],
+      },
+    };
+
+    iframeEl.contentWindow.postMessage({ type: "l2d-init", config: widgetConfig }, "*");
+  }
+
+  function handleIframeLoad() {
+    initWidget();
+  }
+
+  function toggleVisible() {
+    userVisible = !userVisible;
     if (typeof window !== "undefined") {
-      localStorage.setItem("shirine_live2d_visible", String(visible));
-      applyVisibility(visible);
+      localStorage.setItem("shirine_live2d_visible", String(userVisible));
     }
   }
 
-  function applyVisibility(show: boolean) {
-    if (typeof document === "undefined") return;
-    const iframe = document.getElementById("l2d-iframe");
-    if (iframe) {
-      iframe.style.display = show ? "" : "none";
-    }
-  }
+  const shouldShow = $derived(enabledByBackend && userVisible);
 </script>
 
-<div class="fixed bottom-5 right-5 z-40">
-  <button
-    onclick={toggle}
-    class="w-10 h-10 rounded-full bg-surface/80 hover:bg-surface border border-outline/20 text-on-surface shadow-lg backdrop-blur-md flex items-center justify-center transition-all hover:scale-110 active:scale-95 group"
-    title={visible ? "隐藏看板娘" : "呼唤看板娘"}
-    aria-label={visible ? "隐藏看板娘" : "呼唤看板娘"}
-  >
-    {#if visible}
-      <span class="text-sm group-hover:rotate-12 transition-transform">🌸</span>
-    {:else}
-      <span class="text-sm opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all">✨</span>
-    {/if}
-  </button>
-</div>
+{#if enabledByBackend}
+  <!-- Live2D Host Iframe (Sandboxed) -->
+  <iframe
+    bind:this={iframeEl}
+    id="l2d-iframe"
+    src="/pio/live2d-host.html"
+    onload={handleIframeLoad}
+    title="Shirine Live2D 看板娘"
+    allowtransparency="true"
+    class="fixed left-0 bottom-0 z-40 border-none transition-opacity duration-300"
+    style="width: {WIDGET_WIDTH}px; height: {iframeHeight}px; opacity: {shouldShow && isLoaded ? '1' : '0'}; pointer-events: {shouldShow && isLoaded ? 'auto' : 'none'}; display: {shouldShow ? 'block' : 'none'};"
+  ></iframe>
+
+  <!-- Floating Toggle Button -->
+  <div class="fixed bottom-5 left-5 z-50">
+    <button
+      type="button"
+      onclick={toggleVisible}
+      class="w-9 h-9 rounded-full bg-surface/80 hover:bg-surface border border-outline/20 text-on-surface shadow-md hover:shadow-lg backdrop-blur-md flex items-center justify-center transition-all hover:scale-110 active:scale-95 group focus:outline-none"
+      title={userVisible ? "收起看板娘" : "呼唤看板娘"}
+      aria-label={userVisible ? "收起看板娘" : "呼唤看板娘"}
+    >
+      {#if userVisible}
+        <span class="text-sm group-hover:rotate-12 transition-transform select-none">🌸</span>
+      {:else}
+        <span class="text-sm opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all select-none">✨</span>
+      {/if}
+    </button>
+  </div>
+{/if}
+

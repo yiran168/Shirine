@@ -22,8 +22,8 @@
 ## 一、项目总览与核心规范
 
 ### 1. 项目定位
-将原生静态主题 **Shirone**（Astro + Svelte 5 + Tailwind 4）全量重构为基于 **Cloudflare 免费生态**（Cloudflare Pages + Workers + D1 + R2 + Turnstile）的动态全栈博客系统 **`Shirine`**。
-- **100% 视觉与交互复用**：保留 Shirone 原生的 Material 3 Expressive 质感、HCT 算法动态配色、Swup 无感平滑切页、卡片流式布局、多套动态背景纹理（starlight, cyber-dots, topography, geometric, sakura）、Expressive Code 代码折叠与高亮、KaTeX 数学公式、Mermaid 图表渲染。
+将原生静态主题 **Shirine**（Astro + Svelte 5 + Tailwind 4）全量重构为基于 **Cloudflare 免费生态**（Cloudflare Pages + Workers + D1 + R2 + Turnstile）的动态全栈博客系统 **`Shirine`**。
+- **100% 视觉与交互复用**：保留 Shirine 原生的 Material 3 Expressive 质感、HCT 算法动态配色、Swup 无感平滑切页、卡片流式布局、多套动态背景纹理（starlight, cyber-dots, topography, geometric, sakura）、Expressive Code 代码折叠与高亮、KaTeX 数学公式、Mermaid 图表渲染。
 - **数据源动态化升级**：将静态本地 Markdown 文件与 yaml 配置文件，全面替换为运行时调用 **Cloudflare Workers RESTful API + D1 数据库**，实现全前台动态获取与全后台可视化管理。
 - **参考开源项目融合**：
   - 架构与部署体系：参考 **Rin**（前后端分离、Drizzle ORM、D1 数据库迁移、R2 存储、GitHub Actions 自动化 CI/CD）。
@@ -49,7 +49,7 @@ flowchart TB
 
     subgraph ClientPages [前端部署 / Cloudflare Pages]
         direction TB
-        subgraph FrontView [前台展示层 / 100% Shirone 视觉]
+        subgraph FrontView [前台展示层 / 100% Shirine 视觉]
             HomePage[首页 / 文章流 & 轮播横幅]
             PostDetail[文章详情 / 权限拦截 & 解锁]
             AlbumView[相册画廊 / 权限拦截 & 组图]
@@ -469,7 +469,7 @@ stateDiagram-v2
   - `zh_TW` / `zh-TW`：繁體中文
   - `ja`：日本語
 - 翻译范围：
-  - 前台所有原有 Shirone 界面标签与页面文字；
+  - 前台所有原有 Shirine 界面标签与页面文字；
   - 用户系统所有交互（登录、注册、修改资料、登出）；
   - 每日签到所有文案（今日已签到、连签天数、获得积分）；
   - 权限系统所有提示（登录可见、积分兑换、积分不足、已解锁）；
@@ -502,7 +502,7 @@ stateDiagram-v2
 ## 十、前端 100% 视觉复用与数据层动态化（`client/`）
 
 ### 1. 结构与资源迁移
-- 将 `Shirone-main/src` 下的原生组件、Tailwind 4、Material 3 Expressive 调色算法、`src/styles`（main, textures, transition, markdown, fancybox）、`src/assets` 完整复用并标准化迁移至 `client/`。
+- 将 `Shirine-main/src` 下的原生组件、Tailwind 4、Material 3 Expressive 调色算法、`src/styles`（main, textures, transition, markdown, fancybox）、`src/assets` 完整复用并标准化迁移至 `client/`。
 - 全局扫描并将所有遗留名称重构为 `Shirine`。
 
 ### 2. 动态数据层改造（Runtime API Client）
@@ -568,7 +568,7 @@ gantt
     Turnstile 人机二次校验与 R2 上传接口 :p2_6, 12, 13
 
     section 3. 前端视觉还原与组件接入
-    迁移 Shirone 视觉库与 M3E 配色体系   :p3_1, 13, 15
+    迁移 Shirine 视觉库与 M3E 配色体系   :p3_1, 13, 15
     动态 API 服务层与状态管理接入        :p3_2, 15, 17
     权限封面蒙层/标题徽章与解锁卡片      :p3_3, 17, 19
     登录注册弹窗/签到动效与用户中心      :p3_4, 19, 21
@@ -595,4 +595,4 @@ gantt
    - 积分内容未解锁时，卡片展示钻石蒙层与所需积分，详情页展示兑换卡，点击兑换扣减积分并永久解锁。
 4. **Turnstile 验证**：开启时非侵入挂载，拦截未通过令牌；关闭时不阻拦。
 5. **Live2D 验证**：访客端与管理端独立受控，右下角微按钮可随时折叠/展开并本地记忆。
-6. **视觉与文档**：100% 呈现原生 Shirone 视觉质感；文档成功发布 GitHub Pages，源码成功推送到 GitHub 远端。
+6. **视觉与文档**：100% 呈现原生 Shirine 视觉质感；文档成功发布 GitHub Pages，源码成功推送到 GitHub 远端。

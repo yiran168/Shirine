@@ -562,6 +562,7 @@ configRouter.get("/system/admin", requireAdmin, async (c) => {
       turnstileSecretKey: sys.turnstile?.secretKey ? "••••••••" : "",
       live2dGuestEnable: sys.live2d?.guestEnabled ?? true,
       live2dAdminEnable: sys.live2d?.adminEnabled ?? true,
+      defaultLang: sys.i18n?.defaultLang || "zh_CN",
     };
 
     return c.json({
@@ -656,6 +657,24 @@ configRouter.put("/system", requireAdmin, async (c) => {
           target: schema.systemConfigs.key,
           set: { value: JSON.stringify(live2dConfig), updatedAt: new Date() },
         });
+
+      // 4. i18n default language
+      if (body.defaultLang) {
+        const i18nConfig = {
+          defaultLang: body.defaultLang,
+        };
+        await db
+          .insert(schema.systemConfigs)
+          .values({
+            key: "i18n",
+            value: JSON.stringify(i18nConfig),
+            updatedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: schema.systemConfigs.key,
+            set: { value: JSON.stringify(i18nConfig), updatedAt: new Date() },
+          });
+      }
 
       return c.json({ success: true, message: "System configuration saved successfully" });
     }

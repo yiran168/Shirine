@@ -2,6 +2,7 @@
 export const prerender = false;
 
 import AdminDashboard from "@components/admin/AdminDashboard.svelte";
+import Live2DControl from "@components/features/pio/Live2DControl.svelte";
 import "@/styles/main.css";
 ---
 
@@ -15,5 +16,6 @@ import "@/styles/main.css";
 	</head>
 	<body class="h-full antialiased bg-[var(--surface-container-lowest)] text-[var(--on-surface)]">
 		<AdminDashboard client:only="svelte" />
+		<Live2DControl client:only="svelte" mode="admin" />
 	</body>
 </html>

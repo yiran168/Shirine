@@ -1,6 +1,7 @@
 ---
 import { Font } from "astro:assets";
 import Snackbar from "@components/atoms/overlay/Snackbar.svelte";
+import Live2DControl from "@components/features/pio/Live2DControl.svelte";
 import ConfigCarrier from "@components/system/ConfigCarrier.astro";
 import UmamiRuntime from "@components/system/UmamiRuntime.astro";
 import { resolveAsset } from "@utils/asset-utils";
@@ -232,6 +233,7 @@ const hasMonoFont =
 		<Snackbar client:only="svelte"></Snackbar>
 		<slot />
 		<div id="page-height-extend" class="hidden h-[300vh]"></div>
+		<Live2DControl client:only="svelte" mode="guest" />
 	</body>
 </html>
 
