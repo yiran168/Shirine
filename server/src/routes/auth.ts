@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { eq, sql } from "drizzle-orm";
 import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
@@ -62,8 +62,8 @@ authRouter.post("/register", async (c) => {
       c.env.JWT_SECRET
     );
 
-    const isLocal = c.req.url.includes("localhost") || c.req.url.includes("127.0.0.1");
-    const secureFlag = isLocal ? "" : "; Secure";
+    const isLoopback = isLoopbackRequest(c);
+    const secureFlag = isLoopback ? "" : "; Secure";
 
     // Set cookie
     c.header(
@@ -90,6 +90,15 @@ authRouter.post("/register", async (c) => {
   }
 });
 
+function isLoopbackRequest(c: Context<{ Bindings: Env; Variables: Variables }>): boolean {
+  try {
+    const url = new URL(c.req.url);
+    return url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
 // Setup status check (Returns whether initial setup is required)
 authRouter.get("/setup/status", async (c) => {
   try {
@@ -107,26 +116,14 @@ authRouter.get("/setup/status", async (c) => {
   }
 });
 
-// Bootstrap initial superadmin (allowed ONLY if 0 superadmins exist)
+// Bootstrap initial superadmin (atomic claim, fail-closed production check)
 authRouter.post("/setup/admin", async (c) => {
   try {
     const db = getDb(c.env.DB);
-    const superadmin = await db.query.users.findFirst({
-      where: eq(schema.users.role, "superadmin"),
-    });
-
-    if (superadmin) {
-      return c.json({ success: false, error: "System is already initialized with a superadmin" }, 403);
-    }
-
     const body = await c.req.json();
     const { username, password, nickname, setupToken } = body;
 
-    // If SETUP_TOKEN is defined in environment, require it
-    if (c.env.SETUP_TOKEN && c.env.SETUP_TOKEN !== setupToken) {
-      return c.json({ success: false, error: "Invalid setup authorization token" }, 403);
-    }
-
+    // 1. Upfront input validation to prevent claim locking on bad input
     if (!username || typeof username !== "string" || username.trim().length < 3) {
       return c.json({ success: false, error: "Username must be at least 3 characters" }, 400);
     }
@@ -134,31 +131,91 @@ authRouter.post("/setup/admin", async (c) => {
       return c.json({ success: false, error: "Password must be at least 6 characters" }, 400);
     }
 
+    const isLoopback = isLoopbackRequest(c);
+    const isProduction = c.env.ENVIRONMENT === "production";
+    if (isProduction || !isLoopback) {
+      if (!c.env.SETUP_TOKEN) {
+        return c.json(
+          { success: false, error: "Setup is disabled: SETUP_TOKEN secret must be configured in production environment" },
+          403
+        );
+      }
+      if (c.env.SETUP_TOKEN !== setupToken) {
+        return c.json({ success: false, error: "Invalid setup authorization token" }, 403);
+      }
+    } else if (c.env.SETUP_TOKEN && c.env.SETUP_TOKEN !== setupToken) {
+      return c.json({ success: false, error: "Invalid setup authorization token" }, 403);
+    }
+
+    // 2. Check existing superadmin
+    const superadmin = await db.query.users.findFirst({
+      where: eq(schema.users.role, "superadmin"),
+    });
+    if (superadmin) {
+      return c.json({ success: false, error: "System is already initialized with a superadmin" }, 403);
+    }
+
+    // 3. Atomic claim of setup initialization to eliminate concurrency race (V8-P0-12)
+    const existingState = await db.query.setupState.findFirst({
+      where: eq(schema.setupState.id, 1),
+    });
+    if (existingState && existingState.completed === 1) {
+      return c.json({ success: false, error: "System is already initialized with a superadmin" }, 403);
+    }
+    if (!existingState) {
+      try {
+        await db.insert(schema.setupState).values({ id: 1, completed: 0 });
+      } catch {
+        return c.json({ success: false, error: "Concurrent setup initialization detected. Please retry." }, 409);
+      }
+    }
+
     const salt = generateSalt();
     const passwordHash = await hashPassword(password, salt);
 
-    const inserted = await db
-      .insert(schema.users)
-      .values({
-        username: username.trim(),
-        nickname: nickname?.trim() || username.trim(),
-        passwordHash,
-        salt,
-        role: "superadmin",
-        points: 100,
-        status: "active",
-        sessionVersion: 1,
-      })
-      .returning();
+    let newUser;
+    try {
+      const inserted = await db
+        .insert(schema.users)
+        .values({
+          username: username.trim(),
+          nickname: nickname?.trim() || username.trim(),
+          passwordHash,
+          salt,
+          role: "superadmin",
+          points: 100,
+          status: "active",
+          sessionVersion: 1,
+        })
+        .returning();
 
-    const newUser = inserted[0];
+      newUser = inserted[0];
+
+      // Mark setup state completed
+      await db.update(schema.setupState).set({ completed: 1 }).where(eq(schema.setupState.id, 1));
+    } catch (createErr) {
+      // Roll back uncompleted setup state claim if user creation failed
+      try {
+        const stillNoSuperAdmin = !(await db.query.users.findFirst({ where: eq(schema.users.role, "superadmin") }));
+        if (stillNoSuperAdmin) {
+          await db.delete(schema.setupState).where(eq(schema.setupState.id, 1));
+        }
+      } catch {}
+      throw createErr;
+    }
+
+    // Claim ownership of seeded orphan records where uid is NULL (V8-P0-23)
+    await db.update(schema.posts).set({ uid: newUser.id }).where(sql`${schema.posts.uid} IS NULL`);
+    await db.update(schema.albums).set({ uid: newUser.id }).where(sql`${schema.albums.uid} IS NULL`);
+    await db.update(schema.moments).set({ uid: newUser.id }).where(sql`${schema.moments.uid} IS NULL`);
+    await db.update(schema.friends).set({ uid: newUser.id }).where(sql`${schema.friends.uid} IS NULL`);
+
     const token = await signToken(
       { id: newUser.id, username: newUser.username, role: newUser.role, sessionVersion: newUser.sessionVersion },
       c.env.JWT_SECRET
     );
 
-    const isLocal = c.req.url.includes("localhost") || c.req.url.includes("127.0.0.1");
-    const secureFlag = isLocal ? "" : "; Secure";
+    const secureFlag = isProduction || !isLoopback ? "; Secure" : "";
 
     c.header(
       "Set-Cookie",
@@ -223,8 +280,9 @@ authRouter.post("/login", async (c) => {
       c.env.JWT_SECRET
     );
 
-    const isLocal = c.req.url.includes("localhost") || c.req.url.includes("127.0.0.1");
-    const secureFlag = isLocal ? "" : "; Secure";
+    const isLoopback = isLoopbackRequest(c);
+    const isProduction = c.env.ENVIRONMENT === "production";
+    const secureFlag = isProduction || !isLoopback ? "; Secure" : "";
 
     c.header(
       "Set-Cookie",
@@ -290,10 +348,50 @@ authRouter.get("/me", requireAuth, async (c) => {
   });
 });
 
-// Logout
+// Logout current session (Per-session revocation: V8-P0-09, V8-P0-10)
 authRouter.post("/logout", async (c) => {
   const user = c.get("user");
   if (user && c.env.DB) {
+    try {
+      const db = getDb(c.env.DB);
+      if (user.jti) {
+        await db
+          .insert(schema.revokedTokens)
+          .values({
+            jti: user.jti,
+            userId: user.id,
+            expiresAt: Math.floor(Date.now() / 1000) + 7 * 24 * 3600,
+          })
+          .onConflictDoNothing();
+      } else {
+        await db
+          .update(schema.users)
+          .set({
+            sessionVersion: sql`${schema.users.sessionVersion} + 1`,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.users.id, user.id));
+      }
+    } catch (err) {
+      console.error("Logout session revocation failed:", err);
+    }
+  }
+
+  const isLoopback = isLoopbackRequest(c);
+  const isProduction = c.env.ENVIRONMENT === "production";
+  const secureFlag = isProduction || !isLoopback ? "; Secure" : "";
+
+  c.header(
+    "Set-Cookie",
+    `shirine_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${secureFlag}`
+  );
+  return c.json({ success: true, message: "Logged out successfully" });
+});
+
+// Logout all devices / sessions
+authRouter.post("/logout-all", requireAuth, async (c) => {
+  const user = c.get("user")!;
+  if (c.env.DB) {
     try {
       const db = getDb(c.env.DB);
       await db
@@ -304,16 +402,17 @@ authRouter.post("/logout", async (c) => {
         })
         .where(eq(schema.users.id, user.id));
     } catch (err) {
-      console.error("Logout session revocation failed:", err);
+      console.error("Logout-all session revocation failed:", err);
     }
   }
 
-  const isLocal = c.req.url.includes("localhost") || c.req.url.includes("127.0.0.1");
-  const secureFlag = isLocal ? "" : "; Secure";
+  const isLoopback = isLoopbackRequest(c);
+  const isProduction = c.env.ENVIRONMENT === "production";
+  const secureFlag = isProduction || !isLoopback ? "; Secure" : "";
 
   c.header(
     "Set-Cookie",
     `shirine_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${secureFlag}`
   );
-  return c.json({ success: true, message: "Logged out successfully" });
+  return c.json({ success: true, message: "Logged out from all devices" });
 });

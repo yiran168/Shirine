@@ -390,7 +390,8 @@ ON CONFLICT(url) DO UPDATE SET
   desc = excluded.desc,
   avatar = excluded.avatar,
   accepted = excluded.accepted,
-  sort_order = excluded.sort_order;\n`;
+  sort_order = excluded.sort_order,
+  uid = COALESCE(friends.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));\n`;
 }
 
 sql += `\n-- 2. Moments\n`;
@@ -402,7 +403,8 @@ ON CONFLICT(content) DO UPDATE SET
   mood = excluded.mood,
   images = excluded.images,
   tags = excluded.tags,
-  pinned = excluded.pinned;\n`;
+  pinned = excluded.pinned,
+  uid = COALESCE(moments.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));\n`;
 }
 
 sql += `\n-- 3. Albums & Photos\n`;
@@ -419,12 +421,19 @@ ON CONFLICT(slug) DO UPDATE SET
   hidden = excluded.hidden,
   permission_type = excluded.permission_type,
   required_points = excluded.required_points,
-  draft = excluded.draft;\n`;
+  draft = excluded.draft,
+  uid = COALESCE(albums.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));\n`;
 
   for (const p of a.photos) {
     sql += `INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, ${escapeSql(p.url)}, ${escapeSql(p.alt)}, ${escapeSql(p.title)}, ${escapeSql(p.description)}, ${escapeSql(JSON.stringify(p.tags))}, ${p.sortOrder}
-FROM albums WHERE slug = ${escapeSql(a.slug)};\n`;
+FROM albums WHERE slug = ${escapeSql(a.slug)}
+ON CONFLICT(album_id, url) DO UPDATE SET
+  alt = excluded.alt,
+  title = excluded.title,
+  description = excluded.description,
+  tags = excluded.tags,
+  sort_order = excluded.sort_order;\n`;
   }
 }
 
@@ -450,7 +459,118 @@ ON CONFLICT(slug) DO UPDATE SET
   encrypted = excluded.encrypted,
   password = excluded.password,
   password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content;\n`;
+  hide_home_content = excluded.hide_home_content,
+  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));\n`;
+}
+
+sql += `\n-- 5. Default Site Configurations\n`;
+const defaultConfigs = {
+  site: {
+    site: "https://shirine.pages.dev",
+    base: "/",
+    title: "Shirine",
+    subtitle: "A Material 3 Expressive dynamic blog",
+    lang: "zh_CN",
+    timeZone: "Asia/Shanghai",
+    topAppBar: { contentAlign: "center" },
+    displaySettings: {
+      colorStyle: true,
+      colorSpec: true,
+      wallpaperMode: true,
+      layoutMode: true,
+      reduceMotion: true,
+      texture: true,
+    },
+    themeColor: {
+      hue: 315,
+      fixed: false,
+      style: "tonalSpot",
+      spec: "2025",
+    },
+    wallpaperMode: { defaultMode: "banner" },
+    texture: {
+      enable: true,
+      defaultPreset: "starlight",
+      defaultOpacity: 0.12,
+      allowMotion: true,
+    },
+    banner: {
+      src: {
+        desktop: ["assets/images/banner/desktop/1.webp"],
+        mobile: ["assets/images/banner/mobile/1.webp"],
+      },
+      position: "center",
+      dim: { enable: true, opacity: 0.24 },
+      homeText: {
+        enable: true,
+        title: "Shirine",
+        subtitle: [
+          "特別なことはないけど、君がいると十分です",
+          "今でもあなたは私の光",
+          "君ってさ、知らないうちに我的毎日になってたよ",
+          "君と話すと、なんか毎日がちょっと楽しくなるんだ",
+          "今日はなんでもない日。でも、ちょっとだけいい日",
+        ],
+        typewriter: {
+          enable: true,
+          speed: 100,
+          deleteSpeed: 50,
+          pauseTime: 2000,
+          loop: true,
+        },
+      },
+      carousel: {
+        enable: true,
+        interval: 6000,
+        fadeDuration: 1200,
+      },
+    },
+  },
+  profile: {
+    avatar: "assets/images/demo-avatar.webp",
+    name: "Shirine",
+    bio: "The rain remembers what the sky forgot to say.",
+    links: [
+      { name: "Twitter", icon: "fa6-brands:twitter", url: "https://twitter.com" },
+      { name: "Steam", icon: "fa6-brands:steam", url: "https://store.steampowered.com" },
+      { name: "GitHub", icon: "fa6-brands:github", url: "https://github.com/LyraVoid/Shirine" },
+    ],
+  },
+  announcement: {
+    enable: true,
+    title: "",
+    content: "The only way to do great work is to love what you do",
+    link: { enable: true, text: "GitHub", url: "https://github.com" },
+  },
+  music: {
+    enable: true,
+    provider: "mixed",
+    defaultVolume: 0.7,
+    defaultMode: "sequence",
+    meting: { server: "netease", type: "playlist", id: "14164869977" },
+    tracks: [
+      { id: "dazbee", title: "口笛で愛は歌えない", artist: "Dazbee", cover: "assets/images/music/dazbee.webp", source: "/assets/music/url/dazbee.mp3", duration: 241 },
+      { id: "hitori", title: "ひとり上手", artist: "Kaya", cover: "assets/images/music/hitori.webp", source: "/assets/music/url/hitori.mp3", duration: 253 },
+      { id: "xryx", title: "眩耀夜行", artist: "スリーズブーケ", cover: "assets/images/music/xryx.webp", source: "/assets/music/url/xryx.mp3", duration: 245 },
+      { id: "cl", title: "春雷の頃", artist: "22/7", cover: "assets/images/music/cl.webp", source: "/assets/music/url/cl.mp3", duration: 242 },
+    ],
+  },
+  sidebar: {
+    widgets: {
+      profile: { enable: true, priority: 1 },
+      announcement: { enable: true, priority: 2, title: "公告", content: "欢迎来到 Shirine！基于 Cloudflare 全栈架构的唯美动态博客。" },
+      categories: { enable: true, priority: 3 },
+      tags: { enable: true, priority: 4 },
+      recentPosts: { enable: true, priority: 5, limit: 5 },
+    },
+  },
+  footer: { startYear: 2026, enableHtmlInject: false, links: [] },
+};
+
+for (const [key, value] of Object.entries(defaultConfigs)) {
+  sql += `INSERT INTO site_configs (key, value, updated_at)
+VALUES (${escapeSql(key)}, ${escapeSql(JSON.stringify(value))}, unixepoch())
+ON CONFLICT(key) DO NOTHING;\n`;
 }
 
 fs.writeFileSync(OUTPUT_SQL, sql, "utf-8");

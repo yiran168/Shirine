@@ -101,6 +101,7 @@ let entry = blogEntries.find((cand) => {
 
 // Fetch authoritative post detail from backend API (#P0-04)
 let dynamicDetail: any = null;
+let apiPostNotFound = false;
 const lookupKey = entry ? (entry.id || permalink) : permalink;
 try {
 	const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts/${encodeURIComponent(lookupKey)}`, {
@@ -115,9 +116,16 @@ try {
 		if (json.success && (json.data || json.post)) {
 			dynamicDetail = json.data || json.post;
 		}
+	} else if (res.status === 404) {
+		apiPostNotFound = true;
 	}
 } catch (e) {
 	console.error("Failed to fetch post detail from API:", e);
+}
+
+const isDynamicProd = Boolean(import.meta.env.PROD && import.meta.env.PUBLIC_API_URL);
+if (isDynamicProd && (!dynamicDetail || apiPostNotFound)) {
+	return Astro.redirect("/404");
 }
 
 // If post is not in local static markdown, create entry from dynamic detail
@@ -141,6 +149,7 @@ if (!entry && dynamicDetail) {
 			permissionType: dynamicDetail.permissionType || "public",
 			requiredPoints: dynamicDetail.requiredPoints || 0,
 			isUnlocked: Boolean(dynamicDetail.isUnlocked),
+			passwordHint: dynamicDetail.passwordHint,
 			alias: dynamicDetail.alias,
 			permalink: dynamicDetail.permalink,
 			prevTitle: "",
@@ -162,6 +171,7 @@ if (dynamicDetail) {
 	(entry.data as any).permissionType = dynamicDetail.permissionType;
 	(entry.data as any).requiredPoints = dynamicDetail.requiredPoints;
 	(entry.data as any).dbId = dynamicDetail.id;
+	(entry.data as any).passwordHint = dynamicDetail.passwordHint;
 	entry.body = dynamicDetail.content ?? "";
 }
 
@@ -171,9 +181,17 @@ const requiredPoints = (entry.data as any).requiredPoints || 0;
 const isUnlocked = Boolean((entry.data as any).isUnlocked);
 const dbId = Number((entry.data as any).dbId || (entry.data as any).id || (dynamicDetail?.id ?? 0));
 
-const isLocked = permissionType !== "public" && !isUnlocked;
+const isLocked = dynamicDetail ? Boolean(dynamicDetail.isLocked) : (permissionType !== "public" && !isUnlocked);
 if (isLocked) {
 	entry.body = "";
+}
+
+// Ensure sensitive or dynamic protected content is never edge-cached
+const isSensitive = Boolean(isLocked || permissionType !== "public" || dynamicDetail?.permissionType !== "public" || (entry.data as any).encrypted || cookieHeader.includes("shirine_"));
+if (isSensitive) {
+	Astro.response.headers.set("Cache-Control", "private, no-cache, no-store, must-revalidate");
+	Astro.response.headers.set("Pragma", "no-cache");
+	Astro.response.headers.set("Expires", "0");
 }
 
 const current = discoveryCandidates.find(
@@ -253,6 +271,13 @@ const ogImage = entry.data.image
 
 const canonicalPostUrl = getPostUrl(entry);
 
+function serializeJsonLd(data: any): string {
+	return JSON.stringify(data)
+		.replace(/</g, "\\u003c")
+		.replace(/>/g, "\\u003e")
+		.replace(/&/g, "\\u0026");
+}
+
 const jsonLd = {
 	"@context": "https://schema.org",
 	"@type": "BlogPosting",
@@ -280,8 +305,8 @@ const jsonLd = {
     {hasMath && <link slot="head" rel="stylesheet" data-swup-optional="math" href={katexStylesheet} />}
     {hasMath && <link slot="head" rel="stylesheet" data-swup-optional="math" href={overlayScrollbarsStylesheet} />}
     {markdownStylesheetAssets.map(({ pack, css }) => <style is:inline slot="head" data-swup-optional={pack} set:html={css}></style>)}
-    <script is:inline slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)}></script>
-    <div class="flex w-full rounded-[var(--radius-large)] overflow-hidden relative mb-4">
+    <script is:inline slot="head" type="application/ld+json" set:html={serializeJsonLd(jsonLd)}></script>
+    <div class="flex w-full rounded-[var(--radius-large)] overflow-hidden relative mb-4" data-no-swup-cache={isSensitive ? "true" : undefined}>
 		<Card color="var(--card-bg)" radius="l" class="post-card z-10 px-6 md:px-9 pt-6 pb-4 relative w-full">
 			<!-- word count and reading time -->
 			<div class="flex flex-row text-[var(--on-surface-variant)] gap-5 mb-3 transition onload-animation">
@@ -379,6 +404,8 @@ const jsonLd = {
 					postId={dbId}
 					permissionType={permissionType}
 					requiredPoints={requiredPoints}
+					lockReason={dynamicDetail?.lockReason}
+					passwordHint={dynamicDetail?.passwordHint || (entry.data as any).passwordHint}
 				/>
 			) : isEncrypted ? (
                 <EncryptedContent

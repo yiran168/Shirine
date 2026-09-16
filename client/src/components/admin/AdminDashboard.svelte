@@ -228,7 +228,14 @@
           loadDashboardData();
         }
       } else {
-        showMessage(res.error || "登录失败", true);
+        const errorText = res.error || "登录失败";
+        // If turnstile verification was required by server, prompt unified AuthModal (V8-P1-14)
+        if (errorText.toLowerCase().includes("turnstile") || errorText.includes("verification") || errorText.includes("验证")) {
+          authStore.openAuthModal("login");
+          showMessage("系统已启用人机验证，请在弹出的登录窗口中完成验证并登录", false);
+        } else {
+          showMessage(errorText, true);
+        }
       }
     } catch (err: any) {
       showMessage(err.message || "登录请求异常", true);
@@ -240,10 +247,17 @@
   async function loadDashboardData() {
     loading = true;
     try {
-      // 1. Stats
+      // 1. Stats (V8-P0-30, V8-P1-17)
       const statsRes = await adminApi.getStats();
-      if (statsRes.success) {
-        stats = statsRes.data;
+      if (statsRes.success && statsRes.data) {
+        const d = statsRes.data as any;
+        stats = {
+          totalPosts: d.totalPosts ?? d.posts ?? 0,
+          totalAlbums: d.totalAlbums ?? d.albums ?? 0,
+          totalMoments: d.totalMoments ?? d.moments ?? 0,
+          totalUsers: d.totalUsers ?? d.users ?? 0,
+          totalPoints: d.totalPoints ?? 0,
+        };
       }
 
       // 2. Load tab specific data
@@ -994,11 +1008,11 @@
               />
             </div>
             <div>
-              <label class="text-xs font-medium block mb-1.5">安装验证密钥 (若 Worker 未设置 SETUP_TOKEN 可留空)</label>
+              <label class="text-xs font-medium block mb-1.5">安装验证密钥 (生产环境必填 SETUP_TOKEN；本地开发未配置可留空)</label>
               <input
                 type="text"
                 bind:value={setupToken}
-                placeholder="可选验证密钥"
+                placeholder="生产环境必填 SETUP_TOKEN"
                 class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none"
               />
             </div>
@@ -1050,6 +1064,13 @@
               class="w-full py-3 rounded-full bg-primary text-on-primary font-semibold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all disabled:opacity-50 mt-4"
             >
               {loginLoading ? "验证中..." : "进入管理面板"}
+            </button>
+            <button
+              type="button"
+              onclick={() => authStore.openAuthModal("login")}
+              class="w-full py-2.5 rounded-full border border-primary/30 text-primary font-medium text-xs hover:bg-primary/5 active:scale-98 transition-all mt-2"
+            >
+              使用安全弹窗登录 (支持人机验证)
             </button>
           </form>
         </div>

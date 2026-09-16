@@ -336,7 +336,14 @@ const setup = () => {
 		document.getElementById('page-height-extend')?.classList.remove('hidden');
 	});
 	window.swup.hooks.on('visit:end', () => { if (!scrollStarted) finishVisit(); });
-	window.swup.hooks.on('visit:abort', finishVisit);
+	window.swup.hooks.on('page:view', () => {
+		if (document.querySelector('[data-no-swup-cache]')) {
+			try {
+				window.swup?.cache?.delete?.(window.location.href);
+				window.swup?.cache?.delete?.(window.location.pathname);
+			} catch {}
+		}
+	});
 	if (window.swup.hooks.exists('scroll:end')) {
 		window.swup.hooks.on('scroll:start', () => { if (visitActive) scrollStarted = true; });
 		window.swup.hooks.on('scroll:end', finishVisit);

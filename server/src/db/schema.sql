@@ -93,7 +93,8 @@ CREATE TABLE IF NOT EXISTS album_photos (
   description TEXT DEFAULT '',
   tags TEXT DEFAULT '[]',
   sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  UNIQUE(album_id, url)
 );
 CREATE INDEX IF NOT EXISTS album_photos_album_idx ON album_photos(album_id);
 
@@ -175,3 +176,31 @@ CREATE TABLE IF NOT EXISTS visits (
   user_agent TEXT DEFAULT '',
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
+
+CREATE TABLE IF NOT EXISTS setup_state (
+  id INTEGER PRIMARY KEY CHECK(id = 1),
+  completed INTEGER NOT NULL DEFAULT 0,
+  initialized_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+CREATE TABLE IF NOT EXISTS point_transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  amount INTEGER NOT NULL,
+  balance_after INTEGER NOT NULL,
+  target_id INTEGER,
+  idempotency_key TEXT UNIQUE,
+  description TEXT DEFAULT '',
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX IF NOT EXISTS point_transactions_user_idx ON point_transactions(user_id);
+
+CREATE TABLE IF NOT EXISTS revoked_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  jti TEXT NOT NULL UNIQUE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+CREATE INDEX IF NOT EXISTS revoked_tokens_jti_idx ON revoked_tokens(jti);

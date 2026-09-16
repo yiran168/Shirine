@@ -8,6 +8,7 @@ import Icon from "@iconify/svelte";
 import { url } from "@utils/url-utils.ts";
 import { onMount } from "svelte";
 import type { SearchResult } from "@/global";
+import { postsApi } from "../../services/api";
 
 let keywordDesktop = "";
 let keywordMobile = "";
@@ -91,11 +92,33 @@ const search = async (keyword: string, isDesktop: boolean): Promise<void> => {
 				);
 			} else {
 				searchResults = [];
-				console.error("Pagefind is not available in production environment.");
 			}
 		} else if (import.meta.env.DEV) {
 			searchResults = fakeResult;
 		}
+
+		// Supplement with real-time D1 dynamic posts
+		try {
+			const apiRes = await postsApi.list({ search: keyword, pageSize: 10 });
+			if (apiRes.success && Array.isArray(apiRes.data)) {
+				const apiResults: SearchResult[] = apiRes.data.map((post: any) => ({
+					url: url(`/posts/${post.slug || post.id}/`),
+					meta: {
+						title: post.title,
+					},
+					excerpt: post.description || (post.content ? post.content.slice(0, 140) + "..." : ""),
+				}));
+
+				const seenUrls = new Set(searchResults.map((r) => r.url.replace(/\/+$/, "")));
+				for (const ar of apiResults) {
+					const clean = ar.url.replace(/\/+$/, "");
+					if (!seenUrls.has(clean)) {
+						searchResults.unshift(ar);
+						seenUrls.add(clean);
+					}
+				}
+			}
+		} catch {}
 
 		result = searchResults;
 		setPanelVisibility(result.length > 0, isDesktop);

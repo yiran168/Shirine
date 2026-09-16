@@ -31,11 +31,20 @@ adminRouter.get("/stats", async (c) => {
       .from(schema.checkinRecords)
       .where(eq(schema.checkinRecords.checkinDate, today));
 
+    const postsCount = postCountRes[0]?.count ?? 0;
+    const usersCount = userCountRes[0]?.count ?? 0;
+    const albumsCount = albumCountRes[0]?.count ?? 0;
+    const momentsCount = momentCountRes[0]?.count ?? 0;
+
     const stats: AdminStatsDto = {
-      posts: postCountRes[0]?.count ?? 0,
-      users: userCountRes[0]?.count ?? 0,
-      albums: albumCountRes[0]?.count ?? 0,
-      moments: momentCountRes[0]?.count ?? 0,
+      posts: postsCount,
+      users: usersCount,
+      albums: albumsCount,
+      moments: momentsCount,
+      totalPosts: postsCount,
+      totalUsers: usersCount,
+      totalAlbums: albumsCount,
+      totalMoments: momentsCount,
       totalPoints: pointsSumRes[0]?.total ?? 0,
       checkinToday: checkinTodayRes[0]?.count ?? 0,
     };

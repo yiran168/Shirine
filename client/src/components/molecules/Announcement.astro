@@ -4,6 +4,7 @@ import { announcementConfig as staticAnnouncementConfig } from "@/config/announc
 import { getDynamicSiteConfig } from "@utils/dynamic-config";
 import I18nKey from "@/i18n/i18nKey";
 import { i18n } from "@/i18n/translation";
+import { url } from "@utils/url-utils";
 import WidgetLayout from "./WidgetLayout.astro";
 
 const { announcement: config } = await getDynamicSiteConfig();
@@ -16,7 +17,9 @@ const className = Astro.props.class;
 const style = Astro.props.style;
 const contentText = config.content || config.text || "";
 const link = config.link;
-const hasLink = link && link.enable !== false && link.text && link.url;
+const isDangerousProtocol = Boolean(link?.url && /^(javascript|vbscript|data):/i.test(link.url.trim()));
+const hasLink = Boolean(link && link.enable !== false && link.text && link.url && !isDangerousProtocol);
+const safeUrl = hasLink ? url(link.url) : "#";
 const isExternal =
 	hasLink &&
 	(link.external === true ||
@@ -24,8 +27,8 @@ const isExternal =
 const closeDuration = Number(config.closeDuration ?? 86400);
 ---
 
-<!-- 组件显示由 sidebarConfig 统一控制，有内容时渲染 -->
-{contentText && (
+<!-- 组件显示由 config.enable 与内容共同控制 -->
+{config.enable !== false && contentText && (
 	<WidgetLayout
 		name={config.title || i18n(I18nKey.announcement)}
 		id="announcement"
@@ -44,7 +47,7 @@ const closeDuration = Number(config.closeDuration ?? 86400);
 					<div>
 						{hasLink && (
 							<a
-								href={link.url}
+								href={safeUrl}
 								target={isExternal ? "_blank" : "_self"}
 								rel={isExternal ? "noopener noreferrer" : undefined}
 								class="announcement-btn inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--btn-regular-bg)] text-[var(--primary)] hover:bg-[var(--btn-regular-bg-hover)] active:bg-[var(--btn-regular-bg-active)] active:scale-95 transition-all shadow-sm"

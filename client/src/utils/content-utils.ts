@@ -41,7 +41,9 @@ async function getRawSortedPosts(): Promise<CollectionEntry<"posts">[]> {
 						pinned: Boolean(p.pinned),
 						draft: Boolean(p.draft),
 						comment: Boolean(p.commentEnabled ?? true),
-						encrypted: false,
+						encrypted: Boolean(p.password || p.permissionType === "password" || p.encrypted),
+						password: p.password || undefined,
+						passwordHint: p.passwordHint || undefined,
 						permissionType: p.permissionType || "public",
 						requiredPoints: p.requiredPoints || 0,
 						isUnlocked: Boolean(p.isUnlocked),
@@ -61,11 +63,14 @@ async function getRawSortedPosts(): Promise<CollectionEntry<"posts">[]> {
 	if (apiConnected) {
 		postsToUse = apiPosts;
 	} else {
-		try {
-			postsToUse = await getCollection("posts", ({ data }) => {
-				return import.meta.env.PROD ? data.draft !== true : true;
-			});
-		} catch {}
+		const isDynamicProd = Boolean(import.meta.env.PROD && import.meta.env.PUBLIC_API_URL);
+		if (!isDynamicProd) {
+			try {
+				postsToUse = await getCollection("posts", ({ data }) => {
+					return import.meta.env.PROD ? data.draft !== true : true;
+				});
+			} catch {}
+		}
 	}
 
 	for (const post of postsToUse) validatePublicationMetadata(post);
@@ -264,33 +269,36 @@ export async function getSortedMoments(): Promise<MomentItem[]> {
 	if (apiConnected) {
 		momentsToUse = apiMoments;
 	} else {
-		let entries: CollectionEntry<"moments">[] = [];
-		try {
-			entries = await getCollection("moments", ({ data }) => {
-				return import.meta.env.PROD ? data.draft !== true : true;
-			});
-		} catch {}
-
-		momentsRendererPromise ??= siteMarkdownProcessor.createRenderer({});
-		const renderer = await momentsRendererPromise;
-
-		momentsToUse = await Promise.all(
-			entries.map(async (entry) => {
-				const { code } = await renderer.render(entry.body ?? "", {
-					frontmatter: entry.data as unknown as Record<string, unknown>,
+		const isDynamicProd = Boolean(import.meta.env.PROD && import.meta.env.PUBLIC_API_URL);
+		if (!isDynamicProd) {
+			let entries: CollectionEntry<"moments">[] = [];
+			try {
+				entries = await getCollection("moments", ({ data }) => {
+					return import.meta.env.PROD ? data.draft !== true : true;
 				});
-				return {
-					id: entry.id,
-					published: new Date(entry.data.published).toISOString(),
-					html: code,
-					pinned: entry.data.pinned,
-					location: entry.data.location,
-					mood: entry.data.mood,
-					tags: entry.data.tags,
-					images: entry.data.images.map(withMomentThumbnails),
-				} satisfies MomentItem;
-			}),
-		);
+			} catch {}
+
+			momentsRendererPromise ??= siteMarkdownProcessor.createRenderer({});
+			const renderer = await momentsRendererPromise;
+
+			momentsToUse = await Promise.all(
+				entries.map(async (entry) => {
+					const { code } = await renderer.render(entry.body ?? "", {
+						frontmatter: entry.data as unknown as Record<string, unknown>,
+					});
+					return {
+						id: entry.id,
+						published: new Date(entry.data.published).toISOString(),
+						html: code,
+						pinned: entry.data.pinned,
+						location: entry.data.location,
+						mood: entry.data.mood,
+						tags: entry.data.tags,
+						images: entry.data.images.map(withMomentThumbnails),
+					} satisfies MomentItem;
+				}),
+			);
+		}
 	}
 
 	return momentsToUse.sort((a, b) => {

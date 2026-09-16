@@ -86,14 +86,14 @@ if (typeof avatarAsset !== "string") {
         <div class="h-1 w-5 bg-[var(--primary)] mx-auto rounded-full mb-2 transition"></div>
         <div class="text-center text-50 mb-2.5 transition">{config.bio}</div>
         <div class="flex flex-wrap gap-2 justify-center mb-1">
-            {config.links.length > 1 && config.links.map(item =>
+            {config.links.length > 1 && config.links.filter(item => !/^(javascript|vbscript|data):/i.test(item.url?.trim() || "")).map(item =>
                 <Tooltip label={item.name} placement="top" client:load>
-                    <IconButton href={item.url} target="_blank" rel="me" label={item.name}>
+                    <IconButton href={url(item.url)} target="_blank" rel="me" label={item.name}>
                         <Icon name={item.icon} class="text-[1.5rem]"></Icon>
                     </IconButton>
                 </Tooltip>
             )}
-            {config.links.length == 1 && <Button href={config.links[0].url} target="_blank" ariaLabel={config.links[0].name}
+            {config.links.length == 1 && !/^(javascript|vbscript|data):/i.test(config.links[0].url?.trim() || "") && <Button href={url(config.links[0].url)} target="_blank" ariaLabel={config.links[0].name}
                                                  variant="text" size="small" class="!px-3 !font-bold !text-[var(--on-surface)]">
                 <Icon name={config.links[0].icon} class="text-[1.5rem]"></Icon>
                 {config.links[0].name}

@@ -3,6 +3,7 @@ import { eq, desc, and, sql, or, like } from "drizzle-orm";
 import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
 import { requireAuth, requireAdmin } from "../core/middleware";
+import { signPostGrant, verifyPostGrant } from "../core/auth";
 import type { PostListDto, PostDetailDto } from "../types/dto";
 
 export const postsRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -122,6 +123,84 @@ postsRouter.get("/", async (c) => {
   }
 });
 
+interface ResolvedPostAccess {
+  draftPassed: boolean;
+  passwordPassed: boolean;
+  authPassed: boolean;
+  purchasePassed: boolean;
+  allGatesSatisfied: boolean;
+  lockReason: "" | "password_required" | "login_required" | "points_required";
+}
+
+async function resolvePostAccess(
+  post: typeof schema.posts.$inferSelect,
+  user: { id: number; role: string } | undefined,
+  passwordGrantOrKey: { grant?: string; headerPassword?: string },
+  db: ReturnType<typeof getDb>,
+  jwtSecret: string
+): Promise<ResolvedPostAccess> {
+  const isAdmin = user && (user.role === "superadmin" || user.role === "admin");
+  const isAuthor = user && post.uid && user.id === post.uid;
+  const isPrivileged = Boolean(isAdmin || isAuthor);
+
+  // 1. Draft Gate
+  const draftPassed = post.draft === 0 || Boolean(isAdmin);
+
+  // 2. Password Gate
+  const hasPassword = post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
+  let passwordPassed = true;
+  if (hasPassword && !isPrivileged) {
+    let grantValid = false;
+    if (passwordGrantOrKey.grant) {
+      grantValid = await verifyPostGrant(passwordGrantOrKey.grant, post.id, jwtSecret);
+    }
+    const headerValid = Boolean(passwordGrantOrKey.headerPassword && passwordGrantOrKey.headerPassword === post.password);
+    passwordPassed = Boolean(grantValid || headerValid);
+  }
+
+  // 3. Auth Gate
+  let authPassed = true;
+  if ((post.permissionType === "login_required" || post.permissionType === "points_required") && !isPrivileged) {
+    authPassed = Boolean(user);
+  }
+
+  // 4. Purchase Gate
+  let purchasePassed = true;
+  if (post.permissionType === "points_required" && !isPrivileged) {
+    if (!user) {
+      purchasePassed = false;
+    } else {
+      const unlock = await db.query.postUnlocks.findFirst({
+        where: and(
+          eq(schema.postUnlocks.userId, user.id),
+          eq(schema.postUnlocks.postId, post.id)
+        ),
+      });
+      purchasePassed = Boolean(unlock);
+    }
+  }
+
+  let lockReason: "" | "password_required" | "login_required" | "points_required" = "";
+  if (!passwordPassed) {
+    lockReason = "password_required";
+  } else if (!authPassed) {
+    lockReason = "login_required";
+  } else if (!purchasePassed) {
+    lockReason = "points_required";
+  }
+
+  const allGatesSatisfied = Boolean(draftPassed && passwordPassed && authPassed && purchasePassed);
+
+  return {
+    draftPassed,
+    passwordPassed,
+    authPassed,
+    purchasePassed,
+    allGatesSatisfied,
+    lockReason,
+  };
+}
+
 // Post detail (by slug, alias, permalink, or numeric id)
 postsRouter.get("/:slugOrId", async (c) => {
   try {
@@ -129,12 +208,13 @@ postsRouter.get("/:slugOrId", async (c) => {
     const db = getDb(c.env.DB);
     const slugOrId = c.req.param("slugOrId");
 
-    const isNumericId = /^\d+$/.test(slugOrId);
     let post = null;
 
-    if (isNumericId) {
+    // Check if numeric ID
+    const numericId = parseInt(slugOrId, 10);
+    if (!isNaN(numericId) && numericId.toString() === slugOrId) {
       post = await db.query.posts.findFirst({
-        where: eq(schema.posts.id, parseInt(slugOrId)),
+        where: eq(schema.posts.id, numericId),
       });
     }
 
@@ -152,48 +232,29 @@ postsRouter.get("/:slugOrId", async (c) => {
       return c.json({ success: false, error: "Post not found" }, 404);
     }
 
-    // Check draft permission: only superadmin or admin can see drafts
-    const isAdmin = user && (user.role === "superadmin" || user.role === "admin");
-    if (post.draft === 1 && !isAdmin) {
+    // Extract password grant or header password (V8-P0-03, V8-P0-04: no query parameter!)
+    const cookieHeader = c.req.header("Cookie") || "";
+    let cookieGrant: string | undefined;
+    const match = cookieHeader.match(new RegExp(`shirine_post_grant_${post.id}=([^;]+)`));
+    if (match) cookieGrant = match[1];
+
+    const grant = c.req.header("X-Post-Grant") || cookieGrant;
+    const headerPassword = c.req.header("X-Post-Password");
+
+    const access = await resolvePostAccess(
+      post,
+      user,
+      { grant, headerPassword },
+      db,
+      c.env.JWT_SECRET
+    );
+
+    if (!access.draftPassed) {
       return c.json({ success: false, error: "Post not published" }, 404);
     }
 
-    // Check permissions
-    let isUnlocked = true;
-    let lockReason = "";
-
-    // 1. Password protection check
-    if (post.encrypted === 1 || (post.password && post.password.length > 0)) {
-      const providedPwd = c.req.header("X-Post-Password") || c.req.query("password");
-      if (!isAdmin && providedPwd !== post.password) {
-        isUnlocked = false;
-        lockReason = "password_required";
-      }
-    }
-
-    // 2. Login or points required check
-    if (isUnlocked && post.permissionType === "login_required") {
-      if (!user) {
-        isUnlocked = false;
-        lockReason = "login_required";
-      }
-    } else if (isUnlocked && post.permissionType === "points_required") {
-      if (!user) {
-        isUnlocked = false;
-        lockReason = "login_required";
-      } else if (!isAdmin && user.id !== post.uid) {
-        const unlock = await db.query.postUnlocks.findFirst({
-          where: and(
-            eq(schema.postUnlocks.userId, user.id),
-            eq(schema.postUnlocks.postId, post.id)
-          ),
-        });
-        if (!unlock) {
-          isUnlocked = false;
-          lockReason = "points_required";
-        }
-      }
-    }
+    const isUnlocked = access.allGatesSatisfied;
+    const lockReason = access.lockReason;
 
     // Get author info
     const author = post.uid
@@ -262,7 +323,60 @@ postsRouter.get("/:slugOrId", async (c) => {
   }
 });
 
-// Unlock Post with points (Zero TOCTOU Atomic batch transaction)
+// Verify Post Password and issue short-lived password grant (V8-P0-03)
+postsRouter.post("/:id/password/verify", async (c) => {
+  try {
+    const user = c.get("user");
+    const db = getDb(c.env.DB);
+    const id = parseInt(c.req.param("id") || "0", 10);
+    if (isNaN(id)) return c.json({ success: false, error: "Invalid post ID" }, 400);
+
+    const post = await db.query.posts.findFirst({
+      where: eq(schema.posts.id, id),
+    });
+    if (!post) return c.json({ success: false, error: "Post not found" }, 404);
+
+    const isAdmin = user && (user.role === "superadmin" || user.role === "admin");
+    if (post.draft === 1 && !isAdmin) {
+      return c.json({ success: false, error: "Post not published" }, 404);
+    }
+
+    const hasPassword = post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
+    if (!hasPassword) {
+      return c.json({ success: true, message: "This post does not require a password" });
+    }
+
+    const body = await c.req.json();
+    const { password } = body;
+    if (!password || password !== post.password) {
+      return c.json({ success: false, error: "密码错误，请重新输入" }, 401);
+    }
+
+    const grant = await signPostGrant(post.id, user ? user.id : null, c.env.JWT_SECRET);
+
+    let isLoopback = false;
+    try {
+      const url = new URL(c.req.url);
+      isLoopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+    } catch {}
+    const secureFlag = isLoopback ? "" : "; Secure";
+
+    c.header(
+      "Set-Cookie",
+      `shirine_post_grant_${post.id}=${grant}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200${secureFlag}`
+    );
+
+    return c.json({
+      success: true,
+      grant,
+      message: "密码验证成功",
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || "Password verification failed" }, 500);
+  }
+});
+
+// Unlock Post with points (Zero TOCTOU Atomic batch transaction: V8-P0-01, V8-P0-02)
 postsRouter.post("/:id/unlock", requireAuth, async (c) => {
   try {
     const user = c.get("user")!;
@@ -281,7 +395,6 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
       return c.json({ success: false, error: "Post not found" }, 404);
     }
 
-    // Refuse unlocking draft posts (prevents leaking drafts via unlock)
     const isAdmin = user.role === "superadmin" || user.role === "admin";
     if (post.draft === 1 && !isAdmin) {
       return c.json({ success: false, error: "Cannot unlock unpublished draft post" }, 403);
@@ -289,18 +402,27 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
 
     if (post.permissionType !== "points_required") {
       return c.json({
-        success: true,
-        message: "This post does not require points to unlock",
-        content: post.content,
-      });
+        success: false,
+        error: "This post does not require points to unlock",
+      }, 400);
     }
+
+    const cookieHeader = c.req.header("Cookie") || "";
+    let cookieGrant: string | undefined;
+    const match = cookieHeader.match(new RegExp(`shirine_post_grant_${post.id}=([^;]+)`));
+    if (match) cookieGrant = match[1];
+    const grant = c.req.header("X-Post-Grant") || cookieGrant;
+    const headerPassword = c.req.header("X-Post-Password");
 
     // 1. Privileged bypass for admin or author
     if (isAdmin || user.id === post.uid) {
+      const access = await resolvePostAccess(post, user, { grant, headerPassword }, db, c.env.JWT_SECRET);
       return c.json({
         success: true,
         message: "Post unlocked (privileged access)",
-        content: post.content,
+        isUnlocked: access.allGatesSatisfied,
+        lockReason: access.lockReason,
+        content: access.allGatesSatisfied ? post.content : null,
       });
     }
 
@@ -312,10 +434,13 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
       ),
     });
     if (existingUnlock) {
+      const access = await resolvePostAccess(post, user, { grant, headerPassword }, db, c.env.JWT_SECRET);
       return c.json({
         success: true,
         message: "Post already unlocked",
-        content: post.content,
+        isUnlocked: access.allGatesSatisfied,
+        lockReason: access.lockReason,
+        content: access.allGatesSatisfied ? post.content : null,
       });
     }
 
@@ -327,43 +452,54 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
         pointsSpent: 0,
       }).onConflictDoNothing();
 
+      const access = await resolvePostAccess(post, user, { grant, headerPassword }, db, c.env.JWT_SECRET);
       return c.json({
         success: true,
         message: "Post unlocked",
-        content: post.content,
+        isUnlocked: access.allGatesSatisfied,
+        lockReason: access.lockReason,
+        content: access.allGatesSatisfied ? post.content : null,
       });
     }
 
-    // 4. Atomic transaction using D1 batch (zero TOCTOU window)
-    // Both deduction and unlock row creation occur in the exact same transaction.
-    // If points are insufficient, zero rows are updated and zero unlock rows are inserted.
-    const stmtDeduct = c.env.DB.prepare(
-      "UPDATE users SET points = points - ?, updated_at = unixepoch() WHERE id = ? AND points >= ?"
-    ).bind(post.requiredPoints, user.id, post.requiredPoints);
-
+    // 4. Atomic transaction using D1 batch (V8-P0-01 fix: unlock stmt executes first, deduct stmt checks points >= ?, ledger records purchase)
+    const idempotencyKey = `post_unlock_${user.id}_${post.id}`;
     const stmtUnlock = c.env.DB.prepare(
       "INSERT INTO post_unlocks (user_id, post_id, points_spent, created_at) SELECT ?, ?, ?, unixepoch() FROM users WHERE id = ? AND points >= ?"
     ).bind(user.id, post.id, post.requiredPoints, user.id, post.requiredPoints);
 
+    const stmtDeduct = c.env.DB.prepare(
+      "UPDATE users SET points = points - ?, updated_at = unixepoch() WHERE id = ? AND points >= ? AND EXISTS (SELECT 1 FROM post_unlocks WHERE user_id = ? AND post_id = ?)"
+    ).bind(post.requiredPoints, user.id, post.requiredPoints, user.id, post.id);
+
+    const stmtLedger = c.env.DB.prepare(
+      "INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at) SELECT ?, 'post_unlock', -?, (points - ?), ?, ?, ?, unixepoch() FROM users WHERE id = ? AND points >= ?"
+    ).bind(user.id, post.requiredPoints, post.requiredPoints, post.id, idempotencyKey, `Unlock post: ${post.title}`, user.id, post.requiredPoints);
+
     let batchResults;
     try {
-      batchResults = await c.env.DB.batch([stmtDeduct, stmtUnlock]);
+      batchResults = await c.env.DB.batch([stmtUnlock, stmtDeduct, stmtLedger]);
     } catch (err: any) {
-      // If unique constraint violation occurred (concurrent duplicate unlock)
       if (err.message?.includes("UNIQUE") || err.message?.includes("constraint")) {
+        const access = await resolvePostAccess(post, user, { grant, headerPassword }, db, c.env.JWT_SECRET);
         return c.json({
           success: true,
           message: "Post already unlocked",
-          content: post.content,
+          isUnlocked: access.allGatesSatisfied,
+          lockReason: access.lockReason,
+          content: access.allGatesSatisfied ? post.content : null,
         });
       }
       throw err;
     }
 
-    const deductChanges = batchResults[0]?.meta?.changes ?? 0;
-    const unlockChanges = batchResults[1]?.meta?.changes ?? 0;
+    const unlockChanges = batchResults[0]?.meta?.changes ?? 0;
+    const deductChanges = batchResults[1]?.meta?.changes ?? 0;
 
-    if (deductChanges === 0 || unlockChanges === 0) {
+    if (unlockChanges === 0 || deductChanges === 0) {
+      if (unlockChanges > 0 && deductChanges === 0) {
+        await c.env.DB.prepare("DELETE FROM post_unlocks WHERE user_id = ? AND post_id = ?").bind(user.id, post.id).run();
+      }
       const currentUser = await db.query.users.findFirst({
         where: eq(schema.users.id, user.id),
       });
@@ -383,11 +519,17 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
       where: eq(schema.users.id, user.id),
     });
 
+    const access = await resolvePostAccess(post, user, { grant, headerPassword }, db, c.env.JWT_SECRET);
+
     return c.json({
       success: true,
-      message: `Successfully unlocked post! Spent ${post.requiredPoints} points.`,
+      message: access.allGatesSatisfied
+        ? `Successfully unlocked post! Spent ${post.requiredPoints} points.`
+        : `Spent ${post.requiredPoints} points to purchase access. Additional password verification required to view content.`,
       remainingPoints: updatedUser?.points ?? 0,
-      content: post.content,
+      isUnlocked: access.allGatesSatisfied,
+      lockReason: access.lockReason,
+      content: access.allGatesSatisfied ? post.content : null,
     });
   } catch (err: any) {
     console.error("Unlock error:", err);

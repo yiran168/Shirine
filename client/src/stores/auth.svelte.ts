@@ -77,6 +77,25 @@ class StoreManager {
     this.user = null;
     this.userDrawerOpen = false;
     this.notify();
+    if (typeof window !== "undefined") {
+      try {
+        (window as any).swup?.cache?.clear?.();
+      } catch {}
+      window.location.reload();
+    }
+  }
+
+  async logoutAll() {
+    await authApi.logoutAll();
+    this.user = null;
+    this.userDrawerOpen = false;
+    this.notify();
+    if (typeof window !== "undefined") {
+      try {
+        (window as any).swup?.cache?.clear?.();
+      } catch {}
+      window.location.reload();
+    }
   }
 }
 

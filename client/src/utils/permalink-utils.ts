@@ -44,35 +44,36 @@ export function comparePublishedDatesAscending(
 }
 
 /**
+ * 获取文章的数字序号 ID（基于不可变 ID 或内容标识符的确定性哈希）
+ */
+export function getPostNumericId(postId: string): number {
+	if (postIdMap && postIdMap.has(postId)) {
+		return postIdMap.get(postId)!;
+	}
+	// Deterministic FNV-1a hash of postId to ensure permanent, immutable numeric IDs
+	let hash = 2166136261;
+	for (let i = 0; i < postId.length; i++) {
+		hash ^= postId.charCodeAt(i);
+		hash = Math.imul(hash, 16777619);
+	}
+	return (Math.abs(hash) % 100000) + 1;
+}
+
+/**
  * 初始化文章 ID 序号映射
- * 按发布时间升序排列（最早的文章 post_id = 1），草稿文章不参与编号
+ * 优先使用数据库真实不可变 ID，若无则使用确定性哈希，避免因发布更早文章导致后续 ID 全部漂移
  */
 export function initPostIdMap(
 	posts: Array<PostLikeForIdMap>,
 ): Map<string, number> {
-	if (postIdMap) {
-		return postIdMap;
-	}
-
-	const nonDraftPosts = posts.filter((post) => post.data.draft !== true);
-	const sorted = [...nonDraftPosts].sort(comparePublishedDatesAscending);
-
-	postIdMap = new Map();
-	sorted.forEach((post, index) => {
-		postIdMap?.set(post.id, index + 1);
+	const map = new Map<string, number>();
+	posts.forEach((post) => {
+		const dbId = (post.data as any)?.dbId;
+		map.set(post.id, typeof dbId === "number" && dbId > 0 ? dbId : getPostNumericId(post.id));
 	});
 
+	postIdMap = map;
 	return postIdMap;
-}
-
-/**
- * 获取文章的数字序号 ID
- */
-export function getPostNumericId(postId: string): number {
-	if (!postIdMap) {
-		return 0;
-	}
-	return postIdMap.get(postId) ?? 0;
 }
 
 /**

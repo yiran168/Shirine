@@ -166,4 +166,8 @@ export interface AdminStatsDto {
   moments: number;
   totalPoints: number;
   checkinToday: number;
+  totalPosts?: number;
+  totalUsers?: number;
+  totalAlbums?: number;
+  totalMoments?: number;
 }

@@ -43,15 +43,18 @@ export async function seedPresetData(
         uid: adminUid,
       });
       summary.friends++;
-    } else if (overwrite) {
+    } else if (overwrite || (existing.uid === null && adminUid !== null)) {
       await db
         .update(schema.friends)
         .set({
-          name: f.name,
-          desc: f.desc,
-          avatar: f.avatar,
-          accepted: f.accepted,
-          sortOrder: f.sortOrder,
+          ...(overwrite ? {
+            name: f.name,
+            desc: f.desc,
+            avatar: f.avatar,
+            accepted: f.accepted,
+            sortOrder: f.sortOrder,
+          } : {}),
+          uid: existing.uid ?? adminUid,
           updatedAt: new Date(),
         })
         .where(eq(schema.friends.id, existing.id));
@@ -76,15 +79,18 @@ export async function seedPresetData(
         createdAt: new Date(m.createdAt),
       });
       summary.moments++;
-    } else if (overwrite) {
+    } else if (overwrite || (existing.uid === null && adminUid !== null)) {
       await db
         .update(schema.moments)
         .set({
-          location: m.location,
-          mood: m.mood,
-          images: JSON.stringify(m.images),
-          tags: JSON.stringify(m.tags),
-          pinned: m.pinned,
+          ...(overwrite ? {
+            location: m.location,
+            mood: m.mood,
+            images: JSON.stringify(m.images),
+            tags: JSON.stringify(m.tags),
+            pinned: m.pinned,
+          } : {}),
+          uid: existing.uid ?? adminUid,
           updatedAt: new Date(),
         })
         .where(eq(schema.moments.id, existing.id));
@@ -121,20 +127,23 @@ export async function seedPresetData(
       summary.albums++;
     } else {
       albumId = existing.id;
-      if (overwrite) {
+      if (overwrite || (existing.uid === null && adminUid !== null)) {
         await db
           .update(schema.albums)
           .set({
-            title: a.title,
-            description: a.description,
-            cover: a.cover,
-            layout: a.layout,
-            columns: a.columns,
-            tags: JSON.stringify(a.tags),
-            hidden: a.hidden,
-            permissionType: a.permissionType,
-            requiredPoints: a.requiredPoints,
-            draft: a.draft,
+            ...(overwrite ? {
+              title: a.title,
+              description: a.description,
+              cover: a.cover,
+              layout: a.layout,
+              columns: a.columns,
+              tags: JSON.stringify(a.tags),
+              hidden: a.hidden,
+              permissionType: a.permissionType,
+              requiredPoints: a.requiredPoints,
+              draft: a.draft,
+            } : {}),
+            uid: existing.uid ?? adminUid,
             updatedAt: new Date(),
           })
           .where(eq(schema.albums.id, existing.id));
@@ -147,15 +156,27 @@ export async function seedPresetData(
         await db.delete(schema.albumPhotos).where(eq(schema.albumPhotos.albumId, albumId));
       }
       for (const p of a.photos) {
-        await db.insert(schema.albumPhotos).values({
-          albumId,
-          url: p.url,
-          alt: p.alt,
-          title: p.title,
-          description: p.description,
-          tags: JSON.stringify(p.tags),
-          sortOrder: p.sortOrder,
-        });
+        await db
+          .insert(schema.albumPhotos)
+          .values({
+            albumId,
+            url: p.url,
+            alt: p.alt,
+            title: p.title,
+            description: p.description,
+            tags: JSON.stringify(p.tags),
+            sortOrder: p.sortOrder,
+          })
+          .onConflictDoUpdate({
+            target: [schema.albumPhotos.albumId, schema.albumPhotos.url],
+            set: {
+              alt: p.alt,
+              title: p.title,
+              description: p.description,
+              tags: JSON.stringify(p.tags),
+              sortOrder: p.sortOrder,
+            },
+          });
         summary.photos++;
       }
     }
@@ -192,28 +213,31 @@ export async function seedPresetData(
         createdAt: new Date(p.createdAt),
       });
       summary.posts++;
-    } else if (overwrite) {
+    } else if (overwrite || (existing.uid === null && adminUid !== null)) {
       await db
         .update(schema.posts)
         .set({
-          alias: p.alias,
-          permalink: p.permalink,
-          title: p.title,
-          description: p.description,
-          content: p.content,
-          image: p.image,
-          category: p.category,
-          tags: JSON.stringify(p.tags),
-          lang: p.lang || "zh_CN",
-          pinned: p.pinned,
-          draft: p.draft,
-          commentEnabled: p.commentEnabled,
-          permissionType: p.permissionType,
-          requiredPoints: p.requiredPoints,
-          encrypted: p.encrypted || 0,
-          password: p.password || "",
-          passwordHint: p.passwordHint || "",
-          hideHomeContent: p.hideHomeContent ?? 1,
+          ...(overwrite ? {
+            alias: p.alias,
+            permalink: p.permalink,
+            title: p.title,
+            description: p.description,
+            content: p.content,
+            image: p.image,
+            category: p.category,
+            tags: JSON.stringify(p.tags),
+            lang: p.lang || "zh_CN",
+            pinned: p.pinned,
+            draft: p.draft,
+            commentEnabled: p.commentEnabled,
+            permissionType: p.permissionType,
+            requiredPoints: p.requiredPoints,
+            encrypted: p.encrypted || 0,
+            password: p.password || "",
+            passwordHint: p.passwordHint || "",
+            hideHomeContent: p.hideHomeContent ?? 1,
+          } : {}),
+          uid: existing.uid ?? adminUid,
           updatedAt: new Date(),
         })
         .where(eq(schema.posts.id, existing.id));

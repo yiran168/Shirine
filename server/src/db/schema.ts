@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { check, index, integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
 const createdAt = integer("created_at", { mode: "timestamp" })
   .default(sql`(unixepoch())`)
@@ -27,6 +27,7 @@ export const users = sqliteTable("users", {
   updatedAt,
 }, (table) => ({
   usernameIdx: index("users_username_idx").on(table.username),
+  pointsCheck: check("users_points_check", sql`${table.points} >= 0`),
 }));
 
 // Check-in Records
@@ -72,6 +73,7 @@ export const posts = sqliteTable("posts", {
   slugIdx: index("posts_slug_idx").on(table.slug),
   permIdx: index("posts_perm_idx").on(table.permissionType),
   dateIdx: index("posts_date_idx").on(table.createdAt),
+  requiredPointsCheck: check("posts_required_points_check", sql`${table.requiredPoints} >= 0`),
 }));
 
 // Post Unlocks
@@ -83,6 +85,7 @@ export const postUnlocks = sqliteTable("post_unlocks", {
   createdAt,
 }, (table) => ({
   userPostUnique: unique().on(table.userId, table.postId),
+  pointsSpentCheck: check("post_unlocks_points_spent_check", sql`${table.pointsSpent} >= 0`),
 }));
 
 // Albums
@@ -104,7 +107,9 @@ export const albums = sqliteTable("albums", {
   uid: integer("uid").references(() => users.id, { onDelete: "set null" }),
   createdAt,
   updatedAt,
-});
+}, (table) => ({
+  requiredPointsCheck: check("albums_required_points_check", sql`${table.requiredPoints} >= 0`),
+}));
 
 // Album Photos
 export const albumPhotos = sqliteTable("album_photos", {
@@ -119,6 +124,7 @@ export const albumPhotos = sqliteTable("album_photos", {
   createdAt,
 }, (table) => ({
   albumIdx: index("album_photos_album_idx").on(table.albumId),
+  albumUrlUnique: unique().on(table.albumId, table.url),
 }));
 
 // Album Unlocks
@@ -130,6 +136,7 @@ export const albumUnlocks = sqliteTable("album_unlocks", {
   createdAt,
 }, (table) => ({
   userAlbumUnique: unique().on(table.userId, table.albumId),
+  pointsSpentCheck: check("album_unlocks_points_spent_check", sql`${table.pointsSpent} >= 0`),
 }));
 
 // Moments (动态)
@@ -168,7 +175,7 @@ export const friends = sqliteTable("friends", {
   url: text("url").unique().notNull(),
   accepted: integer("accepted").default(1).notNull(),
   sortOrder: integer("sort_order").default(0).notNull(),
-  uid: integer("uid").references(() => users.id),
+  uid: integer("uid").references(() => users.id, { onDelete: "set null" }),
   createdAt,
   updatedAt,
 });
@@ -208,3 +215,40 @@ export const visits = sqliteTable("visits", {
   userAgent: text("user_agent").default(""),
   createdAt,
 });
+
+// System Setup State (Zero Concurrency Race)
+export const setupState = sqliteTable("setup_state", {
+  id: integer("id").primaryKey(),
+  completed: integer("completed").default(0).notNull(),
+  initializedAt: integer("initialized_at", { mode: "timestamp" })
+    .default(sql`(unixepoch())`)
+    .notNull(),
+}, (table) => ({
+  idCheck: check("setup_state_id_check", sql`${table.id} = 1`),
+}));
+
+// Point Transactions Ledger (V8-P0-01)
+export const pointTransactions = sqliteTable("point_transactions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  type: text("type").notNull(),
+  amount: integer("amount").notNull(),
+  balanceAfter: integer("balance_after").notNull(),
+  targetId: integer("target_id"),
+  idempotencyKey: text("idempotency_key").unique(),
+  description: text("description").default(""),
+  createdAt,
+}, (table) => ({
+  userIdx: index("point_transactions_user_idx").on(table.userId),
+}));
+
+// Revoked Tokens (Per-session revocation: V8-P0-09, V8-P0-10)
+export const revokedTokens = sqliteTable("revoked_tokens", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  jti: text("jti").notNull().unique(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  expiresAt: integer("expires_at").notNull(),
+  createdAt,
+}, (table) => ({
+  jtiIdx: index("revoked_tokens_jti_idx").on(table.jti),
+}));

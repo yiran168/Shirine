@@ -39,9 +39,12 @@ try {
 
 let localAlbums: any[] = [];
 if (!apiConnected) {
-	try {
-		localAlbums = scanVisibleAlbums().map(toAlbumIndexItem);
-	} catch {}
+	const isDynamicProd = Boolean(import.meta.env.PROD && import.meta.env.PUBLIC_API_URL);
+	if (!isDynamicProd) {
+		try {
+			localAlbums = scanVisibleAlbums().map(toAlbumIndexItem);
+		} catch {}
+	}
 }
 
 const albumsToUse = apiConnected ? dynamicAlbums : localAlbums;

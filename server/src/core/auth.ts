@@ -61,6 +61,9 @@ export async function signToken(payload: UserPayload, secret: string): Promise<s
     sessionVersion: payload.sessionVersion ?? 1,
   })
     .setProtectedHeader({ alg: "HS256" })
+    .setIssuer("shirine-auth")
+    .setAudience("shirine-client")
+    .setJti(crypto.randomUUID())
     .setIssuedAt()
     .setExpirationTime("7d")
     .sign(secretKey);
@@ -69,7 +72,14 @@ export async function signToken(payload: UserPayload, secret: string): Promise<s
 export async function verifyToken(token: string, secret: string): Promise<UserPayload | null> {
   try {
     const secretKey = new TextEncoder().encode(secret);
-    const { payload } = await jwtVerify(token, secretKey);
+    const { payload } = await jwtVerify(token, secretKey, {
+      issuer: "shirine-auth",
+      audience: "shirine-client",
+    });
+
+    if (!payload.jti || typeof payload.jti !== "string") return null;
+    if (typeof payload.sessionVersion !== "number") return null;
+
     const role =
       payload.role === "superadmin" || payload.role === "admin"
         ? (payload.role as "superadmin" | "admin")
@@ -78,9 +88,56 @@ export async function verifyToken(token: string, secret: string): Promise<UserPa
       id: Number(payload.id),
       username: String(payload.username),
       role,
-      sessionVersion: typeof payload.sessionVersion === "number" ? payload.sessionVersion : undefined,
+      sessionVersion: payload.sessionVersion,
+      jti: payload.jti,
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Signs a short-lived, purpose-bound password grant for accessing a password-protected post.
+ */
+export async function signPostGrant(
+  postId: number,
+  userId: number | null,
+  secret: string
+): Promise<string> {
+  const secretKey = new TextEncoder().encode(secret);
+  return await new SignJWT({
+    type: "post_password_grant",
+    postId,
+    userId: userId ?? 0,
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuer("shirine-auth")
+    .setAudience("shirine-post-grant")
+    .setJti(crypto.randomUUID())
+    .setIssuedAt()
+    .setExpirationTime("2h")
+    .sign(secretKey);
+}
+
+/**
+ * Verifies a post password grant token against the requested postId.
+ */
+export async function verifyPostGrant(
+  token: string,
+  postId: number,
+  secret: string
+): Promise<boolean> {
+  try {
+    const secretKey = new TextEncoder().encode(secret);
+    const { payload } = await jwtVerify(token, secretKey, {
+      issuer: "shirine-auth",
+      audience: "shirine-post-grant",
+    });
+    return (
+      payload.type === "post_password_grant" &&
+      Number(payload.postId) === Number(postId)
+    );
+  } catch {
+    return false;
   }
 }

@@ -5,6 +5,8 @@ export interface Env {
   PUBLIC_R2_URL?: string;
   SETUP_TOKEN?: string;
   CF_TURNSTILE_SECRET?: string;
+  ALLOWED_ORIGINS?: string;
+  ENVIRONMENT?: string;
 }
 
 export interface UserPayload {
@@ -12,6 +14,7 @@ export interface UserPayload {
   username: string;
   role: 'superadmin' | 'admin' | 'user';
   sessionVersion?: number;
+  jti?: string;
 }
 
 export type Variables = {

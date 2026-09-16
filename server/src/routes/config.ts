@@ -244,6 +244,31 @@ configRouter.get("/site", async (c) => {
   }
 });
 
+// URL Sanitizer to prevent javascript: / vbscript: / data: active content injection (V8-P0-16)
+function sanitizeUrl(rawUrl: unknown): string {
+  if (typeof rawUrl !== "string") return "#";
+  const trimmed = rawUrl.trim();
+  const lower = trimmed.toLowerCase();
+  if (
+    lower.startsWith("javascript:") ||
+    lower.startsWith("vbscript:") ||
+    lower.startsWith("data:")
+  ) {
+    return "#";
+  }
+  if (
+    lower.startsWith("http://") ||
+    lower.startsWith("https://") ||
+    lower.startsWith("mailto:") ||
+    lower.startsWith("tel:") ||
+    lower.startsWith("/") ||
+    lower.startsWith("#")
+  ) {
+    return trimmed;
+  }
+  return "#";
+}
+
 // Admin: Save Site Configs (supports both domain updates and flat admin form #23, #76)
 configRouter.put("/site", requireAdmin, async (c) => {
   try {
@@ -285,11 +310,11 @@ configRouter.put("/site", requireAdmin, async (c) => {
         siteUpdates.banner = {};
         if (body.bannerDesktop !== undefined) {
           const arr = Array.isArray(body.bannerDesktop) ? body.bannerDesktop : [body.bannerDesktop].filter(Boolean);
-          siteUpdates.banner.src = { ...(siteUpdates.banner.src || {}), desktop: arr };
+          siteUpdates.banner.src = { ...(siteUpdates.banner.src || {}), desktop: arr.map(sanitizeUrl) };
         }
         if (body.bannerMobile !== undefined) {
           const arr = Array.isArray(body.bannerMobile) ? body.bannerMobile : [body.bannerMobile].filter(Boolean);
-          siteUpdates.banner.src = { ...(siteUpdates.banner.src || {}), mobile: arr };
+          siteUpdates.banner.src = { ...(siteUpdates.banner.src || {}), mobile: arr.map(sanitizeUrl) };
         }
         if (body.bannerSubtitles !== undefined) {
           const subs = Array.isArray(body.bannerSubtitles)
@@ -327,9 +352,13 @@ configRouter.put("/site", requireAdmin, async (c) => {
       const profileUpdates: Record<string, any> = {};
       if (body.authorName !== undefined) profileUpdates.name = body.authorName;
       if (body.bio !== undefined) profileUpdates.bio = body.bio;
-      if (body.avatar !== undefined) profileUpdates.avatar = body.avatar;
+      if (body.avatar !== undefined) profileUpdates.avatar = sanitizeUrl(body.avatar);
       if (body.profileLinks !== undefined && Array.isArray(body.profileLinks)) {
-        profileUpdates.links = body.profileLinks;
+        profileUpdates.links = body.profileLinks.map((item: any) => ({
+          name: String(item.name || "").trim().slice(0, 50),
+          icon: String(item.icon || "").trim().slice(0, 100),
+          url: sanitizeUrl(item.url),
+        }));
       }
 
       const existingProfile = await db.query.siteConfigs.findFirst({
@@ -409,10 +438,11 @@ configRouter.put("/site", requireAdmin, async (c) => {
       if (body.announcementTitle !== undefined) annUpdates.title = body.announcementTitle;
       if (body.announcementContent !== undefined) annUpdates.content = body.announcementContent;
       if (body.announcementLinkText !== undefined || body.announcementLinkUrl !== undefined) {
+        const safeUrl = sanitizeUrl(body.announcementLinkUrl);
         annUpdates.link = {
-          enable: Boolean(body.announcementLinkUrl),
+          enable: Boolean(body.announcementLinkUrl && safeUrl !== "#"),
           text: body.announcementLinkText || "链接",
-          url: body.announcementLinkUrl || "",
+          url: safeUrl,
         };
       }
 
@@ -562,6 +592,7 @@ configRouter.get("/system/admin", requireAdmin, async (c) => {
       turnstileSecretKey: sys.turnstile?.secretKey ? "••••••••" : "",
       live2dGuestEnable: sys.live2d?.guestEnabled ?? true,
       live2dAdminEnable: sys.live2d?.adminEnabled ?? true,
+      live2dModel: sys.live2d?.model || defaultSystemConfig.live2d.model,
       defaultLang: sys.i18n?.defaultLang || "zh_CN",
     };
 
@@ -641,10 +672,23 @@ configRouter.put("/system", requireAdmin, async (c) => {
         });
 
       // 3. live2d
+      const existingLive2dRow = await db.query.systemConfigs.findFirst({
+        where: eq(schema.systemConfigs.key, "live2d"),
+      });
+      let existingModel = defaultSystemConfig.live2d.model;
+      if (existingLive2dRow) {
+        try {
+          existingModel = JSON.parse(existingLive2dRow.value).model || existingModel;
+        } catch {}
+      }
+      const live2dModel =
+        typeof body.live2dModel === "string" && body.live2dModel.trim()
+          ? body.live2dModel.trim()
+          : existingModel;
       const live2dConfig = {
         guestEnabled: body.live2dGuestEnable !== undefined ? Boolean(body.live2dGuestEnable) : true,
         adminEnabled: body.live2dAdminEnable !== undefined ? Boolean(body.live2dAdminEnable) : true,
-        model: defaultSystemConfig.live2d.model,
+        model: live2dModel,
       };
       await db
         .insert(schema.systemConfigs)

@@ -91,8 +91,9 @@ userRouter.post("/checkin", requireAuth, async (c) => {
     // Calculate streak
     const newStreak = user.lastCheckinDate === yesterday ? user.checkinStreak + 1 : 1;
     const newPoints = user.points + awarded;
+    const idempotencyKey = `checkin_${user.id}_${today}`;
 
-    // Atomic execution using D1 batch (#102, P0-14)
+    // Atomic execution using D1 batch (#102, P0-14, V8-P0-01)
     await c.env.DB.batch([
       c.env.DB.prepare(
         "INSERT INTO checkin_records (user_id, checkin_date, points_awarded, created_at) VALUES (?, ?, ?, unixepoch())"
@@ -100,6 +101,9 @@ userRouter.post("/checkin", requireAuth, async (c) => {
       c.env.DB.prepare(
         "UPDATE users SET points = points + ?, last_checkin_date = ?, checkin_streak = ?, updated_at = unixepoch() WHERE id = ?"
       ).bind(awarded, today, newStreak, user.id),
+      c.env.DB.prepare(
+        "INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at) VALUES (?, 'checkin', ?, ?, NULL, ?, ?, unixepoch())"
+      ).bind(user.id, awarded, newPoints, idempotencyKey, `Daily check-in streak: ${newStreak} days`),
     ]);
 
     return c.json({
@@ -216,8 +220,13 @@ userRouter.put("/profile", requireAuth, async (c) => {
         { id: u.id, username: u.username, role: u.role, sessionVersion: u.sessionVersion },
         c.env.JWT_SECRET
       );
-      const isLocal = c.req.url.includes("localhost") || c.req.url.includes("127.0.0.1");
-      const secureFlag = isLocal ? "" : "; Secure";
+      let isLoopback = false;
+      try {
+        const url = new URL(c.req.url);
+        isLoopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+      } catch {}
+      const isProduction = c.env.ENVIRONMENT === "production";
+      const secureFlag = isProduction || !isLoopback ? "; Secure" : "";
       c.header(
         "Set-Cookie",
         `shirine_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 3600}${secureFlag}`

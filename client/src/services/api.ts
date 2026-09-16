@@ -63,16 +63,41 @@ async function request<T = any>(
 // -------------------------------------------------------------
 export const authApi = {
   getSetupStatus: () => request<{ needsSetup: boolean }>("/auth/setup/status", { method: "GET" }),
-  setupAdmin: (body: { username: string; password: string; nickname?: string; setupToken?: string }) =>
-    request("/auth/setup/admin", { method: "POST", body: JSON.stringify(body) }),
-  register: (body: { username: string; password: string; nickname?: string; turnstileToken?: string }) =>
-    request("/auth/register", { method: "POST", body: JSON.stringify(body) }),
-  login: (body: { username: string; password: string; turnstileToken?: string }) =>
-    request("/auth/login", { method: "POST", body: JSON.stringify(body) }),
+  setupAdmin: async (body: { username: string; password: string; nickname?: string; setupToken?: string }) => {
+    const res = await request("/auth/setup/admin", { method: "POST", body: JSON.stringify(body) });
+    if (res.success && res.token) {
+      setToken(res.token);
+    }
+    return res;
+  },
+  register: async (body: { username: string; password: string; nickname?: string; turnstileToken?: string }) => {
+    const res = await request("/auth/register", { method: "POST", body: JSON.stringify(body) });
+    if (res.success && res.token) {
+      setToken(res.token);
+    }
+    return res;
+  },
+  login: async (body: { username: string; password: string; turnstileToken?: string }) => {
+    const res = await request("/auth/login", { method: "POST", body: JSON.stringify(body) });
+    if (res.success && res.token) {
+      setToken(res.token);
+    }
+    return res;
+  },
   me: () => request("/auth/me", { method: "GET" }),
-  logout: () => {
-    removeToken();
-    return request("/auth/logout", { method: "POST" });
+  logout: async () => {
+    try {
+      return await request("/auth/logout", { method: "POST" });
+    } finally {
+      removeToken();
+    }
+  },
+  logoutAll: async () => {
+    try {
+      return await request("/auth/logout-all", { method: "POST" });
+    } finally {
+      removeToken();
+    }
   },
 };
 
@@ -82,8 +107,13 @@ export const authApi = {
 export const userApi = {
   checkin: () => request("/user/checkin", { method: "POST" }),
   getHistory: () => request("/user/history", { method: "GET" }),
-  updateProfile: (body: { nickname?: string; avatar?: string; newPassword?: string; oldPassword?: string }) =>
-    request("/user/profile", { method: "PUT", body: JSON.stringify(body) }),
+  updateProfile: async (body: { nickname?: string; avatar?: string; newPassword?: string; oldPassword?: string }) => {
+    const res = await request("/user/profile", { method: "PUT", body: JSON.stringify(body) });
+    if (res.success && res.token) {
+      setToken(res.token);
+    }
+    return res;
+  },
 };
 
 // -------------------------------------------------------------
@@ -100,6 +130,8 @@ export const postsApi = {
     return request(`/posts?${query.toString()}`);
   },
   get: (slugOrId: string | number) => request(`/posts/${slugOrId}`),
+  verifyPassword: (id: number, password: string) =>
+    request(`/posts/${id}/password/verify`, { method: "POST", body: JSON.stringify({ password }) }),
   unlock: (id: number) => request(`/posts/${id}/unlock`, { method: "POST" }),
   create: (body: any) => request("/posts", { method: "POST", body: JSON.stringify(body) }),
   update: (id: number, body: any) => request(`/posts/${id}`, { method: "PUT", body: JSON.stringify(body) }),

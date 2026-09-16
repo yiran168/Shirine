@@ -253,7 +253,7 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
     }
 
     if (album.permissionType !== "points_required") {
-      return c.json({ success: true, message: "This album does not require points to unlock" });
+      return c.json({ success: false, error: "This album does not require points to unlock" }, 400);
     }
 
     // 1. Privileged bypass
@@ -346,18 +346,23 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
       });
     }
 
-    // 4. Atomic transaction using D1 batch (zero TOCTOU window)
-    const stmtDeduct = c.env.DB.prepare(
-      "UPDATE users SET points = points - ?, updated_at = unixepoch() WHERE id = ? AND points >= ?"
-    ).bind(album.requiredPoints, user.id, album.requiredPoints);
-
+    // 4. Atomic transaction using D1 batch (V8-P0-01 fix: unlock stmt first, deduct stmt second, ledger records purchase)
+    const idempotencyKey = `album_unlock_${user.id}_${album.id}`;
     const stmtUnlock = c.env.DB.prepare(
       "INSERT INTO album_unlocks (user_id, album_id, points_spent, created_at) SELECT ?, ?, ?, unixepoch() FROM users WHERE id = ? AND points >= ?"
     ).bind(user.id, album.id, album.requiredPoints, user.id, album.requiredPoints);
 
+    const stmtDeduct = c.env.DB.prepare(
+      "UPDATE users SET points = points - ?, updated_at = unixepoch() WHERE id = ? AND points >= ? AND EXISTS (SELECT 1 FROM album_unlocks WHERE user_id = ? AND album_id = ?)"
+    ).bind(album.requiredPoints, user.id, album.requiredPoints, user.id, album.id);
+
+    const stmtLedger = c.env.DB.prepare(
+      "INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at) SELECT ?, 'album_unlock', -?, (points - ?), ?, ?, ?, unixepoch() FROM users WHERE id = ? AND points >= ?"
+    ).bind(user.id, album.requiredPoints, album.requiredPoints, album.id, idempotencyKey, `Unlock album: ${album.title}`, user.id, album.requiredPoints);
+
     let batchResults;
     try {
-      batchResults = await c.env.DB.batch([stmtDeduct, stmtUnlock]);
+      batchResults = await c.env.DB.batch([stmtUnlock, stmtDeduct, stmtLedger]);
     } catch (err: any) {
       if (err.message?.includes("UNIQUE") || err.message?.includes("constraint")) {
         const dbPhotos = await db.query.albumPhotos.findMany({
@@ -386,10 +391,13 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
       throw err;
     }
 
-    const deductChanges = batchResults[0]?.meta?.changes ?? 0;
-    const unlockChanges = batchResults[1]?.meta?.changes ?? 0;
+    const unlockChanges = batchResults[0]?.meta?.changes ?? 0;
+    const deductChanges = batchResults[1]?.meta?.changes ?? 0;
 
-    if (deductChanges === 0 || unlockChanges === 0) {
+    if (unlockChanges === 0 || deductChanges === 0) {
+      if (unlockChanges > 0 && deductChanges === 0) {
+        await c.env.DB.prepare("DELETE FROM album_unlocks WHERE user_id = ? AND album_id = ?").bind(user.id, album.id).run();
+      }
       const currentUser = await db.query.users.findFirst({ where: eq(schema.users.id, user.id) });
       const currentPoints = currentUser?.points ?? 0;
       return c.json(
