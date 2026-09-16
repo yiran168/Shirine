@@ -3,12 +3,16 @@ import { eq, desc, sql, like, or } from "drizzle-orm";
 import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
 import { requireAdmin } from "../core/middleware";
+import { configRouter } from "./config";
 import type { AdminStatsDto, UserDto } from "../types/dto";
 
 export const adminRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // All admin routes require admin or superadmin role
 adminRouter.use("*", requireAdmin);
+
+// Mount config router for admin/config endpoints (V10-P0-04)
+adminRouter.route("/config", configRouter);
 
 // Dashboard Overview Statistics
 adminRouter.get("/stats", async (c) => {
@@ -115,8 +119,8 @@ adminRouter.get("/users", async (c) => {
   }
 });
 
-// Adjust User Points (Atomic update #105)
-adminRouter.put("/users/:id/points", async (c) => {
+// Adjust User Points (Atomic update #105, supports PUT and POST)
+const handleAdjustUserPoints = async (c: any) => {
   try {
     const db = getDb(c.env.DB);
     const id = parseInt(c.req.param("id"));
@@ -125,7 +129,7 @@ adminRouter.put("/users/:id/points", async (c) => {
     }
 
     const body = await c.req.json();
-    const { delta, exactPoints } = body;
+    const { delta, exactPoints, amount, description } = body;
 
     const user = await db.query.users.findFirst({
       where: eq(schema.users.id, id),
@@ -144,6 +148,10 @@ adminRouter.put("/users/:id/points", async (c) => {
     if (exactPoints !== undefined) {
       targetPoints = Math.max(0, parseInt(exactPoints) || 0);
       deltaAmount = targetPoints - user.points;
+    } else if (amount !== undefined) {
+      const d = parseInt(amount) || 0;
+      targetPoints = Math.max(0, user.points + d);
+      deltaAmount = targetPoints - user.points;
     } else if (delta !== undefined) {
       const d = parseInt(delta) || 0;
       targetPoints = Math.max(0, user.points + d);
@@ -156,6 +164,10 @@ adminRouter.put("/users/:id/points", async (c) => {
         "UPDATE users SET points = ?, updated_at = unixepoch() WHERE id = ?"
       ).bind(targetPoints, id);
 
+      const descText =
+        description ||
+        `Admin adjust points by ${currentUser.username} (${deltaAmount > 0 ? "+" : ""}${deltaAmount})`;
+
       const stmtLedger = c.env.DB.prepare(
         "INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at) VALUES (?, 'admin_adjust', ?, ?, ?, ?, ?, unixepoch())"
       ).bind(
@@ -164,7 +176,7 @@ adminRouter.put("/users/:id/points", async (c) => {
         targetPoints,
         currentUser.id,
         idempotencyKey,
-        `Admin adjust points by ${currentUser.username} (${deltaAmount > 0 ? "+" : ""}${deltaAmount})`
+        descText
       );
 
       await c.env.DB.batch([stmtUser, stmtLedger]);
@@ -183,7 +195,10 @@ adminRouter.put("/users/:id/points", async (c) => {
   } catch (err: any) {
     return c.json({ success: false, error: err.message || "Failed to update points" }, 500);
   }
-});
+};
+
+adminRouter.put("/users/:id/points", handleAdjustUserPoints);
+adminRouter.post("/users/:id/points", handleAdjustUserPoints);
 
 // Change User Role (supports superadmin, admin, user #67, #68)
 adminRouter.put("/users/:id/role", async (c) => {

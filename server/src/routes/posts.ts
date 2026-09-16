@@ -85,7 +85,7 @@ postsRouter.get("/", async (c) => {
         if (!isUnlocked) lockReason = "login_required";
       } else if (post.permissionType === "points_required") {
         isUnlocked = isPurchased;
-        if (!isUnlocked) lockReason = !user ? "login_required" : "points_required";
+        if (!isUnlocked) lockReason = "points_required";
       }
 
       if (hasPassword && !user?.role?.includes("admin")) {
@@ -183,7 +183,7 @@ async function resolvePostAccess(
 
   // 3. Auth Gate
   let authPassed = true;
-  if ((post.permissionType === "login_required" || post.permissionType === "points_required") && !isPrivileged) {
+  if (post.permissionType === "login_required" && !isPrivileged) {
     authPassed = Boolean(user);
   }
 
@@ -206,10 +206,10 @@ async function resolvePostAccess(
   let lockReason: "" | "password_required" | "login_required" | "points_required" = "";
   if (!passwordPassed) {
     lockReason = "password_required";
-  } else if (!authPassed) {
-    lockReason = "login_required";
   } else if (!purchasePassed) {
     lockReason = "points_required";
+  } else if (!authPassed) {
+    lockReason = "login_required";
   }
 
   const allGatesSatisfied = Boolean(draftPassed && passwordPassed && authPassed && purchasePassed);
@@ -247,12 +247,11 @@ function extractPostGrant(c: any, postId: number): string | undefined {
   return undefined;
 }
 
-// Post detail (by slug, alias, permalink, or numeric id)
-postsRouter.get("/:slugOrId", async (c) => {
+// O(1) single-post query architecture helper (by slug, alias, permalink, or numeric id)
+async function getPostDetailResponse(c: any, slugOrId: string) {
   try {
     const user = c.get("user");
     const db = getDb(c.env.DB);
-    const slugOrId = c.req.param("slugOrId");
 
     let post = null;
 
@@ -406,6 +405,16 @@ postsRouter.get("/:slugOrId", async (c) => {
   } catch (err: any) {
     return c.json({ success: false, error: err.message || "Failed to fetch post" }, 500);
   }
+}
+
+// O(1) single-post query architecture via RESTful API by slug
+postsRouter.get("/slug/:slug", async (c) => {
+  return getPostDetailResponse(c, c.req.param("slug"));
+});
+
+// Post detail (by slug, alias, permalink, or numeric id)
+postsRouter.get("/:slugOrId", async (c) => {
+  return getPostDetailResponse(c, c.req.param("slugOrId"));
 });
 
 // Verify Post Password and issue short-lived password grant (V8-P0-03, V10-P0-09, V10-P0-10)
@@ -596,8 +605,8 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
     ).bind(post.requiredPoints, user.id, post.requiredPoints, user.id, post.id);
 
     const stmtLedger = c.env.DB.prepare(
-      "INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at) SELECT ?, 'post_unlock', -?, (points - ?), ?, ?, ?, unixepoch() FROM users WHERE id = ? AND points >= ?"
-    ).bind(user.id, post.requiredPoints, post.requiredPoints, post.id, idempotencyKey, `Unlock post: ${post.title}`, user.id, post.requiredPoints);
+      "INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at) SELECT ?, 'post_unlock', -?, points, ?, ?, ?, unixepoch() FROM users WHERE id = ? AND EXISTS (SELECT 1 FROM post_unlocks WHERE user_id = ? AND post_id = ?)"
+    ).bind(user.id, post.requiredPoints, post.id, idempotencyKey, `Unlock post: ${post.title}`, user.id, user.id, post.id);
 
     let batchResults;
     try {
@@ -630,6 +639,7 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
       if (unlockChanges > 0 && deductChanges === 0) {
         await c.env.DB.prepare("DELETE FROM post_unlocks WHERE user_id = ? AND post_id = ?").bind(user.id, post.id).run();
       }
+      await c.env.DB.prepare("DELETE FROM point_transactions WHERE idempotency_key = ?").bind(idempotencyKey).run();
       const currentUser = await db.query.users.findFirst({
         where: eq(schema.users.id, user.id),
       });
@@ -761,7 +771,7 @@ postsRouter.post("/", requireAdmin, async (c) => {
       success: true,
       data: inserted[0],
       post: inserted[0],
-    });
+    }, 201);
   } catch (err: any) {
     if (err.message?.includes("UNIQUE")) {
       return c.json({ success: false, error: "A post with this slug already exists" }, 409);

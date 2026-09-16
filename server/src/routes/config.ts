@@ -230,16 +230,31 @@ configRouter.get("/site", async (c) => {
       } catch {}
     }
 
+    const flatSite = (merged as any).site || {};
+    const responseData = {
+      ...flatSite,
+      ...merged,
+      title: flatSite.title,
+      subtitle: flatSite.subtitle,
+    };
+
     return c.json({
       success: true,
-      data: merged,
-      config: merged, // Backward compatibility (#22)
+      data: responseData,
+      config: responseData,
     });
   } catch (err: any) {
+    const flatDefault = (defaultSiteConfig as any).site || {};
+    const defaultData = {
+      ...flatDefault,
+      ...defaultSiteConfig,
+      title: flatDefault.title,
+      subtitle: flatDefault.subtitle,
+    };
     return c.json({
       success: true,
-      data: defaultSiteConfig,
-      config: defaultSiteConfig,
+      data: defaultData,
+      config: defaultData,
     });
   }
 });

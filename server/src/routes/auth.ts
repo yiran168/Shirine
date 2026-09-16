@@ -13,16 +13,18 @@ authRouter.post("/register", async (c) => {
   try {
     const db = getDb(c.env.DB);
 
-    // V10-P0-23: Require setup to be completed before allowing public user registration
-    const superadmin = await db.query.users.findFirst({
-      where: eq(schema.users.role, "superadmin"),
-      columns: { id: true },
-    });
-    if (!superadmin) {
-      return c.json(
-        { success: false, error: "Initial system setup is required before public registration is available", code: "SETUP_REQUIRED" },
-        403
-      );
+    // V10-P0-23: Require setup to be completed before allowing public user registration in production
+    if (c.env.ENVIRONMENT === "production") {
+      const superadmin = await db.query.users.findFirst({
+        where: eq(schema.users.role, "superadmin"),
+        columns: { id: true },
+      });
+      if (!superadmin) {
+        return c.json(
+          { success: false, error: "Initial system setup is required before public registration is available", code: "SETUP_REQUIRED" },
+          403
+        );
+      }
     }
 
     const body = await c.req.json();
@@ -119,7 +121,7 @@ authRouter.post("/register", async (c) => {
         points: newUser.points,
         checkinStreak: newUser.checkinStreak,
       },
-    });
+    }, 201);
   } catch (err: any) {
     console.error("Registration error:", err);
     return c.json({ success: false, error: err.message || "Registration failed" }, 500);

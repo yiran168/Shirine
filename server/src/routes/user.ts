@@ -158,6 +158,59 @@ userRouter.get("/history", requireAuth, async (c) => {
   }
 });
 
+// Get Current User Profile (GET /api/user/profile)
+userRouter.get("/profile", requireAuth, async (c) => {
+  try {
+    const current = c.get("user")!;
+    const db = getDb(c.env.DB);
+    const user = await db.query.users.findFirst({
+      where: eq(schema.users.id, current.id),
+    });
+
+    if (!user) {
+      return c.json({ success: false, error: "User not found" }, 404);
+    }
+
+    let siteTimeZone = "Asia/Shanghai";
+    try {
+      const siteConfigRow = await db.query.siteConfigs.findFirst({
+        where: eq(schema.siteConfigs.key, "site"),
+      });
+      if (siteConfigRow) {
+        const parsed = JSON.parse(siteConfigRow.value);
+        if (parsed.timeZone) siteTimeZone = parsed.timeZone;
+      }
+    } catch {}
+
+    const today = getLocalDateString(new Date(), siteTimeZone);
+    const checkedInToday = user.lastCheckinDate === today;
+
+    const userData = {
+      id: user.id,
+      username: user.username,
+      nickname: user.nickname,
+      avatar: user.avatar,
+      role: user.role,
+      points: user.points,
+      status: user.status,
+      checkinStreak: user.checkinStreak,
+      lastCheckinDate: user.lastCheckinDate,
+      checkedInToday,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    return c.json({
+      success: true,
+      code: 200,
+      data: userData,
+      user: userData,
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || "Failed to fetch profile" }, 500);
+  }
+});
+
 // Update Profile & Change Password (re-salts on change #97)
 userRouter.put("/profile", requireAuth, async (c) => {
   try {

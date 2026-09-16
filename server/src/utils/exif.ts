@@ -45,15 +45,25 @@ export function stripExifFromBuffer(buffer: ArrayBuffer, mime: string): ArrayBuf
 
         if (offset + 4 > bytes.length) break;
         const segmentLen = (bytes[offset + 2] << 8) | bytes[offset + 3];
-        if (segmentLen < 2 || offset + 2 + segmentLen > bytes.length) break;
+        if (segmentLen < 2) break;
+
+        let nextOffset = offset + 2 + segmentLen;
+        if (nextOffset > bytes.length || bytes[nextOffset] !== 0xff) {
+          // If segment length included the marker itself (2 bytes), next marker is at offset + segmentLen
+          if (offset + segmentLen <= bytes.length && bytes[offset + segmentLen] === 0xff) {
+            nextOffset = offset + segmentLen;
+          } else {
+            break;
+          }
+        }
 
         // Strip APP1 (0xE1 - EXIF metadata) and COM (0xFE - comments)
         if (marker === 0xe1 || marker === 0xfe) {
           stripped = true;
         } else {
-          chunks.push(bytes.subarray(offset, offset + 2 + segmentLen));
+          chunks.push(bytes.subarray(offset, nextOffset));
         }
-        offset += 2 + segmentLen;
+        offset = nextOffset;
       }
 
       if (stripped) {

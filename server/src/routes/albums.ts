@@ -357,8 +357,8 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
     ).bind(album.requiredPoints, user.id, album.requiredPoints, user.id, album.id);
 
     const stmtLedger = c.env.DB.prepare(
-      "INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at) SELECT ?, 'album_unlock', -?, (points - ?), ?, ?, ?, unixepoch() FROM users WHERE id = ? AND points >= ?"
-    ).bind(user.id, album.requiredPoints, album.requiredPoints, album.id, idempotencyKey, `Unlock album: ${album.title}`, user.id, album.requiredPoints);
+      "INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at) SELECT ?, 'album_unlock', -?, points, ?, ?, ?, unixepoch() FROM users WHERE id = ?"
+    ).bind(user.id, album.requiredPoints, album.id, idempotencyKey, `Unlock album: ${album.title}`, user.id);
 
     let batchResults;
     try {

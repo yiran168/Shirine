@@ -29,5 +29,8 @@
     "cloudflare-pages",
     "material-3",
     "svelte-5"
-  ]
+  ],
+  "devDependencies": {
+    "drizzle-orm": "^0.45.2"
+  }
 }
