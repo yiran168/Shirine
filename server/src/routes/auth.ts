@@ -11,14 +11,52 @@ export const authRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 // Register
 authRouter.post("/register", async (c) => {
   try {
+    const db = getDb(c.env.DB);
+
+    // V10-P0-23: Require setup to be completed before allowing public user registration
+    const superadmin = await db.query.users.findFirst({
+      where: eq(schema.users.role, "superadmin"),
+      columns: { id: true },
+    });
+    if (!superadmin) {
+      return c.json(
+        { success: false, error: "Initial system setup is required before public registration is available", code: "SETUP_REQUIRED" },
+        403
+      );
+    }
+
     const body = await c.req.json();
     const { username, password, nickname, turnstileToken } = body;
 
-    if (!username || typeof username !== "string" || username.trim().length < 3) {
-      return c.json({ success: false, error: "Username must be at least 3 characters" }, 400);
+    // V10-P0-24: Strict length and charset limits
+    if (!username || typeof username !== "string" || username.trim().length < 3 || username.trim().length > 32) {
+      return c.json({ success: false, error: "Username must be between 3 and 32 characters" }, 400);
     }
-    if (!password || typeof password !== "string" || password.length < 6) {
-      return c.json({ success: false, error: "Password must be at least 6 characters" }, 400);
+    if (!/^[a-zA-Z0-9_\-\.]+$/.test(username.trim())) {
+      return c.json({ success: false, error: "Username can only contain alphanumeric characters, underscores, hyphens, and dots" }, 400);
+    }
+
+    const reservedUsernames = [
+      "admin",
+      "administrator",
+      "root",
+      "system",
+      "shirine",
+      "superuser",
+      "guest",
+      "owner",
+      "moderator",
+      "mod",
+    ];
+    if (reservedUsernames.includes(username.trim().toLowerCase())) {
+      return c.json({ success: false, error: "This username is reserved by the system" }, 400);
+    }
+
+    if (!password || typeof password !== "string" || password.length < 6 || password.length > 128) {
+      return c.json({ success: false, error: "Password must be between 6 and 128 characters" }, 400);
+    }
+    if (nickname !== undefined && (typeof nickname !== "string" || nickname.trim().length > 64)) {
+      return c.json({ success: false, error: "Nickname cannot exceed 64 characters" }, 400);
     }
 
     // Verify Turnstile
@@ -26,8 +64,6 @@ authRouter.post("/register", async (c) => {
     if (!turnstileCheck.success) {
       return c.json({ success: false, error: turnstileCheck.message || "Human verification failed" }, 400);
     }
-
-    const db = getDb(c.env.DB);
 
     // Check if username already exists
     const existing = await db.query.users.findFirst({
@@ -99,7 +135,7 @@ function isLoopbackRequest(c: Context<{ Bindings: Env; Variables: Variables }>):
   }
 }
 
-// Setup status check (Returns whether initial setup is required)
+// Setup status check (Returns explicit state machine: completed | uninitialized | broken: V10-P0-08)
 authRouter.get("/setup/status", async (c) => {
   try {
     const db = getDb(c.env.DB);
@@ -107,16 +143,36 @@ authRouter.get("/setup/status", async (c) => {
       where: eq(schema.users.role, "superadmin"),
       columns: { id: true },
     });
+    const setupStateRow = await db.query.setupState.findFirst({
+      where: eq(schema.setupState.id, 1),
+    });
+
+    let state: "completed" | "uninitialized" | "broken" = "uninitialized";
+    let needsSetup = true;
+
+    if (superadmin) {
+      state = "completed";
+      needsSetup = false;
+    } else if (setupStateRow && setupStateRow.completed === 1) {
+      state = "broken";
+      needsSetup = true;
+    } else {
+      state = "uninitialized";
+      needsSetup = true;
+    }
+
     return c.json({
       success: true,
-      needsSetup: !superadmin,
+      state,
+      needsSetup,
+      isBroken: state === "broken",
     });
   } catch (err: any) {
     return c.json({ success: false, error: err.message || "Failed to check setup status" }, 500);
   }
 });
 
-// Bootstrap initial superadmin (atomic claim, fail-closed production check)
+// Bootstrap initial superadmin (atomic claim, fail-closed production check, self-heals broken state: V10-P0-08)
 authRouter.post("/setup/admin", async (c) => {
   try {
     const db = getDb(c.env.DB);
@@ -124,11 +180,17 @@ authRouter.post("/setup/admin", async (c) => {
     const { username, password, nickname, setupToken } = body;
 
     // 1. Upfront input validation to prevent claim locking on bad input
-    if (!username || typeof username !== "string" || username.trim().length < 3) {
-      return c.json({ success: false, error: "Username must be at least 3 characters" }, 400);
+    if (!username || typeof username !== "string" || username.trim().length < 3 || username.trim().length > 32) {
+      return c.json({ success: false, error: "Username must be between 3 and 32 characters" }, 400);
     }
-    if (!password || typeof password !== "string" || password.length < 6) {
-      return c.json({ success: false, error: "Password must be at least 6 characters" }, 400);
+    if (!/^[a-zA-Z0-9_\-\.]+$/.test(username.trim())) {
+      return c.json({ success: false, error: "Username can only contain alphanumeric characters, underscores, hyphens, and dots" }, 400);
+    }
+    if (!password || typeof password !== "string" || password.length < 6 || password.length > 128) {
+      return c.json({ success: false, error: "Password must be between 6 and 128 characters" }, 400);
+    }
+    if (nickname !== undefined && (typeof nickname !== "string" || nickname.trim().length > 64)) {
+      return c.json({ success: false, error: "Nickname cannot exceed 64 characters" }, 400);
     }
 
     const isLoopback = isLoopbackRequest(c);
@@ -155,19 +217,23 @@ authRouter.post("/setup/admin", async (c) => {
       return c.json({ success: false, error: "System is already initialized with a superadmin" }, 403);
     }
 
-    // 3. Atomic claim of setup initialization to eliminate concurrency race (V8-P0-12)
+    // 3. Atomic claim of setup initialization with self-healing (V10-P0-08)
     const existingState = await db.query.setupState.findFirst({
       where: eq(schema.setupState.id, 1),
     });
-    if (existingState && existingState.completed === 1) {
-      return c.json({ success: false, error: "System is already initialized with a superadmin" }, 403);
-    }
     if (!existingState) {
       try {
         await db.insert(schema.setupState).values({ id: 1, completed: 0 });
       } catch {
         return c.json({ success: false, error: "Concurrent setup initialization detected. Please retry." }, 409);
       }
+    } else if (existingState.completed === 1) {
+      // Self-heal broken state where completed=1 but no superadmin exists (V10-P0-08)
+      if (c.env.SETUP_TOKEN && c.env.SETUP_TOKEN !== setupToken) {
+        return c.json({ success: false, error: "Repairing broken setup requires a valid SETUP_TOKEN" }, 403);
+      }
+      console.warn("[Setup] Recovering from broken setup state: resetting setup_state.completed to 0");
+      await db.update(schema.setupState).set({ completed: 0 }).where(eq(schema.setupState.id, 1));
     }
 
     const salt = generateSalt();
@@ -247,8 +313,11 @@ authRouter.post("/login", async (c) => {
     const body = await c.req.json();
     const { username, password, turnstileToken } = body;
 
-    if (!username || !password) {
-      return c.json({ success: false, error: "Username and password are required" }, 400);
+    if (!username || typeof username !== "string" || username.trim().length > 64) {
+      return c.json({ success: false, error: "Username is required and cannot exceed 64 characters" }, 400);
+    }
+    if (!password || typeof password !== "string" || password.length > 128) {
+      return c.json({ success: false, error: "Password is required and cannot exceed 128 characters" }, 400);
     }
 
     // Verify Turnstile

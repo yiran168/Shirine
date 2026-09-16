@@ -72,6 +72,7 @@ export async function authMiddleware(
         }
       } catch (err) {
         console.error("Auth middleware DB verification failed:", err);
+        c.set("authBackendError", true);
       }
     }
   }
@@ -105,6 +106,16 @@ export async function requireAuth(
   c: Context<{ Bindings: Env; Variables: Variables }>,
   next: Next
 ) {
+  if (c.get("authBackendError")) {
+    return c.json(
+      {
+        success: false,
+        error: "Authentication service temporarily unavailable",
+        code: "AUTH_BACKEND_UNAVAILABLE",
+      },
+      503
+    );
+  }
   const user = c.get("user");
   if (!user) {
     return c.json({ success: false, error: "Unauthorized: Please log in" }, 401);
@@ -116,6 +127,16 @@ export async function requireAdmin(
   c: Context<{ Bindings: Env; Variables: Variables }>,
   next: Next
 ) {
+  if (c.get("authBackendError")) {
+    return c.json(
+      {
+        success: false,
+        error: "Authentication service temporarily unavailable",
+        code: "AUTH_BACKEND_UNAVAILABLE",
+      },
+      503
+    );
+  }
   const user = c.get("user");
   if (!user) {
     return c.json({ success: false, error: "Unauthorized: Please log in" }, 401);

@@ -9,7 +9,14 @@ const apiBase = import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
 let dynamicAlbums: any[] = [];
 let apiConnected = false;
 try {
+	const headers: Record<string, string> = {};
+	const cookie = Astro.request.headers.get("cookie");
+	if (cookie) headers["cookie"] = cookie;
+	const auth = Astro.request.headers.get("authorization");
+	if (auth) headers["authorization"] = auth;
+
 	const res = await fetch(`${apiBase.replace(/\/$/, "")}/albums`, {
+		headers,
 		signal: AbortSignal.timeout(3000),
 	});
 	if (res.ok) {

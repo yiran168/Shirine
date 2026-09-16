@@ -57,11 +57,17 @@ friendsRouter.post("/apply", async (c) => {
     if (!name || typeof name !== "string" || !name.trim()) {
       return c.json({ success: false, error: "Friend name is required" }, 400);
     }
-    if (!url || typeof url !== "string" || !isValidHttpUrl(url.trim())) {
-      return c.json({ success: false, error: "A valid http:// or https:// website URL is required" }, 400);
+    if (name.trim().length > 64) {
+      return c.json({ success: false, error: "Friend name too long (max 64 characters)" }, 400);
     }
-    if (!avatar || typeof avatar !== "string" || !isValidHttpUrl(avatar.trim())) {
-      return c.json({ success: false, error: "A valid http:// or https:// avatar URL is required" }, 400);
+    if (desc && typeof desc === "string" && desc.length > 500) {
+      return c.json({ success: false, error: "Description too long (max 500 characters)" }, 400);
+    }
+    if (!url || typeof url !== "string" || url.length > 2048 || !isValidHttpUrl(url.trim())) {
+      return c.json({ success: false, error: "A valid http:// or https:// website URL is required (max 2048 characters)" }, 400);
+    }
+    if (!avatar || typeof avatar !== "string" || avatar.length > 2048 || !isValidHttpUrl(avatar.trim())) {
+      return c.json({ success: false, error: "A valid http:// or https:// avatar URL is required (max 2048 characters)" }, 400);
     }
 
     // Default accepted = 0 (pending review)
@@ -100,11 +106,17 @@ friendsRouter.post("/", requireAdmin, async (c) => {
     if (!name || typeof name !== "string" || !name.trim()) {
       return c.json({ success: false, error: "Friend name is required" }, 400);
     }
-    if (!url || typeof url !== "string" || !isValidHttpUrl(url.trim())) {
-      return c.json({ success: false, error: "A valid http:// or https:// website URL is required" }, 400);
+    if (name.trim().length > 64) {
+      return c.json({ success: false, error: "Friend name too long (max 64 characters)" }, 400);
     }
-    if (!avatar || typeof avatar !== "string" || !isValidHttpUrl(avatar.trim())) {
-      return c.json({ success: false, error: "A valid http:// or https:// avatar URL is required" }, 400);
+    if (desc && typeof desc === "string" && desc.length > 500) {
+      return c.json({ success: false, error: "Description too long (max 500 characters)" }, 400);
+    }
+    if (!url || typeof url !== "string" || url.length > 2048 || !isValidHttpUrl(url.trim())) {
+      return c.json({ success: false, error: "A valid http:// or https:// website URL is required (max 2048 characters)" }, 400);
+    }
+    if (!avatar || typeof avatar !== "string" || avatar.length > 2048 || !isValidHttpUrl(avatar.trim())) {
+      return c.json({ success: false, error: "A valid http:// or https:// avatar URL is required (max 2048 characters)" }, 400);
     }
 
     const isAccepted = accepted === 1 || accepted === true || body.status === "approved" ? 1 : 0;

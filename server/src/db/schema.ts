@@ -66,6 +66,7 @@ export const posts = sqliteTable("posts", {
   password: text("password").default(""),
   passwordHint: text("password_hint").default(""),
   hideHomeContent: integer("hide_home_content").default(1).notNull(),
+  passwordVersion: integer("password_version").default(1).notNull(),
   uid: integer("uid").references(() => users.id, { onDelete: "set null" }),
   createdAt,
   updatedAt,

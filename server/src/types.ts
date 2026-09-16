@@ -19,4 +19,5 @@ export interface UserPayload {
 
 export type Variables = {
   user?: UserPayload;
+  authBackendError?: boolean;
 };

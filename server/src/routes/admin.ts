@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { eq, desc, sql, like, or } from "drizzle-orm";
 import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
-import { seedPresetData } from "../db/seed";
 import { requireAdmin } from "../core/middleware";
 import type { AdminStatsDto, UserDto } from "../types/dto";
 
@@ -140,18 +139,35 @@ adminRouter.put("/users/:id/points", async (c) => {
       return c.json({ success: false, error: "Only superadmin can adjust superadmin points" }, 403);
     }
 
+    let targetPoints = user.points;
+    let deltaAmount = 0;
     if (exactPoints !== undefined) {
-      const targetPoints = Math.max(0, parseInt(exactPoints) || 0);
-      await c.env.DB.prepare("UPDATE users SET points = ?, updated_at = unixepoch() WHERE id = ?")
-        .bind(targetPoints, id)
-        .run();
+      targetPoints = Math.max(0, parseInt(exactPoints) || 0);
+      deltaAmount = targetPoints - user.points;
     } else if (delta !== undefined) {
       const d = parseInt(delta) || 0;
-      await c.env.DB.prepare(
-        "UPDATE users SET points = MAX(0, points + ?), updated_at = unixepoch() WHERE id = ?"
-      )
-        .bind(d, id)
-        .run();
+      targetPoints = Math.max(0, user.points + d);
+      deltaAmount = targetPoints - user.points;
+    }
+
+    if (deltaAmount !== 0) {
+      const idempotencyKey = `admin_adjust_${currentUser.id}_${user.id}_${Date.now()}`;
+      const stmtUser = c.env.DB.prepare(
+        "UPDATE users SET points = ?, updated_at = unixepoch() WHERE id = ?"
+      ).bind(targetPoints, id);
+
+      const stmtLedger = c.env.DB.prepare(
+        "INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at) VALUES (?, 'admin_adjust', ?, ?, ?, ?, ?, unixepoch())"
+      ).bind(
+        user.id,
+        deltaAmount,
+        targetPoints,
+        currentUser.id,
+        idempotencyKey,
+        `Admin adjust points by ${currentUser.username} (${deltaAmount > 0 ? "+" : ""}${deltaAmount})`
+      );
+
+      await c.env.DB.batch([stmtUser, stmtLedger]);
     }
 
     const updatedUser = await db.query.users.findFirst({
@@ -279,6 +295,7 @@ adminRouter.post("/seed", async (c) => {
     const db = getDb(c.env.DB);
     const body = await c.req.json().catch(() => ({}));
     const overwrite = Boolean(body.overwrite);
+    const { seedPresetData } = await import("../db/seed");
     const summary = await seedPresetData(db, overwrite);
     return c.json({
       success: true,

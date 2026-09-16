@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, desc, and, sql, or, like } from "drizzle-orm";
+import { eq, desc, and, sql, or, like, lt, gt, asc } from "drizzle-orm";
 import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
 import { requireAuth, requireAdmin } from "../core/middleware";
@@ -69,14 +69,27 @@ postsRouter.get("/", async (c) => {
 
     // Map posts with permission flags
     const postsWithPerms: PostListDto[] = allPosts.map((post) => {
+      const isPurchased = Boolean(
+        user &&
+          (user.role === "superadmin" ||
+            user.role === "admin" ||
+            user.id === post.uid ||
+            unlockedPostIds.has(post.id))
+      );
       let isUnlocked = true;
+      let lockReason: PostListDto["lockReason"] = "";
+      const hasPassword = post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
+
       if (post.permissionType === "login_required") {
         isUnlocked = !!user;
+        if (!isUnlocked) lockReason = "login_required";
       } else if (post.permissionType === "points_required") {
-        isUnlocked = !!(
-          user &&
-          (user.role === "superadmin" || user.role === "admin" || user.id === post.uid || unlockedPostIds.has(post.id))
-        );
+        isUnlocked = isPurchased;
+        if (!isUnlocked) lockReason = !user ? "login_required" : "points_required";
+      }
+
+      if (hasPassword && !user?.role?.includes("admin")) {
+        if (isUnlocked) lockReason = "password_required";
       }
 
       let parsedTags: string[] = [];
@@ -92,7 +105,7 @@ postsRouter.get("/", async (c) => {
         alias: post.alias,
         permalink: post.permalink,
         title: post.title,
-        description: post.description,
+        description: post.hideHomeContent === 1 && hasPassword ? "" : post.description,
         image: post.image,
         category: post.category,
         tags: parsedTags,
@@ -101,6 +114,11 @@ postsRouter.get("/", async (c) => {
         permissionType: post.permissionType as any,
         requiredPoints: post.requiredPoints,
         isUnlocked,
+        requiresPassword: hasPassword,
+        hideHomeContent: post.hideHomeContent === 1,
+        isPurchased,
+        isAuthenticated: Boolean(user),
+        lockReason,
         commentEnabled: post.commentEnabled === 1,
         createdAt: post.createdAt,
         updatedAt: post.updatedAt,
@@ -135,7 +153,7 @@ interface ResolvedPostAccess {
 async function resolvePostAccess(
   post: typeof schema.posts.$inferSelect,
   user: { id: number; role: string } | undefined,
-  passwordGrantOrKey: { grant?: string; headerPassword?: string },
+  grant: string | undefined,
   db: ReturnType<typeof getDb>,
   jwtSecret: string
 ): Promise<ResolvedPostAccess> {
@@ -150,12 +168,17 @@ async function resolvePostAccess(
   const hasPassword = post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
   let passwordPassed = true;
   if (hasPassword && !isPrivileged) {
-    let grantValid = false;
-    if (passwordGrantOrKey.grant) {
-      grantValid = await verifyPostGrant(passwordGrantOrKey.grant, post.id, jwtSecret);
+    if (grant) {
+      passwordPassed = await verifyPostGrant(
+        grant,
+        post.id,
+        post.passwordVersion ?? 1,
+        user ? user.id : null,
+        jwtSecret
+      );
+    } else {
+      passwordPassed = false;
     }
-    const headerValid = Boolean(passwordGrantOrKey.headerPassword && passwordGrantOrKey.headerPassword === post.password);
-    passwordPassed = Boolean(grantValid || headerValid);
   }
 
   // 3. Auth Gate
@@ -201,6 +224,29 @@ async function resolvePostAccess(
   };
 }
 
+function extractPostGrant(c: any, postId: number): string | undefined {
+  const headerGrant = c.req.header("X-Post-Grant");
+  if (headerGrant) return headerGrant;
+
+  const cookieHeader = c.req.header("Cookie") || "";
+  // 1. Consolidated cookie map: shirine_post_grants={postId: grant} (V10-P0-10)
+  const matchMap = cookieHeader.match(/shirine_post_grants=([^;]+)/);
+  if (matchMap) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(matchMap[1]));
+      if (parsed && typeof parsed === "object" && parsed[postId.toString()]) {
+        return parsed[postId.toString()];
+      }
+    } catch {}
+  }
+
+  // 2. Legacy fallback: shirine_post_grant_<id>=<grant>
+  const matchSingle = cookieHeader.match(new RegExp(`shirine_post_grant_${postId}=([^;]+)`));
+  if (matchSingle) return matchSingle[1];
+
+  return undefined;
+}
+
 // Post detail (by slug, alias, permalink, or numeric id)
 postsRouter.get("/:slugOrId", async (c) => {
   try {
@@ -232,19 +278,12 @@ postsRouter.get("/:slugOrId", async (c) => {
       return c.json({ success: false, error: "Post not found" }, 404);
     }
 
-    // Extract password grant or header password (V8-P0-03, V8-P0-04: no query parameter!)
-    const cookieHeader = c.req.header("Cookie") || "";
-    let cookieGrant: string | undefined;
-    const match = cookieHeader.match(new RegExp(`shirine_post_grant_${post.id}=([^;]+)`));
-    if (match) cookieGrant = match[1];
-
-    const grant = c.req.header("X-Post-Grant") || cookieGrant;
-    const headerPassword = c.req.header("X-Post-Password");
+    const grant = extractPostGrant(c, post.id);
 
     const access = await resolvePostAccess(
       post,
       user,
-      { grant, headerPassword },
+      grant,
       db,
       c.env.JWT_SECRET
     );
@@ -255,6 +294,42 @@ postsRouter.get("/:slugOrId", async (c) => {
 
     const isUnlocked = access.allGatesSatisfied;
     const lockReason = access.lockReason;
+    const isAdmin = Boolean(user && (user.role === "superadmin" || user.role === "admin"));
+
+    // Previous and Next navigation (O(1) detail navigation)
+    const prevPost = await db.query.posts.findFirst({
+      where: and(
+        isAdmin ? undefined : eq(schema.posts.draft, 0),
+        lt(schema.posts.createdAt, post.createdAt)
+      ),
+      orderBy: [desc(schema.posts.createdAt)],
+      columns: { id: true, slug: true, title: true },
+    });
+
+    const nextPost = await db.query.posts.findFirst({
+      where: and(
+        isAdmin ? undefined : eq(schema.posts.draft, 0),
+        gt(schema.posts.createdAt, post.createdAt)
+      ),
+      orderBy: [asc(schema.posts.createdAt)],
+      columns: { id: true, slug: true, title: true },
+    });
+
+    // Check if purchased
+    let isPurchased = Boolean(
+      user &&
+        (isAdmin ||
+          user.id === post.uid)
+    );
+    if (!isPurchased && user && post.permissionType === "points_required") {
+      const unlock = await db.query.postUnlocks.findFirst({
+        where: and(
+          eq(schema.postUnlocks.userId, user.id),
+          eq(schema.postUnlocks.postId, post.id)
+        ),
+      });
+      isPurchased = Boolean(unlock);
+    }
 
     // Get author info
     const author = post.uid
@@ -281,13 +356,15 @@ postsRouter.get("/:slugOrId", async (c) => {
       parsedTags = [];
     }
 
+    const hasPassword = post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
+
     const postDetail: PostDetailDto = {
       id: post.id,
       slug: post.slug,
       alias: post.alias,
       permalink: post.permalink,
       title: post.title,
-      description: post.description,
+      description: post.hideHomeContent === 1 && hasPassword && !isUnlocked ? "" : post.description,
       image: post.image,
       category: post.category,
       tags: parsedTags,
@@ -299,6 +376,14 @@ postsRouter.get("/:slugOrId", async (c) => {
       content: isUnlocked ? post.content : null,
       isUnlocked,
       lockReason,
+      requiresPassword: hasPassword,
+      hideHomeContent: post.hideHomeContent === 1,
+      isPurchased,
+      isAuthenticated: Boolean(user),
+      encrypted: post.encrypted === 1,
+      password: isAdmin ? (post.password || "") : undefined,
+      prev: prevPost ? { id: prevPost.id, slug: prevPost.slug, title: prevPost.title } : null,
+      next: nextPost ? { id: nextPost.id, slug: nextPost.slug, title: nextPost.title } : null,
       userPoints,
       passwordHint: post.passwordHint || "",
       author: author
@@ -323,7 +408,7 @@ postsRouter.get("/:slugOrId", async (c) => {
   }
 });
 
-// Verify Post Password and issue short-lived password grant (V8-P0-03)
+// Verify Post Password and issue short-lived password grant (V8-P0-03, V10-P0-09, V10-P0-10)
 postsRouter.post("/:id/password/verify", async (c) => {
   try {
     const user = c.get("user");
@@ -343,16 +428,29 @@ postsRouter.post("/:id/password/verify", async (c) => {
 
     const hasPassword = post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
     if (!hasPassword) {
-      return c.json({ success: true, message: "This post does not require a password" });
+      return c.json({
+        success: true,
+        message: "This post does not require a password",
+        isUnlocked: true,
+        content: post.content,
+      });
     }
 
     const body = await c.req.json();
     const { password } = body;
-    if (!password || password !== post.password) {
+    if (!password || typeof password !== "string" || password.length > 128) {
+      return c.json({ success: false, error: "密码格式不正确" }, 400);
+    }
+    if (password !== post.password) {
       return c.json({ success: false, error: "密码错误，请重新输入" }, 401);
     }
 
-    const grant = await signPostGrant(post.id, user ? user.id : null, c.env.JWT_SECRET);
+    const grant = await signPostGrant(
+      post.id,
+      post.passwordVersion ?? 1,
+      user ? user.id : null,
+      c.env.JWT_SECRET
+    );
 
     let isLoopback = false;
     try {
@@ -361,14 +459,44 @@ postsRouter.post("/:id/password/verify", async (c) => {
     } catch {}
     const secureFlag = isLoopback ? "" : "; Secure";
 
+    // Store in consolidated cookie shirine_post_grants (bounded to 10 entries) (V10-P0-10)
+    const cookieHeader = c.req.header("Cookie") || "";
+    let grantsMap: Record<string, string> = {};
+    const matchMap = cookieHeader.match(/shirine_post_grants=([^;]+)/);
+    if (matchMap) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(matchMap[1]));
+        if (parsed && typeof parsed === "object") grantsMap = parsed;
+      } catch {}
+    }
+    grantsMap[post.id.toString()] = grant;
+    const keys = Object.keys(grantsMap);
+    if (keys.length > 10) {
+      const toDelete = keys.slice(0, keys.length - 10);
+      for (const k of toDelete) {
+        delete grantsMap[k];
+      }
+    }
+    const encodedMap = encodeURIComponent(JSON.stringify(grantsMap));
     c.header(
       "Set-Cookie",
-      `shirine_post_grant_${post.id}=${grant}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200${secureFlag}`
+      `shirine_post_grants=${encodedMap}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200${secureFlag}`
+    );
+
+    const access = await resolvePostAccess(
+      post,
+      user,
+      grant,
+      db,
+      c.env.JWT_SECRET
     );
 
     return c.json({
       success: true,
       grant,
+      isUnlocked: access.allGatesSatisfied,
+      lockReason: access.lockReason,
+      content: access.allGatesSatisfied ? post.content : null,
       message: "密码验证成功",
     });
   } catch (err: any) {
@@ -376,7 +504,7 @@ postsRouter.post("/:id/password/verify", async (c) => {
   }
 });
 
-// Unlock Post with points (Zero TOCTOU Atomic batch transaction: V8-P0-01, V8-P0-02)
+// Unlock Post with points (Zero TOCTOU Atomic batch transaction: V8-P0-01, V8-P0-02, V10-P0-21)
 postsRouter.post("/:id/unlock", requireAuth, async (c) => {
   try {
     const user = c.get("user")!;
@@ -407,16 +535,11 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
       }, 400);
     }
 
-    const cookieHeader = c.req.header("Cookie") || "";
-    let cookieGrant: string | undefined;
-    const match = cookieHeader.match(new RegExp(`shirine_post_grant_${post.id}=([^;]+)`));
-    if (match) cookieGrant = match[1];
-    const grant = c.req.header("X-Post-Grant") || cookieGrant;
-    const headerPassword = c.req.header("X-Post-Password");
+    const grant = extractPostGrant(c, post.id);
 
     // 1. Privileged bypass for admin or author
     if (isAdmin || user.id === post.uid) {
-      const access = await resolvePostAccess(post, user, { grant, headerPassword }, db, c.env.JWT_SECRET);
+      const access = await resolvePostAccess(post, user, grant, db, c.env.JWT_SECRET);
       return c.json({
         success: true,
         message: "Post unlocked (privileged access)",
@@ -434,7 +557,7 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
       ),
     });
     if (existingUnlock) {
-      const access = await resolvePostAccess(post, user, { grant, headerPassword }, db, c.env.JWT_SECRET);
+      const access = await resolvePostAccess(post, user, grant, db, c.env.JWT_SECRET);
       return c.json({
         success: true,
         message: "Post already unlocked",
@@ -452,7 +575,7 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
         pointsSpent: 0,
       }).onConflictDoNothing();
 
-      const access = await resolvePostAccess(post, user, { grant, headerPassword }, db, c.env.JWT_SECRET);
+      const access = await resolvePostAccess(post, user, grant, db, c.env.JWT_SECRET);
       return c.json({
         success: true,
         message: "Post unlocked",
@@ -480,8 +603,15 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
     try {
       batchResults = await c.env.DB.batch([stmtUnlock, stmtDeduct, stmtLedger]);
     } catch (err: any) {
-      if (err.message?.includes("UNIQUE") || err.message?.includes("constraint")) {
-        const access = await resolvePostAccess(post, user, { grant, headerPassword }, db, c.env.JWT_SECRET);
+      // V10-P0-21: Re-query postUnlocks to confirm whether it was actually already unlocked
+      const existingUnlockAfterError = await db.query.postUnlocks.findFirst({
+        where: and(
+          eq(schema.postUnlocks.userId, user.id),
+          eq(schema.postUnlocks.postId, post.id)
+        ),
+      });
+      if (existingUnlockAfterError) {
+        const access = await resolvePostAccess(post, user, grant, db, c.env.JWT_SECRET);
         return c.json({
           success: true,
           message: "Post already unlocked",
@@ -519,7 +649,7 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
       where: eq(schema.users.id, user.id),
     });
 
-    const access = await resolvePostAccess(post, user, { grant, headerPassword }, db, c.env.JWT_SECRET);
+    const access = await resolvePostAccess(post, user, grant, db, c.env.JWT_SECRET);
 
     return c.json({
       success: true,
@@ -548,6 +678,8 @@ postsRouter.post("/", requireAdmin, async (c) => {
       title,
       content,
       slug,
+      alias,
+      permalink,
       description = "",
       image = "",
       category = "",
@@ -557,6 +689,10 @@ postsRouter.post("/", requireAdmin, async (c) => {
       commentEnabled = true,
       permissionType = "public",
       requiredPoints = 0,
+      encrypted = false,
+      password = "",
+      passwordHint = "",
+      hideHomeContent = true,
     } = body;
 
     if (!title || typeof title !== "string" || !title.trim()) {
@@ -590,10 +726,14 @@ postsRouter.post("/", requireAdmin, async (c) => {
       return c.json({ success: false, error: `Slug "${finalSlug}" is already taken` }, 409);
     }
 
+    const hasPassword = Boolean(password && String(password).trim().length > 0);
+
     const inserted = await db
       .insert(schema.posts)
       .values({
         slug: finalSlug,
+        alias: alias?.trim() || null,
+        permalink: permalink?.trim() || null,
         title: title.trim(),
         content,
         description: description?.trim() || "",
@@ -608,6 +748,11 @@ postsRouter.post("/", requireAdmin, async (c) => {
             ? permissionType
             : "public",
         requiredPoints: Math.max(0, parseInt(requiredPoints) || 0),
+        encrypted: (encrypted || hasPassword) ? 1 : 0,
+        password: hasPassword ? String(password).trim() : "",
+        passwordHint: passwordHint ? String(passwordHint).trim() : "",
+        hideHomeContent: hideHomeContent ? 1 : 0,
+        passwordVersion: 1,
         uid: user.id,
       })
       .returning();
@@ -651,6 +796,8 @@ postsRouter.put("/:id", requireAdmin, async (c) => {
     if (body.slug !== undefined && body.slug.trim()) {
       updates.slug = body.slug.trim().replace(/[^\w\u4e00-\u9fa5\-]+/g, "-");
     }
+    if (body.alias !== undefined) updates.alias = body.alias?.trim() || null;
+    if (body.permalink !== undefined) updates.permalink = body.permalink?.trim() || null;
     // Prevent accidental content wipe (if body.content is provided, apply it)
     if (body.content !== undefined) updates.content = body.content;
     if (body.description !== undefined) updates.description = body.description;
@@ -670,6 +817,31 @@ postsRouter.put("/:id", requireAdmin, async (c) => {
     }
     if (body.requiredPoints !== undefined) {
       updates.requiredPoints = Math.max(0, parseInt(body.requiredPoints) || 0);
+    }
+    if (body.passwordHint !== undefined) updates.passwordHint = body.passwordHint?.trim() || "";
+    if (body.hideHomeContent !== undefined) updates.hideHomeContent = body.hideHomeContent ? 1 : 0;
+
+    // Password & Encrypted changes with passwordVersion invalidation (V10-P0-09, V10-P0-20)
+    let passwordChanged = false;
+    if (body.password !== undefined) {
+      const newPwd = body.password ? String(body.password).trim() : "";
+      if (newPwd !== (existing.password || "")) {
+        updates.password = newPwd;
+        passwordChanged = true;
+      }
+    }
+    if (body.encrypted !== undefined) {
+      const newEncrypted = body.encrypted ? 1 : 0;
+      if (newEncrypted !== existing.encrypted) {
+        updates.encrypted = newEncrypted;
+        passwordChanged = true;
+      }
+    }
+    if (updates.password && updates.password.length > 0) {
+      updates.encrypted = 1;
+    }
+    if (passwordChanged) {
+      updates.passwordVersion = (existing.passwordVersion || 1) + 1;
     }
 
     const updated = await db

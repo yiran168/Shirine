@@ -224,7 +224,7 @@ export const PRESET_POSTS: SeedPost[] = [
     "permissionType": "login_required",
     "requiredPoints": 0,
     "encrypted": 1,
-    "password": "shirine-secret",
+    "password": "",
     "passwordHint": "Hint: the demo unlock password is shirine-secret",
     "hideHomeContent": 1,
     "createdAt": 1787184000000

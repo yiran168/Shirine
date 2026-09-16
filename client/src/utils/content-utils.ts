@@ -11,14 +11,23 @@ import { initPostIdMap } from "@utils/permalink-utils";
 import { getCategoryUrl, getPostUrl, url } from "@utils/url-utils";
 
 // Retrieve posts dynamically from backend API and sort them by publication date
-async function getRawSortedPosts(): Promise<CollectionEntry<"posts">[]> {
+async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"posts">[]> {
 	const apiBase =
 		import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
 
 	let apiPosts: CollectionEntry<"posts">[] = [];
 	let apiConnected = false;
 	try {
+		const headers: Record<string, string> = {};
+		if (request) {
+			const cookie = request.headers.get("cookie");
+			if (cookie) headers["cookie"] = cookie;
+			const auth = request.headers.get("authorization");
+			if (auth) headers["authorization"] = auth;
+		}
+
 		const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts?pageSize=500`, {
+			headers,
 			signal: AbortSignal.timeout(3000),
 		});
 		if (res.ok) {
@@ -41,12 +50,17 @@ async function getRawSortedPosts(): Promise<CollectionEntry<"posts">[]> {
 						pinned: Boolean(p.pinned),
 						draft: Boolean(p.draft),
 						comment: Boolean(p.commentEnabled ?? true),
-						encrypted: Boolean(p.password || p.permissionType === "password" || p.encrypted),
+						encrypted: Boolean(p.password || p.permissionType === "password" || p.encrypted || p.requiresPassword),
 						password: p.password || undefined,
 						passwordHint: p.passwordHint || undefined,
 						permissionType: p.permissionType || "public",
 						requiredPoints: p.requiredPoints || 0,
 						isUnlocked: Boolean(p.isUnlocked),
+						requiresPassword: Boolean(p.requiresPassword),
+						hideHomeContent: Boolean(p.hideHomeContent),
+						isPurchased: Boolean(p.isPurchased),
+						isAuthenticated: Boolean(p.isAuthenticated),
+						lockReason: p.lockReason || "",
 						alias: p.alias,
 						permalink: p.permalink,
 						prevTitle: "",
@@ -79,8 +93,8 @@ async function getRawSortedPosts(): Promise<CollectionEntry<"posts">[]> {
 	return sorted;
 }
 
-export async function getSortedPosts(): Promise<CollectionEntry<"posts">[]> {
-	const sorted = await getRawSortedPosts();
+export async function getSortedPosts(request?: Request): Promise<CollectionEntry<"posts">[]> {
+	const sorted = await getRawSortedPosts(request);
 
 	for (let i = 1; i < sorted.length; i++) {
 		sorted[i].data.nextSlug = sorted[i - 1].id;
@@ -102,8 +116,8 @@ export type PostForList = {
 	url?: string;
 };
 
-export async function getSortedPostsList(): Promise<PostForList[]> {
-	const sortedFullPosts = await getRawSortedPosts();
+export async function getSortedPostsList(request?: Request): Promise<PostForList[]> {
+	const sortedFullPosts = await getRawSortedPosts(request);
 
 	// delete post.body, attach pre-calculated URL
 	const sortedPostsList: PostForList[] = sortedFullPosts.map((post) => ({

@@ -98,9 +98,11 @@ export async function verifyToken(token: string, secret: string): Promise<UserPa
 
 /**
  * Signs a short-lived, purpose-bound password grant for accessing a password-protected post.
+ * Binds post ID, current password version, and user ID (V10-P0-09, V10-P0-11).
  */
 export async function signPostGrant(
   postId: number,
+  passwordVersion: number,
   userId: number | null,
   secret: string
 ): Promise<string> {
@@ -108,6 +110,7 @@ export async function signPostGrant(
   return await new SignJWT({
     type: "post_password_grant",
     postId,
+    pv: passwordVersion,
     userId: userId ?? 0,
   })
     .setProtectedHeader({ alg: "HS256" })
@@ -120,11 +123,14 @@ export async function signPostGrant(
 }
 
 /**
- * Verifies a post password grant token against the requested postId.
+ * Verifies a post password grant token against the requested postId,
+ * its current passwordVersion, and the requesting userId (V10-P0-09, V10-P0-11).
  */
 export async function verifyPostGrant(
   token: string,
   postId: number,
+  expectedPasswordVersion: number,
+  currentUserId: number | null,
   secret: string
 ): Promise<boolean> {
   try {
@@ -133,10 +139,21 @@ export async function verifyPostGrant(
       issuer: "shirine-auth",
       audience: "shirine-post-grant",
     });
-    return (
-      payload.type === "post_password_grant" &&
-      Number(payload.postId) === Number(postId)
-    );
+
+    if (payload.type !== "post_password_grant") return false;
+    if (Number(payload.postId) !== Number(postId)) return false;
+    // Password version mismatch (password was changed after grant was issued)
+    if (Number(payload.pv) !== Number(expectedPasswordVersion)) return false;
+
+    // User binding check (V10-P0-11): authenticated grants cannot be shared across accounts
+    const grantUserId = Number(payload.userId || 0);
+    if (grantUserId > 0) {
+      if (!currentUserId || currentUserId !== grantUserId) {
+        return false;
+      }
+    }
+
+    return true;
   } catch {
     return false;
   }

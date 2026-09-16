@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { bodyLimit } from "hono/body-limit";
 import type { Env, Variables } from "./types";
 import { authMiddleware } from "./core/middleware";
+import { handleBlobStream } from "./core/blob-handler";
 import { authRouter } from "./routes/auth";
 import { userRouter } from "./routes/user";
 import { postsRouter } from "./routes/posts";
@@ -13,9 +15,6 @@ import { friendsRouter } from "./routes/friends";
 import { configRouter } from "./routes/config";
 import { adminRouter } from "./routes/admin";
 import { uploadRouter } from "./routes/upload";
-
-import { getDb, schema } from "./db";
-import { and, eq, like } from "drizzle-orm";
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -41,10 +40,35 @@ app.use(
       return "";
     },
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "X-Post-Password", "X-Post-Grant"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Post-Grant"],
     credentials: true,
   })
 );
+
+// Global Request Body Size Limit (10MB for uploads, protected against DoS: V10-P0-24)
+app.use(
+  "/api/*",
+  bodyLimit({
+    maxSize: 10 * 1024 * 1024,
+    onError: (c) => c.json({ success: false, error: "Payload Too Large: Request body exceeds maximum allowed size" }, 413),
+  })
+);
+
+// Unified Configuration & Environment Guard (V10 Item 16)
+app.use("/api/*", async (c, next) => {
+  if (!c.env.JWT_SECRET) {
+    if (c.env.ENVIRONMENT === "production") {
+      console.error("[CRITICAL] JWT_SECRET environment secret is not configured in production!");
+      return c.json(
+        { success: false, error: "Server configuration error: JWT_SECRET secret must be configured" },
+        500
+      );
+    } else {
+      (c.env as any).JWT_SECRET = "shirine-dev-local-jwt-secret-key-32bytes-min";
+    }
+  }
+  await next();
+});
 
 // Global JWT Extraction Middleware
 app.use("/api/*", authMiddleware);
@@ -70,76 +94,7 @@ app.route("/api/friends", friendsRouter);
 app.route("/api/config", configRouter);
 app.route("/api/admin", adminRouter);
 app.route("/api/upload", uploadRouter);
-app.get("/api/blob/*", async (c) => {
-  const key = c.req.path.replace(/^\/api\/blob\/?/, "");
-  if (!key) return c.text("Key is required", 400);
-  if (!c.env.STORAGE) return c.text("Storage bucket not bound", 404);
-  const decodedKey = decodeURIComponent(key);
-  const object = await c.env.STORAGE.get(decodedKey);
-  if (!object) return c.text("Object not found", 404);
-
-  // Check if this object belongs to a protected album (V8-P0-19)
-  let isProtected = false;
-  if (c.env.DB) {
-    try {
-      const db = getDb(c.env.DB);
-      const photoMatch = await db.query.albumPhotos.findFirst({
-        where: like(schema.albumPhotos.url, `%${decodedKey}%`),
-      });
-      if (photoMatch) {
-        const album = await db.query.albums.findFirst({
-          where: eq(schema.albums.id, photoMatch.albumId),
-        });
-        if (album && (album.draft === 1 || album.permissionType !== "public")) {
-          isProtected = true;
-          const user = c.get("user");
-          const isAdmin = user && (user.role === "superadmin" || user.role === "admin");
-          const isAuthor = user && album.uid && user.id === album.uid;
-          if (!isAdmin && !isAuthor) {
-            if (!user) {
-              return c.text("Unauthorized: Authentication required to access protected media", 401);
-            }
-            if (album.draft === 1) {
-              return c.text("Forbidden: Draft album media is unpublished", 403);
-            }
-            if (album.permissionType === "points_required") {
-              const unlock = await db.query.albumUnlocks.findFirst({
-                where: and(
-                  eq(schema.albumUnlocks.userId, user.id),
-                  eq(schema.albumUnlocks.albumId, album.id)
-                ),
-              });
-              if (!unlock) {
-                return c.text("Forbidden: Album must be unlocked before accessing media", 403);
-              }
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Blob authorization check failed:", err);
-    }
-  }
-
-  const headers = new Headers();
-  object.writeHttpMetadata(headers);
-  headers.set("etag", object.httpEtag);
-  headers.set("X-Content-Type-Options", "nosniff");
-
-  const contentType = headers.get("content-type") || "";
-  if (contentType.includes("svg") || contentType.includes("html") || contentType.includes("xml")) {
-    headers.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'");
-    headers.set("Content-Disposition", "attachment");
-  }
-
-  if (isProtected) {
-    headers.set("Cache-Control", "private, no-cache, no-store, must-revalidate");
-  } else {
-    headers.set("Cache-Control", "public, max-age=31536000, immutable");
-  }
-
-  return new Response(object.body, { headers });
-});
+app.get("/api/blob/*", (c) => handleBlobStream(c));
 
 // 404 Handler
 app.notFound((c) => {

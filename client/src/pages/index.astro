@@ -7,7 +7,7 @@ import { postListConfig } from "@/config/postListConfig";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import { getSortedPosts } from "../utils/content-utils";
 
-const allBlogPosts = await getSortedPosts();
+const allBlogPosts = await getSortedPosts(Astro.request);
 const pageSize = postListConfig.pageSize || 10;
 const total = allBlogPosts.length;
 const totalPages = Math.max(1, Math.ceil(total / pageSize));

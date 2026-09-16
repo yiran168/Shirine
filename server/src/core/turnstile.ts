@@ -29,7 +29,15 @@ export async function verifyTurnstile(
       return { success: false, message: "Turnstile verification token is required" };
     }
 
-    const secretKey = config.secretKey;
+    // V10-P0-01: CF_TURNSTILE_SECRET is the authoritative secret source
+    let secretKey = c.env.CF_TURNSTILE_SECRET;
+    if (!secretKey) {
+      if (config.secretKey) {
+        console.warn("[Turnstile] CF_TURNSTILE_SECRET is not set in environment secrets. Falling back to D1 config secretKey (deprecated). Please run `wrangler secret put CF_TURNSTILE_SECRET`.");
+        secretKey = config.secretKey;
+      }
+    }
+
     if (!secretKey) {
       return { success: false, message: "Turnstile is enabled but secret key is not configured" };
     }

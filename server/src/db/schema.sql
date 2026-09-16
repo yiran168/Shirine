@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS posts (
   password TEXT DEFAULT '',
   password_hint TEXT DEFAULT '',
   hide_home_content INTEGER NOT NULL DEFAULT 1,
+  password_version INTEGER NOT NULL DEFAULT 1,
   uid INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())

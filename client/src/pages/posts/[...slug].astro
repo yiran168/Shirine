@@ -67,21 +67,7 @@ const apiBase = import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
 const cookieHeader = Astro.request.headers.get("cookie") || "";
 const authHeader = Astro.request.headers.get("authorization") || "";
 
-const blogEntries = await getSortedPosts();
-initPostIdMap(blogEntries);
-
-let entry = blogEntries.find((cand) => {
-	const defaultSlug = removeFileExtension(cand.id);
-	if (defaultSlug === slug || cand.id === slug) return true;
-	if (cand.data.alias) {
-		let alias = cand.data.alias.replace(/^\/+/, "").replace(/\/+$/, "");
-		if (alias.startsWith("posts/")) alias = alias.replace(/^posts\//, "");
-		if (alias === slug) return true;
-	}
-	return false;
-});
-
-// Fetch authoritative post detail from backend API (#6, #7, #8)
+// Fetch authoritative post detail from backend API first (O(1))
 let dynamicDetail: any = null;
 let apiPostNotFound = false;
 try {
@@ -109,8 +95,10 @@ if (isDynamicProd && (!dynamicDetail || apiPostNotFound)) {
 	return Astro.redirect("/404");
 }
 
-// If post is not in local static markdown, create entry from dynamic detail
-if (!entry && dynamicDetail) {
+let entry: any = null;
+let discoveryCandidates: any[] = [];
+
+if (dynamicDetail) {
 	entry = {
 		id: dynamicDetail.slug || String(dynamicDetail.id),
 		body: dynamicDetail.content || "",
@@ -126,20 +114,63 @@ if (!entry && dynamicDetail) {
 			pinned: Boolean(dynamicDetail.pinned),
 			draft: Boolean(dynamicDetail.draft),
 			comment: Boolean(dynamicDetail.commentEnabled ?? true),
-			encrypted: false,
+			encrypted: Boolean(dynamicDetail.requiresPassword || dynamicDetail.encrypted),
 			permissionType: dynamicDetail.permissionType || "public",
 			requiredPoints: dynamicDetail.requiredPoints || 0,
 			isUnlocked: Boolean(dynamicDetail.isUnlocked),
 			passwordHint: dynamicDetail.passwordHint,
 			alias: dynamicDetail.alias,
 			permalink: dynamicDetail.permalink,
-			prevTitle: "",
-			prevSlug: "",
-			nextTitle: "",
-			nextSlug: "",
+			prevTitle: dynamicDetail.prev?.title || "",
+			prevSlug: dynamicDetail.prev?.slug || "",
+			nextTitle: dynamicDetail.next?.title || "",
+			nextSlug: dynamicDetail.next?.slug || "",
 			dbId: dynamicDetail.id,
-		} as any,
-	} as any;
+		},
+	};
+
+	// Lightweight candidates for article discovery (only 10 posts, not 500)
+	try {
+		const discRes = await fetch(`${apiBase.replace(/\/$/, "")}/posts?pageSize=10`, {
+			headers: {
+				...(cookieHeader ? { cookie: cookieHeader } : {}),
+				...(authHeader ? { authorization: authHeader } : {}),
+			},
+			signal: AbortSignal.timeout(2000),
+		});
+		if (discRes.ok) {
+			const discJson = await discRes.json();
+			if (discJson.success && Array.isArray(discJson.data)) {
+				discoveryCandidates = discJson.data.map((p: any) => ({
+					slug: p.slug || String(p.id),
+					data: {
+						title: p.title,
+						published: new Date(p.createdAt),
+						category: p.category || "",
+						tags: Array.isArray(p.tags) ? p.tags : [],
+					},
+				}));
+			}
+		}
+	} catch {}
+} else {
+	// Fallback to local static markdown entries only if API did not provide post
+	const blogEntries = await getSortedPosts();
+	initPostIdMap(blogEntries);
+	entry = blogEntries.find((cand) => {
+		const defaultSlug = removeFileExtension(cand.id);
+		if (defaultSlug === slug || cand.id === slug) return true;
+		if (cand.data.alias) {
+			let alias = cand.data.alias.replace(/^\/+/, "").replace(/\/+$/, "");
+			if (alias.startsWith("posts/")) alias = alias.replace(/^posts\//, "");
+			if (alias === slug) return true;
+		}
+		return false;
+	});
+	discoveryCandidates = blogEntries.map((e) => ({
+		slug: e.id,
+		data: e.data,
+	}));
 }
 
 if (!entry) {
@@ -151,15 +182,26 @@ if (dynamicDetail) {
 	(entry.data as any).isUnlocked = Boolean(dynamicDetail.isUnlocked);
 	(entry.data as any).permissionType = dynamicDetail.permissionType;
 	(entry.data as any).requiredPoints = dynamicDetail.requiredPoints;
+	(entry.data as any).requiresPassword = Boolean(dynamicDetail.requiresPassword);
+	(entry.data as any).hideHomeContent = Boolean(dynamicDetail.hideHomeContent);
+	(entry.data as any).isPurchased = Boolean(dynamicDetail.isPurchased);
+	(entry.data as any).isAuthenticated = Boolean(dynamicDetail.isAuthenticated);
+	(entry.data as any).lockReason = dynamicDetail.lockReason || "";
 	(entry.data as any).dbId = dynamicDetail.id;
 	(entry.data as any).passwordHint = dynamicDetail.passwordHint;
+	if (dynamicDetail.prev) {
+		entry.data.prevSlug = dynamicDetail.prev.slug;
+		entry.data.prevTitle = dynamicDetail.prev.title;
+		entry.data.prevUrl = getPostUrlBySlug(dynamicDetail.prev.slug);
+	}
+	if (dynamicDetail.next) {
+		entry.data.nextSlug = dynamicDetail.next.slug;
+		entry.data.nextTitle = dynamicDetail.next.title;
+		entry.data.nextUrl = getPostUrlBySlug(dynamicDetail.next.slug);
+	}
 	entry.body = dynamicDetail.content ?? "";
 }
 
-const discoveryCandidates = blogEntries.map((e) => ({
-	slug: e.id,
-	data: e.data,
-}));
 const discoveryOptions = resolveArticleDiscoveryOptions(articleConfig);
 
 const current = discoveryCandidates.find(
@@ -176,7 +218,9 @@ const discovery =
 		: { related: [], random: [] };
 
 const isEncrypted = Boolean(
-	entry.data.password && entry.data.password.trim().length > 0,
+	dynamicDetail?.requiresPassword ||
+	dynamicDetail?.encrypted ||
+	(entry.data.password && entry.data.password.trim().length > 0)
 );
 const scope = `post:${entry.id}`;
 

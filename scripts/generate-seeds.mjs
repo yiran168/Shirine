@@ -107,7 +107,7 @@ function collectPosts() {
           permissionType,
           requiredPoints: frontmatter.requiredPoints || 0,
           encrypted: isEncrypted ? 1 : 0,
-          password: frontmatter.password || "",
+          password: "", // V10: Never export plain text passwords into seeds
           passwordHint: frontmatter.passwordHint || "",
           hideHomeContent: frontmatter.hideHomeContent === false ? 0 : 1,
           createdAt: frontmatter.published ? new Date(frontmatter.published).getTime() : Date.now(),
@@ -385,55 +385,27 @@ let sql = `-- Shirine D1 Preset Seed SQL
 for (const f of friends) {
   sql += `INSERT INTO friends (name, desc, avatar, url, accepted, sort_order, uid)
 VALUES (${escapeSql(f.name)}, ${escapeSql(f.desc)}, ${escapeSql(f.avatar)}, ${escapeSql(f.url)}, ${f.accepted}, ${f.sortOrder}, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(url) DO UPDATE SET
-  name = excluded.name,
-  desc = excluded.desc,
-  avatar = excluded.avatar,
-  accepted = excluded.accepted,
-  sort_order = excluded.sort_order,
-  uid = COALESCE(friends.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));\n`;
+ON CONFLICT(url) DO NOTHING;\n`;
 }
 
 sql += `\n-- 2. Moments\n`;
 for (const m of moments) {
   sql += `INSERT INTO moments (content, location, mood, images, tags, pinned, uid, created_at)
 VALUES (${escapeSql(m.content)}, ${escapeSql(m.location)}, ${escapeSql(m.mood)}, ${escapeSql(JSON.stringify(m.images))}, ${escapeSql(JSON.stringify(m.tags))}, ${m.pinned}, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), ${Math.floor(m.createdAt / 1000)})
-ON CONFLICT(content) DO UPDATE SET
-  location = excluded.location,
-  mood = excluded.mood,
-  images = excluded.images,
-  tags = excluded.tags,
-  pinned = excluded.pinned,
-  uid = COALESCE(moments.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));\n`;
+ON CONFLICT(content) DO NOTHING;\n`;
 }
 
 sql += `\n-- 3. Albums & Photos\n`;
 for (const a of albums) {
   sql += `INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, draft, uid)
 VALUES (${escapeSql(a.slug)}, ${escapeSql(a.title)}, ${escapeSql(a.description)}, ${escapeSql(a.cover)}, ${escapeSql(a.layout)}, ${a.columns}, ${escapeSql(JSON.stringify(a.tags))}, ${a.hidden}, ${escapeSql(a.permissionType)}, ${a.requiredPoints}, ${a.draft}, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(slug) DO UPDATE SET
-  title = excluded.title,
-  description = excluded.description,
-  cover = excluded.cover,
-  layout = excluded.layout,
-  columns = excluded.columns,
-  tags = excluded.tags,
-  hidden = excluded.hidden,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  draft = excluded.draft,
-  uid = COALESCE(albums.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));\n`;
+ON CONFLICT(slug) DO NOTHING;\n`;
 
   for (const p of a.photos) {
     sql += `INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, ${escapeSql(p.url)}, ${escapeSql(p.alt)}, ${escapeSql(p.title)}, ${escapeSql(p.description)}, ${escapeSql(JSON.stringify(p.tags))}, ${p.sortOrder}
 FROM albums WHERE slug = ${escapeSql(a.slug)}
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;\n`;
+ON CONFLICT(album_id, url) DO NOTHING;\n`;
   }
 }
 
@@ -441,26 +413,7 @@ sql += `\n-- 4. Posts\n`;
 for (const p of posts) {
   sql += `INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES (${escapeSql(p.slug)}, ${escapeSql(p.alias)}, ${escapeSql(p.permalink)}, ${escapeSql(p.title)}, ${escapeSql(p.description)}, ${escapeSql(p.content)}, ${escapeSql(p.image)}, ${escapeSql(p.category)}, ${escapeSql(JSON.stringify(p.tags))}, ${escapeSql(p.lang)}, ${p.pinned}, ${p.draft}, ${p.commentEnabled}, ${escapeSql(p.permissionType)}, ${p.requiredPoints}, ${p.encrypted}, ${escapeSql(p.password)}, ${escapeSql(p.passwordHint)}, ${p.hideHomeContent}, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), ${Math.floor(p.createdAt / 1000)})
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));\n`;
+ON CONFLICT(slug) DO NOTHING;\n`;
 }
 
 sql += `\n-- 5. Default Site Configurations\n`;
@@ -496,8 +449,8 @@ const defaultConfigs = {
     },
     banner: {
       src: {
-        desktop: ["assets/images/banner/desktop/1.webp"],
-        mobile: ["assets/images/banner/mobile/1.webp"],
+        desktop: ["/assets/images/banner/desktop/1.webp"],
+        mobile: ["/assets/images/banner/mobile/1.webp"],
       },
       position: "center",
       dim: { enable: true, opacity: 0.24 },
@@ -527,13 +480,13 @@ const defaultConfigs = {
     },
   },
   profile: {
-    avatar: "assets/images/demo-avatar.webp",
+    avatar: "/assets/images/demo-avatar.webp",
     name: "Shirine",
     bio: "The rain remembers what the sky forgot to say.",
     links: [
       { name: "Twitter", icon: "fa6-brands:twitter", url: "https://twitter.com" },
       { name: "Steam", icon: "fa6-brands:steam", url: "https://store.steampowered.com" },
-      { name: "GitHub", icon: "fa6-brands:github", url: "https://github.com/LyraVoid/Shirine" },
+      { name: "GitHub", icon: "fa6-brands:github", url: "https://github.com/yiran168/Shirine" },
     ],
   },
   announcement: {
@@ -549,10 +502,10 @@ const defaultConfigs = {
     defaultMode: "sequence",
     meting: { server: "netease", type: "playlist", id: "14164869977" },
     tracks: [
-      { id: "dazbee", title: "口笛で愛は歌えない", artist: "Dazbee", cover: "assets/images/music/dazbee.webp", source: "/assets/music/url/dazbee.mp3", duration: 241 },
-      { id: "hitori", title: "ひとり上手", artist: "Kaya", cover: "assets/images/music/hitori.webp", source: "/assets/music/url/hitori.mp3", duration: 253 },
-      { id: "xryx", title: "眩耀夜行", artist: "スリーズブーケ", cover: "assets/images/music/xryx.webp", source: "/assets/music/url/xryx.mp3", duration: 245 },
-      { id: "cl", title: "春雷の頃", artist: "22/7", cover: "assets/images/music/cl.webp", source: "/assets/music/url/cl.mp3", duration: 242 },
+      { id: "dazbee", title: "口笛で愛は歌えない", artist: "Dazbee", cover: "/assets/images/music/dazbee.webp", source: "/assets/music/url/dazbee.mp3", duration: 241 },
+      { id: "hitori", title: "ひとり上手", artist: "Kaya", cover: "/assets/images/music/hitori.webp", source: "/assets/music/url/hitori.mp3", duration: 253 },
+      { id: "xryx", title: "眩耀夜行", artist: "スリーズブーケ", cover: "/assets/images/music/xryx.webp", source: "/assets/music/url/xryx.mp3", duration: 245 },
+      { id: "cl", title: "春雷の頃", artist: "22/7", cover: "/assets/images/music/cl.webp", source: "/assets/music/url/cl.mp3", duration: 242 },
     ],
   },
   sidebar: {

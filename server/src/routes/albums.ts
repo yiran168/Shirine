@@ -364,7 +364,14 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
     try {
       batchResults = await c.env.DB.batch([stmtUnlock, stmtDeduct, stmtLedger]);
     } catch (err: any) {
-      if (err.message?.includes("UNIQUE") || err.message?.includes("constraint")) {
+      // V10-P0-21: Re-query albumUnlocks to confirm whether it was actually already unlocked
+      const existingUnlockAfterError = await db.query.albumUnlocks.findFirst({
+        where: and(
+          eq(schema.albumUnlocks.userId, user.id),
+          eq(schema.albumUnlocks.albumId, album.id)
+        ),
+      });
+      if (existingUnlockAfterError) {
         const dbPhotos = await db.query.albumPhotos.findMany({
           where: eq(schema.albumPhotos.albumId, album.id),
           orderBy: [schema.albumPhotos.sortOrder],

@@ -101,6 +101,11 @@
     tags: "",
     image: "",
     pinned: false,
+    draft: false,
+    encrypted: false,
+    password: "",
+    passwordHint: "",
+    hideHomeContent: true,
     permissionType: "public",
     requiredPoints: 0,
   });
@@ -170,17 +175,17 @@
     wallpaperMode: "banner",
     texturePreset: "starlight",
     textureOpacity: 0.12,
-    bannerDesktop: "assets/images/banner/desktop/1.webp",
-    bannerMobile: "assets/images/banner/mobile/1.webp",
-    bannerSubtitles: "特別なことはないけど、君がいると十分です\n今でもあなたは私の光\n君ってさ、知らないうちに我的毎日になってたよ\n君と話すと、なんか毎日がちょっと楽しくなるんだ\n今日はなんでもない日。但是、ちょっとだけいい日",
+    bannerDesktop: "/assets/images/banner/desktop/1.webp",
+    bannerMobile: "/assets/images/banner/mobile/1.webp",
+    bannerSubtitles: "特別なことはないけど、君がいると十分です\n今でもあなたは私の光\n君ってさ、知らないうちに我的毎日になってたよ\n君と话すと、なんか毎日がちょっと楽しくなるんだ\n今日はなんでもない日。但是、ちょっとだけいい日",
     authorName: "Shirine",
     bio: "The rain remembers what the sky forgot to say.",
-    avatar: "assets/images/demo-avatar.webp",
+    avatar: "/assets/images/demo-avatar.webp",
     announcementEnable: true,
     announcementTitle: "",
     announcementContent: "The only way to do great work is to love what you do",
     announcementLinkText: "GitHub",
-    announcementLinkUrl: "https://github.com",
+    announcementLinkUrl: "https://github.com/yiran168/Shirine",
     musicEnable: true,
     musicProvider: "mixed",
     musicVolume: 0.7,
@@ -309,8 +314,12 @@
             wallpaperMode: s.wallpaperMode?.defaultMode ?? siteConfigState.wallpaperMode,
             texturePreset: s.texture?.defaultPreset ?? siteConfigState.texturePreset,
             textureOpacity: s.texture?.defaultOpacity ?? siteConfigState.textureOpacity,
-            bannerDesktop: s.banner?.src?.desktop?.[0] ?? siteConfigState.bannerDesktop,
-            bannerMobile: s.banner?.src?.mobile?.[0] ?? siteConfigState.bannerMobile,
+            bannerDesktop: Array.isArray(s.banner?.src?.desktop)
+              ? s.banner.src.desktop.join("\n")
+              : (s.banner?.src?.desktop ?? siteConfigState.bannerDesktop),
+            bannerMobile: Array.isArray(s.banner?.src?.mobile)
+              ? s.banner.src.mobile.join("\n")
+              : (s.banner?.src?.mobile ?? siteConfigState.bannerMobile),
             bannerSubtitles: Array.isArray(s.banner?.homeText?.subtitle)
               ? s.banner.homeText.subtitle.join("\n")
               : siteConfigState.bannerSubtitles,
@@ -357,6 +366,11 @@
       tags: "",
       image: "",
       pinned: false,
+      draft: false,
+      encrypted: false,
+      password: "",
+      passwordHint: "",
+      hideHomeContent: true,
       permissionType: "public",
       requiredPoints: 0,
     };
@@ -378,6 +392,11 @@
         tags: Array.isArray(p.tags) ? p.tags.join(", ") : p.tags || "",
         image: p.image || "",
         pinned: Boolean(p.pinned),
+        draft: Boolean(p.draft),
+        encrypted: Boolean(p.encrypted || (p.password && p.password.length > 0)),
+        password: p.password || "",
+        passwordHint: p.passwordHint || "",
+        hideHomeContent: p.hideHomeContent !== undefined ? Boolean(p.hideHomeContent) : true,
         permissionType: p.permissionType || "public",
         requiredPoints: p.requiredPoints || 0,
       };
@@ -394,9 +413,17 @@
       .map((t) => t.trim())
       .filter(Boolean);
 
+    const hasPassword = Boolean(postForm.password && postForm.password.trim().length > 0);
+
     const payload = {
       ...postForm,
       tags: tagsArr,
+      pinned: postForm.pinned ? 1 : 0,
+      draft: postForm.draft ? 1 : 0,
+      encrypted: (postForm.encrypted || hasPassword) ? 1 : 0,
+      password: postForm.password.trim(),
+      passwordHint: postForm.passwordHint.trim(),
+      hideHomeContent: postForm.hideHomeContent ? 1 : 0,
       requiredPoints: Number(postForm.requiredPoints) || 0,
     };
 
@@ -795,7 +822,7 @@
         id: "track-" + Date.now(),
         title: "新音乐曲目",
         artist: "未知歌手",
-        cover: "assets/images/music/dazbee.webp",
+        cover: "/assets/images/music/dazbee.webp",
         source: "/assets/music/url/dazbee.mp3",
         duration: 240,
       },
@@ -836,10 +863,18 @@
   // --- Settings Save ---
   async function saveAllSettings() {
     try {
+      const desktopBanners = siteConfigState.bannerDesktop
+        .split("\n")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+      const mobileBanners = siteConfigState.bannerMobile
+        .split("\n")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
       const sitePayload = {
         ...siteConfigState,
-        bannerDesktop: [siteConfigState.bannerDesktop].filter(Boolean),
-        bannerMobile: [siteConfigState.bannerMobile].filter(Boolean),
+        bannerDesktop: desktopBanners.length > 0 ? desktopBanners : ["/assets/images/banner/desktop/1.webp"],
+        bannerMobile: mobileBanners.length > 0 ? mobileBanners : ["/assets/images/banner/mobile/1.webp"],
         bannerSubtitles: siteConfigState.bannerSubtitles.split("\n").map((s: string) => s.trim()).filter(Boolean),
       };
       const [siteRes, sysRes] = await Promise.all([
@@ -1757,22 +1792,22 @@
               <div class="space-y-4">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label class="text-xs font-semibold block mb-1.5">桌面端横幅图片 URL</label>
-                    <input
-                      type="text"
+                    <label class="text-xs font-semibold block mb-1.5">桌面端横幅图片 URL（支持多图，每行一张）</label>
+                    <textarea
                       bind:value={siteConfigState.bannerDesktop}
-                      placeholder="assets/images/banner/desktop/1.webp 或 https://..."
-                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
-                    />
+                      rows="3"
+                      placeholder="/assets/images/banner/desktop/1.webp 或 https://...&#10;支持多图，每行一张"
+                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono"
+                    ></textarea>
                   </div>
                   <div>
-                    <label class="text-xs font-semibold block mb-1.5">移动端横幅图片 URL</label>
-                    <input
-                      type="text"
+                    <label class="text-xs font-semibold block mb-1.5">移动端横幅图片 URL（支持多图，每行一张）</label>
+                    <textarea
                       bind:value={siteConfigState.bannerMobile}
-                      placeholder="assets/images/banner/mobile/1.webp 或 https://..."
-                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
-                    />
+                      rows="3"
+                      placeholder="/assets/images/banner/mobile/1.webp 或 https://...&#10;支持多图，每行一张"
+                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono"
+                    ></textarea>
                   </div>
                 </div>
 
@@ -2002,7 +2037,7 @@
                       <div class="space-y-2 max-h-80 overflow-y-auto pr-1">
                         {#each siteConfigState.musicTracks as track, idx}
                           <div class="p-3.5 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                            <img src={track.cover || "assets/images/music/dazbee.webp"} alt={track.title} class="w-10 h-10 rounded-xl object-cover shrink-0 bg-surface" />
+                            <img src={track.cover || "/assets/images/music/dazbee.webp"} alt={track.title} class="w-10 h-10 rounded-xl object-cover shrink-0 bg-surface" />
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 w-full">
                               <input
                                 type="text"
@@ -2134,6 +2169,41 @@
               <input type="number" bind:value={postForm.requiredPoints} min="1" class="w-28 px-3 py-1.5 rounded-xl border border-purple-500/30 bg-[var(--surface-container-low)] text-sm font-bold text-center outline-none" />
             </div>
           {/if}
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20">
+            <div>
+              <label class="text-xs font-semibold block mb-1">独立访问密码 (Encrypted / Password)</label>
+              <input
+                type="text"
+                bind:value={postForm.password}
+                placeholder="设置访问密码，留空则无需密码"
+                class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-sm outline-none font-mono"
+              />
+            </div>
+            <div>
+              <label class="text-xs font-semibold block mb-1">密码提示 (Password Hint)</label>
+              <input
+                type="text"
+                bind:value={postForm.passwordHint}
+                placeholder="例如：博主的生日"
+                class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-sm outline-none"
+              />
+            </div>
+            <div class="sm:col-span-2 flex flex-wrap gap-6 pt-2">
+              <label class="flex items-center gap-2 cursor-pointer text-xs font-medium">
+                <input type="checkbox" bind:checked={postForm.pinned} class="rounded text-primary focus:ring-primary w-4 h-4" />
+                <span>📌 置顶本篇文章</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer text-xs font-medium">
+                <input type="checkbox" bind:checked={postForm.draft} class="rounded text-amber-500 focus:ring-amber-500 w-4 h-4" />
+                <span>📝 保存为草稿（草稿仅管理员可见）</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer text-xs font-medium">
+                <input type="checkbox" bind:checked={postForm.hideHomeContent} class="rounded text-primary focus:ring-primary w-4 h-4" />
+                <span>🔒 密码保护时在首页/列表页隐藏摘要简介</span>
+              </label>
+            </div>
+          </div>
 
           <div>
             <label class="text-xs font-semibold block mb-1">封面图片 URL (或点击右侧按钮直接上传至 R2)</label>

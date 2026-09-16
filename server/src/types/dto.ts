@@ -54,6 +54,11 @@ export interface PostListDto {
   permissionType: PermissionType;
   requiredPoints: number;
   isUnlocked: boolean;
+  requiresPassword?: boolean;
+  hideHomeContent?: boolean;
+  isPurchased?: boolean;
+  isAuthenticated?: boolean;
+  lockReason?: string;
   commentEnabled: boolean;
   createdAt: number | Date;
   updatedAt: number | Date;
@@ -64,6 +69,10 @@ export interface PostDetailDto extends PostListDto {
   lockReason?: string;
   userPoints?: number;
   passwordHint?: string;
+  password?: string; // Only populated for privileged admin requests
+  encrypted?: boolean;
+  prev?: { id: number; slug: string; title: string } | null;
+  next?: { id: number; slug: string; title: string } | null;
   author?: {
     id: number;
     username: string;

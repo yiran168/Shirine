@@ -5,31 +5,13 @@
 -- 1. Friends
 INSERT INTO friends (name, desc, avatar, url, accepted, sort_order, uid)
 VALUES ('Mizuki', 'Another Fuwari-based blog theme with docs', 'https://avatars.githubusercontent.com/u/225602409?v=4&s=640', 'https://mizuki.mysqil.com', 1, 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(url) DO UPDATE SET
-  name = excluded.name,
-  desc = excluded.desc,
-  avatar = excluded.avatar,
-  accepted = excluded.accepted,
-  sort_order = excluded.sort_order,
-  uid = COALESCE(friends.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(url) DO NOTHING;
 INSERT INTO friends (name, desc, avatar, url, accepted, sort_order, uid)
 VALUES ('Astro', 'The web framework for content-driven websites', 'https://avatars.githubusercontent.com/u/44914786?v=4&s=640', 'https://astro.build', 1, 2, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(url) DO UPDATE SET
-  name = excluded.name,
-  desc = excluded.desc,
-  avatar = excluded.avatar,
-  accepted = excluded.accepted,
-  sort_order = excluded.sort_order,
-  uid = COALESCE(friends.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(url) DO NOTHING;
 INSERT INTO friends (name, desc, avatar, url, accepted, sort_order, uid)
 VALUES ('Material 3', 'Material Design 3 — the next generation of Material Design', 'https://avatars.githubusercontent.com/u/19478152?v=4&s=640', 'https://m3.material.io', 1, 3, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(url) DO UPDATE SET
-  name = excluded.name,
-  desc = excluded.desc,
-  avatar = excluded.avatar,
-  accepted = excluded.accepted,
-  sort_order = excluded.sort_order,
-  uid = COALESCE(friends.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(url) DO NOTHING;
 
 -- 2. Moments
 INSERT INTO moments (content, location, mood, images, tags, pinned, uid, created_at)
@@ -38,378 +20,158 @@ VALUES ('Welcome to Moments!
 This is the blog''s rambling channel — stray thoughts that never grew into posts, random screenshots, and on-going little experiments.
 
 Lighter than an article, freer than a timeline.', '', 'material-symbols:sentiment-excited-outline-rounded', '[]', '["announcement"]', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1786759200)
-ON CONFLICT(content) DO UPDATE SET
-  location = excluded.location,
-  mood = excluded.mood,
-  images = excluded.images,
-  tags = excluded.tags,
-  pinned = excluded.pinned,
-  uid = COALESCE(moments.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(content) DO NOTHING;
 INSERT INTO moments (content, location, mood, images, tags, pinned, uid, created_at)
 VALUES ('Three new wallpapers, all lovely girls.
 
 My desktop got brighter, and so did my mood for writing code. Turns out you don''t need much — just enough eye candy.', '', 'material-symbols:sentiment-excited-outline-rounded', '[{"src":"/images/moments/girls-trio/girl-1.webp","alt":"Lovely girl wallpaper one"},{"src":"/images/moments/girls-trio/girl-2.webp","alt":"Lovely girl wallpaper two"},{"src":"/images/moments/girls-trio/girl-3.webp","alt":"Lovely girl wallpaper three"}]', '["wallpaper","daily"]', 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1786530600)
-ON CONFLICT(content) DO UPDATE SET
-  location = excluded.location,
-  mood = excluded.mood,
-  images = excluded.images,
-  tags = excluded.tags,
-  pinned = excluded.pinned,
-  uid = COALESCE(moments.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(content) DO NOTHING;
 INSERT INTO moments (content, location, mood, images, tags, pinned, uid, created_at)
 VALUES ('Switched to a new wallpaper — a girl by a sunlit window, the room dark except for her.
 
 Coding past midnight, the screen light and the wallpaper light make quite a pair. Today''s lesson: don''t put side effects inside Svelte 5''s `$derived`, or state updates become magic. Note to self, before I trip again.', '', 'material-symbols:code-blocks-outline-rounded', '[{"src":"/images/moments/night/window-sun.webp","alt":"A girl by a sunlit window, the room dark around her"}]', '["dev","daily"]', 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1786203600)
-ON CONFLICT(content) DO UPDATE SET
-  location = excluded.location,
-  mood = excluded.mood,
-  images = excluded.images,
-  tags = excluded.tags,
-  pinned = excluded.pinned,
-  uid = COALESCE(moments.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(content) DO NOTHING;
 INSERT INTO moments (content, location, mood, images, tags, pinned, uid, created_at)
 VALUES ('Went through my whole wallpaper library at my desk and picked out seven girls. Couldn''t bear to delete any, so here they all are.
 
 Different styles, same cuteness — this hoarding habit is beyond saving.', 'At my desk', 'material-symbols:sentiment-excited-outline-rounded', '[{"src":"/images/moments/girls-roll/roll-1.webp","alt":"Girl wallpaper one"},{"src":"/images/moments/girls-roll/roll-2.webp","alt":"Girl wallpaper two"},{"src":"/images/moments/girls-roll/roll-3.webp","alt":"Girl wallpaper three"},{"src":"/images/moments/girls-roll/roll-4.webp","alt":"Girl wallpaper four"},{"src":"/images/moments/girls-roll/roll-5.webp","alt":"Girl wallpaper five"},{"src":"/images/moments/girls-roll/roll-6.webp","alt":"Girl wallpaper six"},{"src":"/images/moments/girls-roll/roll-7.webp","alt":"Girl wallpaper seven"}]', '["wallpaper","daily"]', 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1785719700)
-ON CONFLICT(content) DO UPDATE SET
-  location = excluded.location,
-  mood = excluded.mood,
-  images = excluded.images,
-  tags = excluded.tags,
-  pinned = excluded.pinned,
-  uid = COALESCE(moments.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(content) DO NOTHING;
 INSERT INTO moments (content, location, mood, images, tags, pinned, uid, created_at)
 VALUES ('Picked up a set of anime scenery wallpapers — mountains, sea, sky, each with its own palette.
 
 I rotate them as my desktop, one every few days. Cheaper joy than a new mousepad.', '', 'material-symbols:desktop-windows-outline-rounded', '[{"src":"/images/moments/scenery/scene-1.webp","alt":"Anime scenery wallpaper one"},{"src":"/images/moments/scenery/scene-2.webp","alt":"Anime scenery wallpaper two"},{"src":"/images/moments/scenery/scene-3.webp","alt":"Anime scenery wallpaper three"},{"src":"/images/moments/scenery/scene-4.webp","alt":"Anime scenery wallpaper four"}]', '["life","wallpaper"]', 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1785392400)
-ON CONFLICT(content) DO UPDATE SET
-  location = excluded.location,
-  mood = excluded.mood,
-  images = excluded.images,
-  tags = excluded.tags,
-  pinned = excluded.pinned,
-  uid = COALESCE(moments.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(content) DO NOTHING;
 INSERT INTO moments (content, location, mood, images, tags, pinned, uid, created_at)
 VALUES ('Finally finished the book I''d been putting off for three months. The ending wasn''t bad, though hardly a surprise — but finishing it at all is healing on its own.
 
 The next one is already queued up; feel free to reach out via the About page to swap reading lists.', '', 'material-symbols:auto-stories-outline-rounded', '[]', '["life","reading"]', 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1785153900)
-ON CONFLICT(content) DO UPDATE SET
-  location = excluded.location,
-  mood = excluded.mood,
-  images = excluded.images,
-  tags = excluded.tags,
-  pinned = excluded.pinned,
-  uid = COALESCE(moments.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(content) DO NOTHING;
 
 -- 3. Albums & Photos
 INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, draft, uid)
 VALUES ('AcgExample', 'Some lovely pictures', 'A local album scanned from this directory.', '/images/albums/AcgExample/cover.webp', 'masonry', 3, '["local","webp","example"]', 0, 'public', 0, 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(slug) DO UPDATE SET
-  title = excluded.title,
-  description = excluded.description,
-  cover = excluded.cover,
-  layout = excluded.layout,
-  columns = excluded.columns,
-  tags = excluded.tags,
-  hidden = excluded.hidden,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  draft = excluded.draft,
-  uid = COALESCE(albums.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/01.webp', 'Some lovely pictures 1', 'Some lovely pictures 1', '', '["local","webp","example"]', 1
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/02.webp', 'Some lovely pictures 2', 'Some lovely pictures 2', '', '["local","webp","example"]', 2
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/03.webp', 'Some lovely pictures 3', 'Some lovely pictures 3', '', '["local","webp","example"]', 3
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/04.webp', 'Some lovely pictures 4', 'Some lovely pictures 4', '', '["local","webp","example"]', 4
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/05.webp', 'Some lovely pictures 5', 'Some lovely pictures 5', '', '["local","webp","example"]', 5
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/06.webp', 'Some lovely pictures 6', 'Some lovely pictures 6', '', '["local","webp","example"]', 6
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/07.webp', 'Some lovely pictures 7', 'Some lovely pictures 7', '', '["local","webp","example"]', 7
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/08.webp', 'Some lovely pictures 8', 'Some lovely pictures 8', '', '["local","webp","example"]', 8
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/09.webp', 'Some lovely pictures 9', 'Some lovely pictures 9', '', '["local","webp","example"]', 9
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/10.webp', 'Some lovely pictures 10', 'Some lovely pictures 10', '', '["local","webp","example"]', 10
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/11.webp', 'Some lovely pictures 11', 'Some lovely pictures 11', '', '["local","webp","example"]', 11
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/12.webp', 'Some lovely pictures 12', 'Some lovely pictures 12', '', '["local","webp","example"]', 12
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/13.webp', 'Some lovely pictures 13', 'Some lovely pictures 13', '', '["local","webp","example"]', 13
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/14.webp', 'Some lovely pictures 14', 'Some lovely pictures 14', '', '["local","webp","example"]', 14
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/15.webp', 'Some lovely pictures 15', 'Some lovely pictures 15', '', '["local","webp","example"]', 15
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/16.webp', 'Some lovely pictures 16', 'Some lovely pictures 16', '', '["local","webp","example"]', 16
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/17.webp', 'Some lovely pictures 17', 'Some lovely pictures 17', '', '["local","webp","example"]', 17
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/18.webp', 'Some lovely pictures 18', 'Some lovely pictures 18', '', '["local","webp","example"]', 18
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/19.webp', 'Some lovely pictures 19', 'Some lovely pictures 19', '', '["local","webp","example"]', 19
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/20.webp', 'Some lovely pictures 20', 'Some lovely pictures 20', '', '["local","webp","example"]', 20
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/21.webp', 'Some lovely pictures 21', 'Some lovely pictures 21', '', '["local","webp","example"]', 21
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/22.webp', 'Some lovely pictures 22', 'Some lovely pictures 22', '', '["local","webp","example"]', 22
 FROM albums WHERE slug = 'AcgExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, draft, uid)
 VALUES ('EncryptedExample', 'Protected image set', 'A password-protected album backed by the reusable protected-content protocol.', 'https://picsum.photos/seed/shirine-protected-cover/800/600', 'masonry', 3, '["protected","password","example"]', 0, 'login_required', 0, 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(slug) DO UPDATE SET
-  title = excluded.title,
-  description = excluded.description,
-  cover = excluded.cover,
-  layout = excluded.layout,
-  columns = excluded.columns,
-  tags = excluded.tags,
-  hidden = excluded.hidden,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  draft = excluded.draft,
-  uid = COALESCE(albums.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, 'https://picsum.photos/seed/shirine-protected-1/1200/800', 'A protected garden landscape', 'Private landscape', '', '["garden"]', 1
 FROM albums WHERE slug = 'EncryptedExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, 'https://picsum.photos/seed/shirine-protected-2/800/1200', 'A protected vertical photograph', 'Private memory', '', '["memory"]', 2
 FROM albums WHERE slug = 'EncryptedExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, draft, uid)
 VALUES ('ExternalExample', 'External image set', 'A remote album using explicit photo metadata and thumbnails.', 'https://picsum.photos/seed/shirine-cover/800/600', 'masonry', 3, '["external","remote","example"]', 0, 'public', 0, 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(slug) DO UPDATE SET
-  title = excluded.title,
-  description = excluded.description,
-  cover = excluded.cover,
-  layout = excluded.layout,
-  columns = excluded.columns,
-  tags = excluded.tags,
-  hidden = excluded.hidden,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  draft = excluded.draft,
-  uid = COALESCE(albums.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, 'https://picsum.photos/seed/shirine-remote-1/1200/800', 'A remote landscape photograph', 'Remote landscape', '', '["landscape","remote"]', 1
 FROM albums WHERE slug = 'ExternalExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, 'https://picsum.photos/seed/shirine-remote-2/800/1200', 'A remote portrait photograph', 'Vertical study', '', '["portrait","remote"]', 2
 FROM albums WHERE slug = 'ExternalExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, draft, uid)
 VALUES ('HiddenExample', 'Hidden album', 'This album is omitted from the index but remains available by direct URL.', '/images/albums/HiddenExample/cover.webp', 'grid', 3, '["hidden","example"]', 1, 'public', 0, 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(slug) DO UPDATE SET
-  title = excluded.title,
-  description = excluded.description,
-  cover = excluded.cover,
-  layout = excluded.layout,
-  columns = excluded.columns,
-  tags = excluded.tags,
-  hidden = excluded.hidden,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  draft = excluded.draft,
-  uid = COALESCE(albums.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/HiddenExample/hidden_01.webp', 'Hidden album 1', 'Hidden album 1', '', '["hidden","example"]', 1
 FROM albums WHERE slug = 'HiddenExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/HiddenExample/hidden_02.webp', 'Hidden album 2', 'Hidden album 2', '', '["hidden","example"]', 2
 FROM albums WHERE slug = 'HiddenExample'
-ON CONFLICT(album_id, url) DO UPDATE SET
-  alt = excluded.alt,
-  title = excluded.title,
-  description = excluded.description,
-  tags = excluded.tags,
-  sort_order = excluded.sort_order;
+ON CONFLICT(album_id, url) DO NOTHING;
 
 -- 4. Posts
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
@@ -473,26 +235,7 @@ Content
 Hidden until the reader opens it.
 :::
 ```', '', 'Guides', '["Demo","Markdown","Admonition","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787788800)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('audio-reader', NULL, NULL, 'Audio Reader: Japanese Anime Mystery Voices', 'A small collection of mysterious Japanese anime voice fragments, played on demand with Audio Reader.', 'These short Japanese voice fragments feel as though they were picked up from the edge of an anime scene: a teasing call, a bright greeting, a tiny laugh, and a few lines with no clear origin. They are mood samples rather than dialogue transcripts, so let the sound carry the meaning.
 
@@ -511,26 +254,7 @@ Audio Reader keeps them quiet until you choose to listen. Each speaker button lo
 - **Zako**: :audio-reader[雑魚じゃん、雑魚雑魚]{src="/assets/audio/Zako.wav"}
 
 `src` must use a site-root path or an HTTPS URL, and the directive label cannot be empty. Invalid or incomplete directives remain ordinary Markdown and do not load Audio Reader resources.', '', 'Examples', '["Example","Audio Reader"]', 'zh_CN', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787961600)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('collapse-panels', NULL, NULL, 'Markdown Collapse Panels', 'Group optional Markdown content into compact, accessible M3E disclosure panels.', 'Collapse panels keep related optional details in one compact group. Titles and bodies retain inline and block Markdown, while native disclosure semantics make every panel usable without client JavaScript.
 
@@ -592,26 +316,7 @@ Add `accordion` when only one answer should remain open. The browser groups the 
 ````
 
 The container must contain exactly one top-level unordered list. Every item needs a title paragraph, a blank line, and body content. Invalid or mixed input remains an ordinary readable Markdown list.', '', 'Guides', '["Demo","Markdown","Collapse","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787875200)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('content-annotations', NULL, NULL, 'Content Annotations', 'Add compact, accessible supporting notes to Shirine articles without interrupting the reading flow.', 'Content annotations keep supporting context close to a sentence without placing it directly in the reading flow. Activate the small note marker to reveal its content.
 
@@ -653,26 +358,7 @@ Reuse a label [+review] to present a short sequence of related notes behind one 
 [+review]: Remove details that belong in the main article instead of the annotation.
 
 Undefined references such as `[+missing]` remain ordinary text, so an unfinished definition never creates an empty control.', '', 'Guides', '["Demo","Markdown","Annotation","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787788800)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('draft', NULL, NULL, 'Draft Example', '', '# This Article is a Draft
 
@@ -688,26 +374,7 @@ tags: [Markdown, Blogging, Demo]
 category: Examples
 draft: false
 ---', '', 'Examples', '["Markdown","Blogging","Demo"]', 'zh_CN', 0, 1, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1656633600)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('encrypted-demo', NULL, NULL, 'Password Protection and Post Encryption Demo', 'A demonstration of client-side authenticated decryption, memory session persistence, and M3E design tokens in Shirine.', '# Password Protected Article
 
@@ -853,27 +520,8 @@ Static encryption has no centralized server database. If a password is forgotten
 
 ## 4. Summary
 
-This demo verifies the entire encryption lifecycle in Shirine: zero plaintext in static output, robust cryptographic verification, session persistence across navigation and page reloads, and dynamic runtime rehydration.', '', 'Examples', '["Demo","Security","Encryption","Markdown"]', 'en', 1, 1, 1, 'login_required', 0, 1, 'shirine-secret', 'Hint: the demo unlock password is shirine-secret', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787184000)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+This demo verifies the entire encryption lifecycle in Shirine: zero plaintext in static output, robust cryptographic verification, session persistence across navigation and page reloads, and dynamic runtime rehydration.', '', 'Examples', '["Demo","Security","Encryption","Markdown"]', 'en', 1, 1, 1, 'login_required', 0, 1, '', 'Hint: the demo unlock password is shirine-secret', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787184000)
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('expressive-code', NULL, NULL, 'Expressive Code Example', 'How code blocks look in Markdown using Expressive Code.', 'Here, we''ll explore how code blocks look using [Expressive Code](https://expressive-code.com/). The provided examples are based on the official documentation, which you can refer to for further details.
 
@@ -1177,26 +825,7 @@ console.log(''Sorry, do you know what line I am on?'')
 console.log(''Greetings from line 5!'')
 console.log(''I am on line 6'')
 ```', '', 'Examples', '["Markdown","Blogging","Demo"]', 'zh_CN', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1712707200)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('guide', NULL, NULL, 'Shirine Authoring & Usage Guide', 'A comprehensive guide to post authoring, frontmatter schema, Markdown extensions, encryption, and media in Shirine.', 'Welcome to **Shirine** (白音) — an expressive, anime-inspired blog theme crafted around **Astro 7**, **Svelte 5**, and the **Material 3 Expressive (M3E)** design system.
 
@@ -1400,26 +1029,7 @@ Images automatically integrate with Fancybox for lossless zoom, pan gestures, an
 - **Site Configuration**: Learn about global settings in `src/config/siteConfig.ts` and [`src/config/README.md`](https://github.com/LyraVoid/Shirine/blob/main/src/config/README.md).
 - **Design Tokens**: Explore tokens and color palettes in `DESIGN.md` and `docs/m3e-standard.md`.
 - **Feedback & Community**: Share your ideas and questions on [GitHub Issues](https://github.com/LyraVoid/Shirine/issues).', './cover.jpeg', 'Guides', '["Shirine","Guide","Markdown","M3E","Blogging"]', 'zh_CN', 1, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787702400)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('image-grid-demo', NULL, NULL, 'Image Gallery Grid: Syntax and Complete Examples', 'A complete guide to image gallery grid syntax, parameters, cropping, responsive behavior, captions, and lightbox navigation.', '`:::grid` is the blog''s image gallery container directive. It arranges ordinary Markdown images in a responsive grid with a consistent aspect ratio and automatically enables lightbox viewing. Use it for article images, screenshots, portfolios, or small albums.
 
@@ -1887,26 +1497,7 @@ Ordinary Markdown images in the same post continue to be handled separately; the
 4. Below 768px, grids use at most two columns; below 480px, they use one column.
 5. Portrait images in "Four Columns with `contain`" are fully visible with empty space and no cropping.
 6. Five- and six-column grids retain their specified column count on wide screens, then collapse to two or one column according to the responsive rules.', '', 'Examples', '["Markdown","Gallery","Image Grid","Demo"]', 'zh_CN', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1783900800)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('markdown-abbreviations', NULL, NULL, 'Markdown Abbreviations', 'Define common acronyms once and keep their full meaning available in normal article text.', 'Abbreviations keep technical writing compact while preserving the full term for readers who need it. A defined term renders as a native `abbr` element with its meaning available on hover and to assistive technology.
 
@@ -1935,26 +1526,7 @@ SSR makes an HTML response available before client code runs.
 ## Authoring boundaries
 
 Terms must begin with a letter or number and may contain letters, numbers, periods, underscores, plus signs, and hyphens. Each definition applies to the current article only; an invalid or duplicate definition remains ordinary Markdown instead of silently replacing another term.', '', 'Guides', '["Demo","Markdown","Typography","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787875200)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('markdown-enhancements', NULL, NULL, 'Shirine Markdown Enhancements', 'Explore Shirine''s custom Markdown extensions, expressive components, and authoring syntax.', 'Shirine provides a collection of theme-exclusive Markdown extensions and custom syntax containers. Built on top of our native unified AST processing pipeline, all extensions render into accessible, semantic HTML during site build time with **zero client JavaScript hydration overhead** and **100% M3E design token alignment**.
 
@@ -2127,26 +1699,7 @@ Point directly to any local directory path in the workspace to automatically sca
 ```
 
 @[code-tree title="Site Configuration" entry="siteConfig.ts"](/src/config)', '', 'Guides', '["Demo","Markdown","Extensions","Theme","Shirine"]', 'en', 1, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787097600)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('markdown-extended', NULL, NULL, 'Markdown Extended Features', 'Read more about Markdown features in Fuwari', '## GitHub Repository Cards
 You can add dynamic cards that link to GitHub repositories, on page load, the repository information is pulled from the GitHub API. 
@@ -2261,26 +1814,7 @@ Valid widths range from `w-1%` to `w-100%`; invalid tokens stay in the alt text.
 ![Album example image w-75%](/images/albums/AcgExample/08.webp)
 
 ![Album example image](/images/albums/AcgExample/09.webp "Caption without a width token")', '', 'Examples', '["Demo","Example","Markdown","Fuwari"]', 'zh_CN', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1714521600)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('markdown-fields', NULL, NULL, 'Markdown Field Cards', 'API and component parameter documentation cards.', 'Use `field-group` when several related options belong to the same API or component. Put the field name on the opening line, then add metadata tags before the description.
 
@@ -2385,26 +1919,7 @@ Controls how the result is formatted.
 - `@required`, `@optional`, and `@deprecated` add a status badge.
 - Any normal Markdown after the metadata becomes the field description.
 - Unknown `@tags` remain visible as description text instead of being discarded.', '', '', '[]', 'zh_CN', 0, 1, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1788048000)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('markdown-includes', NULL, NULL, 'Markdown File Includes', 'Build-time Markdown file and slice includes.', 'Shirine can include a local Markdown file or a safe slice of one.
 
@@ -2420,26 +1935,7 @@ The full file and line-range forms are also supported:
 ```
 
 Include comments inside fenced code remain literal.', '', 'Guides', '["Markdown","Shirine"]', 'zh_CN', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787875200)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('markdown-mermaid', NULL, NULL, 'Mermaid Diagram Gallery', 'A gallery of Mermaid diagrams for processes, interactions, data models, schedules, and project history.', 'Mermaid turns text descriptions in Markdown into diagrams. The examples below use Shirine''s content workflow to demonstrate diagram types commonly used in technical articles and project notes.
 
@@ -2721,26 +2217,7 @@ Reading,Outbound,140
 ```
 
 Each example uses a standard `mermaid` code fence. The server preserves readable source markup, and the browser enhances it into an SVG that follows the active theme. Diagrams render again when the theme changes or when Swup navigates to this article.', '', 'Examples', '["Demo","Example","Markdown","Mermaid"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1714608000)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('markdown', NULL, NULL, 'Markdown Example', 'A simple example of a Markdown blog post.', '# An h1 header
 
@@ -2908,26 +2385,7 @@ $$
 
 And note that you can backslash-escape any punctuation characters
 which you wish to be displayed literally, ex.: \`foo\`, \*bar\*, etc.', '', 'Examples', '["Markdown","Blogging","Demo"]', 'zh_CN', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1696118400)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('marker-highlights', NULL, NULL, 'Markdown Marker Highlights', 'Highlight key phrases with token-driven marker syntax in Shirine Markdown.', 'Marker highlights bring attention to a specific phrase without turning the surrounding paragraph into a separate component. They render as native `<mark>` elements during the build and inherit the active M3E color system.
 
@@ -2959,26 +2417,7 @@ Use a suffix when the meaning needs a different tonal role. The available varian
 ```
 
 Inline code such as `==literal marker syntax==` and fenced examples stay literal, so documentation can explain the syntax without triggering it.', '', 'Guides', '["Demo","Markdown","Typography","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787875200)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('option-groups', NULL, NULL, 'Markdown Option Groups', 'Present related Markdown alternatives in compact, synchronized M3E option groups.', 'Option groups keep equivalent instructions together without repeating the surrounding explanation. Each option accepts full block Markdown, while the selected value can synchronize with another group on the same page.
 
@@ -3085,26 +2524,7 @@ Use pnpm instructions here.
 ````
 
 Each group needs at least two `@tab` sections, and every section needs body content separated from its marker by a blank line. Invalid or incomplete groups remain readable as ordinary Markdown.', '', 'Guides', '["Demo","Markdown","Tabs","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787875200)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('spoilers', NULL, NULL, 'Markdown Spoilers', 'Hide inline answers while keeping spoiler content accessible in Shirine Markdown.', 'Spoilers conceal a short answer or plot detail without removing it from the document. Hover, focus, or activate the native control to reveal the content.
 
@@ -3121,26 +2541,7 @@ The answer is :spoiler[42].
 ```
 
 The generated HTML uses a native button with an `aria-expanded` state. Without JavaScript, hover and focus still reveal the text; the optional runtime adds click and keyboard toggling.', '', 'Guides', '["Demo","Markdown","Accessibility","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787875200)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('steps', NULL, NULL, 'Markdown Steps', 'Present sequential instructions as a compact, accessible step flow in Shirine.', 'Use Steps for procedures whose order matters. The component keeps the article reading flow intact: a quiet numbered rail provides orientation while headings, paragraphs, links, lists, and code retain their native Markdown roles.
 
@@ -3228,26 +2629,7 @@ Wrap one Markdown ordered list in a `:::steps` container. Each top-level list it
 - `start=4` changes the first displayed step number.
 - The container must contain exactly one ordered list. Invalid or mixed input remains ordinary readable Markdown instead of being interpreted heuristically.
 - Rendering is completed during the site build and adds no client JavaScript or network requests.', '', 'Guides', '["Demo","Markdown","Steps","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787788800)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('video', NULL, NULL, 'Include Video in the Posts', 'This post demonstrates how to include embedded video in a blog post.', 'Just copy the embed code from YouTube or other platforms, and paste it in the markdown file.
 
@@ -3276,39 +2658,20 @@ published: 2023-10-19
 ## ArtPlayer
 
 ::artplayer{src="https://www.pexels.com/download/video/38538991/" title="Sintel trailer" preload="auto"}', '', 'Examples', '["Example","Video"]', 'zh_CN', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1690848000)
-ON CONFLICT(slug) DO UPDATE SET
-  alias = excluded.alias,
-  permalink = excluded.permalink,
-  title = excluded.title,
-  description = excluded.description,
-  content = excluded.content,
-  image = excluded.image,
-  category = excluded.category,
-  tags = excluded.tags,
-  lang = excluded.lang,
-  pinned = excluded.pinned,
-  draft = excluded.draft,
-  comment_enabled = excluded.comment_enabled,
-  permission_type = excluded.permission_type,
-  required_points = excluded.required_points,
-  encrypted = excluded.encrypted,
-  password = excluded.password,
-  password_hint = excluded.password_hint,
-  hide_home_content = excluded.hide_home_content,
-  uid = COALESCE(posts.uid, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1));
+ON CONFLICT(slug) DO NOTHING;
 
 -- 5. Default Site Configurations
 INSERT INTO site_configs (key, value, updated_at)
-VALUES ('site', '{"site":"https://shirine.pages.dev","base":"/","title":"Shirine","subtitle":"A Material 3 Expressive dynamic blog","lang":"zh_CN","timeZone":"Asia/Shanghai","topAppBar":{"contentAlign":"center"},"displaySettings":{"colorStyle":true,"colorSpec":true,"wallpaperMode":true,"layoutMode":true,"reduceMotion":true,"texture":true},"themeColor":{"hue":315,"fixed":false,"style":"tonalSpot","spec":"2025"},"wallpaperMode":{"defaultMode":"banner"},"texture":{"enable":true,"defaultPreset":"starlight","defaultOpacity":0.12,"allowMotion":true},"banner":{"src":{"desktop":["assets/images/banner/desktop/1.webp"],"mobile":["assets/images/banner/mobile/1.webp"]},"position":"center","dim":{"enable":true,"opacity":0.24},"homeText":{"enable":true,"title":"Shirine","subtitle":["特別なことはないけど、君がいると十分です","今でもあなたは私の光","君ってさ、知らないうちに我的毎日になってたよ","君と話すと、なんか毎日がちょっと楽しくなるんだ","今日はなんでもない日。でも、ちょっとだけいい日"],"typewriter":{"enable":true,"speed":100,"deleteSpeed":50,"pauseTime":2000,"loop":true}},"carousel":{"enable":true,"interval":6000,"fadeDuration":1200}}}', unixepoch())
+VALUES ('site', '{"site":"https://shirine.pages.dev","base":"/","title":"Shirine","subtitle":"A Material 3 Expressive dynamic blog","lang":"zh_CN","timeZone":"Asia/Shanghai","topAppBar":{"contentAlign":"center"},"displaySettings":{"colorStyle":true,"colorSpec":true,"wallpaperMode":true,"layoutMode":true,"reduceMotion":true,"texture":true},"themeColor":{"hue":315,"fixed":false,"style":"tonalSpot","spec":"2025"},"wallpaperMode":{"defaultMode":"banner"},"texture":{"enable":true,"defaultPreset":"starlight","defaultOpacity":0.12,"allowMotion":true},"banner":{"src":{"desktop":["/assets/images/banner/desktop/1.webp"],"mobile":["/assets/images/banner/mobile/1.webp"]},"position":"center","dim":{"enable":true,"opacity":0.24},"homeText":{"enable":true,"title":"Shirine","subtitle":["特別なことはないけど、君がいると十分です","今でもあなたは私の光","君ってさ、知らないうちに我的毎日になってたよ","君と話すと、なんか毎日がちょっと楽しくなるんだ","今日はなんでもない日。でも、ちょっとだけいい日"],"typewriter":{"enable":true,"speed":100,"deleteSpeed":50,"pauseTime":2000,"loop":true}},"carousel":{"enable":true,"interval":6000,"fadeDuration":1200}}}', unixepoch())
 ON CONFLICT(key) DO NOTHING;
 INSERT INTO site_configs (key, value, updated_at)
-VALUES ('profile', '{"avatar":"assets/images/demo-avatar.webp","name":"Shirine","bio":"The rain remembers what the sky forgot to say.","links":[{"name":"Twitter","icon":"fa6-brands:twitter","url":"https://twitter.com"},{"name":"Steam","icon":"fa6-brands:steam","url":"https://store.steampowered.com"},{"name":"GitHub","icon":"fa6-brands:github","url":"https://github.com/LyraVoid/Shirine"}]}', unixepoch())
+VALUES ('profile', '{"avatar":"/assets/images/demo-avatar.webp","name":"Shirine","bio":"The rain remembers what the sky forgot to say.","links":[{"name":"Twitter","icon":"fa6-brands:twitter","url":"https://twitter.com"},{"name":"Steam","icon":"fa6-brands:steam","url":"https://store.steampowered.com"},{"name":"GitHub","icon":"fa6-brands:github","url":"https://github.com/yiran168/Shirine"}]}', unixepoch())
 ON CONFLICT(key) DO NOTHING;
 INSERT INTO site_configs (key, value, updated_at)
 VALUES ('announcement', '{"enable":true,"title":"","content":"The only way to do great work is to love what you do","link":{"enable":true,"text":"GitHub","url":"https://github.com"}}', unixepoch())
 ON CONFLICT(key) DO NOTHING;
 INSERT INTO site_configs (key, value, updated_at)
-VALUES ('music', '{"enable":true,"provider":"mixed","defaultVolume":0.7,"defaultMode":"sequence","meting":{"server":"netease","type":"playlist","id":"14164869977"},"tracks":[{"id":"dazbee","title":"口笛で愛は歌えない","artist":"Dazbee","cover":"assets/images/music/dazbee.webp","source":"/assets/music/url/dazbee.mp3","duration":241},{"id":"hitori","title":"ひとり上手","artist":"Kaya","cover":"assets/images/music/hitori.webp","source":"/assets/music/url/hitori.mp3","duration":253},{"id":"xryx","title":"眩耀夜行","artist":"スリーズブーケ","cover":"assets/images/music/xryx.webp","source":"/assets/music/url/xryx.mp3","duration":245},{"id":"cl","title":"春雷の頃","artist":"22/7","cover":"assets/images/music/cl.webp","source":"/assets/music/url/cl.mp3","duration":242}]}', unixepoch())
+VALUES ('music', '{"enable":true,"provider":"mixed","defaultVolume":0.7,"defaultMode":"sequence","meting":{"server":"netease","type":"playlist","id":"14164869977"},"tracks":[{"id":"dazbee","title":"口笛で愛は歌えない","artist":"Dazbee","cover":"/assets/images/music/dazbee.webp","source":"/assets/music/url/dazbee.mp3","duration":241},{"id":"hitori","title":"ひとり上手","artist":"Kaya","cover":"/assets/images/music/hitori.webp","source":"/assets/music/url/hitori.mp3","duration":253},{"id":"xryx","title":"眩耀夜行","artist":"スリーズブーケ","cover":"/assets/images/music/xryx.webp","source":"/assets/music/url/xryx.mp3","duration":245},{"id":"cl","title":"春雷の頃","artist":"22/7","cover":"/assets/images/music/cl.webp","source":"/assets/music/url/cl.mp3","duration":242}]}', unixepoch())
 ON CONFLICT(key) DO NOTHING;
 INSERT INTO site_configs (key, value, updated_at)
 VALUES ('sidebar', '{"widgets":{"profile":{"enable":true,"priority":1},"announcement":{"enable":true,"priority":2,"title":"公告","content":"欢迎来到 Shirine！基于 Cloudflare 全栈架构的唯美动态博客。"},"categories":{"enable":true,"priority":3},"tags":{"enable":true,"priority":4},"recentPosts":{"enable":true,"priority":5,"limit":5}}}', unixepoch())

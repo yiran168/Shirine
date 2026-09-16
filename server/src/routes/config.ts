@@ -39,8 +39,8 @@ export const defaultSiteConfig = {
     },
     banner: {
       src: {
-        desktop: ["assets/images/banner/desktop/1.webp"],
-        mobile: ["assets/images/banner/mobile/1.webp"],
+        desktop: ["/assets/images/banner/desktop/1.webp"],
+        mobile: ["/assets/images/banner/mobile/1.webp"],
       },
       position: "center",
       dim: { enable: true, opacity: 0.24 },
@@ -70,7 +70,7 @@ export const defaultSiteConfig = {
     },
   },
   profile: {
-    avatar: "assets/images/demo-avatar.webp",
+    avatar: "/assets/images/demo-avatar.webp",
     name: "Shirine",
     bio: "The rain remembers what the sky forgot to say.",
     links: [
@@ -87,7 +87,7 @@ export const defaultSiteConfig = {
       {
         name: "GitHub",
         icon: "fa6-brands:github",
-        url: "https://github.com/LyraVoid/Shirine",
+        url: "https://github.com/yiran168/Shirine",
       },
     ],
   },
@@ -116,7 +116,7 @@ export const defaultSiteConfig = {
         id: "dazbee",
         title: "口笛で愛は歌えない",
         artist: "Dazbee",
-        cover: "assets/images/music/dazbee.webp",
+        cover: "/assets/images/music/dazbee.webp",
         source: "/assets/music/url/dazbee.mp3",
         duration: 241,
       },
@@ -124,7 +124,7 @@ export const defaultSiteConfig = {
         id: "hitori",
         title: "ひとり上手",
         artist: "Kaya",
-        cover: "assets/images/music/hitori.webp",
+        cover: "/assets/images/music/hitori.webp",
         source: "/assets/music/url/hitori.mp3",
         duration: 253,
       },
@@ -132,7 +132,7 @@ export const defaultSiteConfig = {
         id: "xryx",
         title: "眩耀夜行",
         artist: "スリーズブーケ",
-        cover: "assets/images/music/xryx.webp",
+        cover: "/assets/images/music/xryx.webp",
         source: "/assets/music/url/xryx.mp3",
         duration: 245,
       },
@@ -140,7 +140,7 @@ export const defaultSiteConfig = {
         id: "cl",
         title: "春雷の頃",
         artist: "22/7",
-        cover: "assets/images/music/cl.webp",
+        cover: "/assets/images/music/cl.webp",
         source: "/assets/music/url/cl.mp3",
         duration: 242,
       },
@@ -244,7 +244,7 @@ configRouter.get("/site", async (c) => {
   }
 });
 
-// URL Sanitizer to prevent javascript: / vbscript: / data: active content injection (V8-P0-16)
+// URL Sanitizer to prevent javascript: / vbscript: / data: active content injection (V8-P0-16, V10-P0-05)
 function sanitizeUrl(rawUrl: unknown): string {
   if (typeof rawUrl !== "string") return "#";
   const trimmed = rawUrl.trim();
@@ -266,6 +266,10 @@ function sanitizeUrl(rawUrl: unknown): string {
   ) {
     return trimmed;
   }
+  // Safe relative paths like assets/images/... or ./assets/... (V10-P0-05)
+  if (lower.startsWith("assets/") || lower.startsWith("./assets/")) {
+    return "/" + trimmed.replace(/^\.\//, "");
+  }
   return "#";
 }
 
@@ -284,10 +288,21 @@ configRouter.put("/site", requireAdmin, async (c) => {
       "wallpaperMode" in body ||
       "texturePreset" in body ||
       "textureOpacity" in body ||
+      "textureAllowMotion" in body ||
       "bannerDesktop" in body ||
       "bannerMobile" in body ||
       "bannerSubtitles" in body
     ) {
+      const existingRow = await db.query.siteConfigs.findFirst({
+        where: eq(schema.siteConfigs.key, "site"),
+      });
+      let baseSite = defaultSiteConfig.site;
+      if (existingRow) {
+        try {
+          baseSite = deepMerge(defaultSiteConfig.site, JSON.parse(existingRow.value));
+        } catch {}
+      }
+
       const siteUpdates: Record<string, any> = {};
       if (body.title !== undefined) siteUpdates.title = body.title;
       if (body.subtitle !== undefined) siteUpdates.subtitle = body.subtitle;
@@ -297,13 +312,17 @@ configRouter.put("/site", requireAdmin, async (c) => {
       }
       if (body.topAppBarAlign !== undefined) siteUpdates.topAppBar = { contentAlign: body.topAppBarAlign };
       if (body.wallpaperMode !== undefined) siteUpdates.wallpaperMode = { defaultMode: body.wallpaperMode };
-      if (body.texturePreset !== undefined || body.textureOpacity !== undefined) {
+      if (body.texturePreset !== undefined || body.textureOpacity !== undefined || body.textureAllowMotion !== undefined || body.allowMotion !== undefined) {
         const opNum = Number(body.textureOpacity);
+        const existingAllowMotion = baseSite.texture?.allowMotion ?? true;
+        const requestedMotion = body.textureAllowMotion !== undefined
+          ? Boolean(body.textureAllowMotion)
+          : (body.allowMotion !== undefined ? Boolean(body.allowMotion) : existingAllowMotion);
         siteUpdates.texture = {
           enable: body.texturePreset !== "none",
-          defaultPreset: body.texturePreset || "starlight",
-          defaultOpacity: Number.isFinite(opNum) ? opNum : 0.12,
-          allowMotion: true,
+          defaultPreset: body.texturePreset || baseSite.texture?.defaultPreset || "starlight",
+          defaultOpacity: Number.isFinite(opNum) ? opNum : (baseSite.texture?.defaultOpacity ?? 0.12),
+          allowMotion: requestedMotion,
         };
       }
       if (body.bannerDesktop !== undefined || body.bannerMobile !== undefined || body.bannerSubtitles !== undefined) {
@@ -324,15 +343,6 @@ configRouter.put("/site", requireAdmin, async (c) => {
         }
       }
 
-      const existingRow = await db.query.siteConfigs.findFirst({
-        where: eq(schema.siteConfigs.key, "site"),
-      });
-      let baseSite = defaultSiteConfig.site;
-      if (existingRow) {
-        try {
-          baseSite = deepMerge(defaultSiteConfig.site, JSON.parse(existingRow.value));
-        } catch {}
-      }
       const updatedSite = deepMerge(baseSite, siteUpdates);
       await db
         .insert(schema.siteConfigs)
@@ -495,11 +505,20 @@ configRouter.put("/site", requireAdmin, async (c) => {
           set: { value: JSON.stringify(mergedVal), updatedAt: new Date() },
         });
     } else if (body.site || body.profile || body.music || body.announcement || body.sidebar || body.footer) {
-      // Domain-structured full object
+      // Domain-structured full object: V10-P0-03 read existing domain before merging to preserve custom fields
       for (const [key, val] of Object.entries(body)) {
         if (!(key in defaultSiteConfig)) continue;
         const defaultDomain = (defaultSiteConfig as any)[key] || {};
-        const mergedVal = deepMerge(defaultDomain, val);
+        const existingRow = await db.query.siteConfigs.findFirst({
+          where: eq(schema.siteConfigs.key, key),
+        });
+        let baseDomain = defaultDomain;
+        if (existingRow) {
+          try {
+            baseDomain = deepMerge(defaultDomain, JSON.parse(existingRow.value));
+          } catch {}
+        }
+        const mergedVal = deepMerge(baseDomain, val);
         await db
           .insert(schema.siteConfigs)
           .values({
@@ -546,15 +565,15 @@ configRouter.get("/system", async (c) => {
       config: publicConfig,
     });
   } catch (err: any) {
-    return c.json({
-      success: true,
-      data: {
-        turnstileEnabled: false,
-        turnstileSiteKey: "",
-        defaultLang: "zh_CN",
-        live2dGuestEnabled: true,
+    return c.json(
+      {
+        success: false,
+        degraded: true,
+        error: "Configuration backend unavailable",
+        code: "CONFIG_BACKEND_UNAVAILABLE",
       },
-    });
+      503
+    );
   }
 });
 
@@ -571,14 +590,15 @@ configRouter.get("/system/admin", requireAdmin, async (c) => {
       } catch {}
     }
 
+    const hasTurnstileSecret = Boolean(c.env.CF_TURNSTILE_SECRET || sys.turnstile.secretKey);
     const adminSys = {
       checkin_rule: sys.checkin_rule,
       turnstile: {
         enabled: sys.turnstile.enabled,
         siteKey: sys.turnstile.siteKey,
-        configured: Boolean(sys.turnstile.secretKey),
-        // Mask secretKey if configured (#80)
-        secretKey: sys.turnstile.secretKey ? "••••••••" : "",
+        configured: hasTurnstileSecret,
+        // Mask secretKey if configured (#80, V10-P0-01)
+        secretKey: hasTurnstileSecret ? "••••••••" : "",
       },
       i18n: sys.i18n,
       live2d: sys.live2d,
@@ -589,7 +609,7 @@ configRouter.get("/system/admin", requireAdmin, async (c) => {
       checkinRandomMax: sys.checkin_rule?.randomMax ?? 20,
       turnstileEnable: sys.turnstile?.enabled ?? false,
       turnstileSiteKey: sys.turnstile?.siteKey || "",
-      turnstileSecretKey: sys.turnstile?.secretKey ? "••••••••" : "",
+      turnstileSecretKey: hasTurnstileSecret ? "••••••••" : "",
       live2dGuestEnable: sys.live2d?.guestEnabled ?? true,
       live2dAdminEnable: sys.live2d?.adminEnabled ?? true,
       live2dModel: sys.live2d?.model || defaultSystemConfig.live2d.model,
@@ -606,25 +626,42 @@ configRouter.get("/system/admin", requireAdmin, async (c) => {
   }
 });
 
-// Admin: Save System Configs (supports flat admin form #22, #79)
+// Admin: Save System Configs (supports modular partial domain updates: V10-P0-04)
 configRouter.put("/system", requireAdmin, async (c) => {
   try {
     const db = getDb(c.env.DB);
     const body = await c.req.json();
 
-    // If flat fields from AdminDashboard.svelte are submitted
-    if (
+    // 1. checkin_rule: only if checkin fields appear in payload
+    const hasCheckin =
       "checkinMode" in body ||
       "checkinFixedPoints" in body ||
-      "turnstileEnable" in body ||
-      "live2dGuestEnable" in body
-    ) {
-      // 1. checkin_rule
+      "checkinRandomMin" in body ||
+      "checkinRandomMax" in body;
+    if (hasCheckin) {
+      const existingRuleRow = await db.query.systemConfigs.findFirst({
+        where: eq(schema.systemConfigs.key, "checkin_rule"),
+      });
+      let baseRule = defaultSystemConfig.checkin_rule;
+      if (existingRuleRow) {
+        try {
+          baseRule = { ...baseRule, ...JSON.parse(existingRuleRow.value) };
+        } catch {}
+      }
       const checkinRule = {
-        mode: body.checkinMode || "fixed",
-        fixedPoints: Math.max(0, parseInt(body.checkinFixedPoints) || 10),
-        randomMin: Math.max(1, parseInt(body.checkinRandomMin) || 5),
-        randomMax: Math.max(1, parseInt(body.checkinRandomMax) || 20),
+        mode: body.checkinMode !== undefined ? body.checkinMode : baseRule.mode,
+        fixedPoints:
+          body.checkinFixedPoints !== undefined
+            ? Math.max(0, parseInt(body.checkinFixedPoints) || 0)
+            : baseRule.fixedPoints,
+        randomMin:
+          body.checkinRandomMin !== undefined
+            ? Math.max(1, parseInt(body.checkinRandomMin) || 1)
+            : baseRule.randomMin,
+        randomMax:
+          body.checkinRandomMax !== undefined
+            ? Math.max(1, parseInt(body.checkinRandomMax) || 1)
+            : baseRule.randomMax,
       };
       await db
         .insert(schema.systemConfigs)
@@ -637,26 +674,34 @@ configRouter.put("/system", requireAdmin, async (c) => {
           target: schema.systemConfigs.key,
           set: { value: JSON.stringify(checkinRule), updatedAt: new Date() },
         });
+    }
 
-      // 2. turnstile (preserve secret if masked placeholder is sent)
+    // 2. turnstile: only if turnstile fields appear in payload
+    const hasTurnstile =
+      "turnstileEnable" in body ||
+      "turnstileSiteKey" in body ||
+      "turnstileSecretKey" in body;
+    if (hasTurnstile) {
       const existingTurnstileRow = await db.query.systemConfigs.findFirst({
         where: eq(schema.systemConfigs.key, "turnstile"),
       });
-      let existingTurnstileSecret = "";
+      let baseTurnstile = defaultSystemConfig.turnstile;
       if (existingTurnstileRow) {
         try {
-          existingTurnstileSecret = JSON.parse(existingTurnstileRow.value).secretKey || "";
+          baseTurnstile = { ...baseTurnstile, ...JSON.parse(existingTurnstileRow.value) };
         } catch {}
       }
 
-      let secretKeyToSave = existingTurnstileSecret;
+      let secretKeyToSave = baseTurnstile.secretKey || "";
       if (body.turnstileSecretKey && body.turnstileSecretKey !== "••••••••") {
         secretKeyToSave = body.turnstileSecretKey.trim();
       }
 
       const turnstileConfig = {
-        enabled: Boolean(body.turnstileEnable),
-        siteKey: body.turnstileSiteKey?.trim() || "",
+        enabled:
+          body.turnstileEnable !== undefined ? Boolean(body.turnstileEnable) : baseTurnstile.enabled,
+        siteKey:
+          body.turnstileSiteKey !== undefined ? body.turnstileSiteKey.trim() : baseTurnstile.siteKey,
         secretKey: secretKeyToSave,
       };
       await db
@@ -670,24 +715,36 @@ configRouter.put("/system", requireAdmin, async (c) => {
           target: schema.systemConfigs.key,
           set: { value: JSON.stringify(turnstileConfig), updatedAt: new Date() },
         });
+    }
 
-      // 3. live2d
+    // 3. live2d: only if live2d fields appear in payload
+    const hasLive2d =
+      "live2dGuestEnable" in body ||
+      "live2dAdminEnable" in body ||
+      "live2dModel" in body;
+    if (hasLive2d) {
       const existingLive2dRow = await db.query.systemConfigs.findFirst({
         where: eq(schema.systemConfigs.key, "live2d"),
       });
-      let existingModel = defaultSystemConfig.live2d.model;
+      let baseLive2d = defaultSystemConfig.live2d;
       if (existingLive2dRow) {
         try {
-          existingModel = JSON.parse(existingLive2dRow.value).model || existingModel;
+          baseLive2d = { ...baseLive2d, ...JSON.parse(existingLive2dRow.value) };
         } catch {}
       }
       const live2dModel =
         typeof body.live2dModel === "string" && body.live2dModel.trim()
           ? body.live2dModel.trim()
-          : existingModel;
+          : baseLive2d.model;
       const live2dConfig = {
-        guestEnabled: body.live2dGuestEnable !== undefined ? Boolean(body.live2dGuestEnable) : true,
-        adminEnabled: body.live2dAdminEnable !== undefined ? Boolean(body.live2dAdminEnable) : true,
+        guestEnabled:
+          body.live2dGuestEnable !== undefined
+            ? Boolean(body.live2dGuestEnable)
+            : baseLive2d.guestEnabled,
+        adminEnabled:
+          body.live2dAdminEnable !== undefined
+            ? Boolean(body.live2dAdminEnable)
+            : baseLive2d.adminEnabled,
         model: live2dModel,
       };
       await db
@@ -701,25 +758,27 @@ configRouter.put("/system", requireAdmin, async (c) => {
           target: schema.systemConfigs.key,
           set: { value: JSON.stringify(live2dConfig), updatedAt: new Date() },
         });
+    }
 
-      // 4. i18n default language
-      if (body.defaultLang) {
-        const i18nConfig = {
-          defaultLang: body.defaultLang,
-        };
-        await db
-          .insert(schema.systemConfigs)
-          .values({
-            key: "i18n",
-            value: JSON.stringify(i18nConfig),
-            updatedAt: new Date(),
-          })
-          .onConflictDoUpdate({
-            target: schema.systemConfigs.key,
-            set: { value: JSON.stringify(i18nConfig), updatedAt: new Date() },
-          });
-      }
+    // 4. i18n: only if defaultLang appears in payload
+    if ("defaultLang" in body && body.defaultLang) {
+      const i18nConfig = {
+        defaultLang: body.defaultLang,
+      };
+      await db
+        .insert(schema.systemConfigs)
+        .values({
+          key: "i18n",
+          value: JSON.stringify(i18nConfig),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.systemConfigs.key,
+          set: { value: JSON.stringify(i18nConfig), updatedAt: new Date() },
+        });
+    }
 
+    if (hasCheckin || hasTurnstile || hasLive2d || ("defaultLang" in body)) {
       return c.json({ success: true, message: "System configuration saved successfully" });
     }
 

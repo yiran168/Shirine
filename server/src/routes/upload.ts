@@ -1,9 +1,8 @@
 import { Hono } from "hono";
 import type { Env, Variables } from "../types";
 import { requireAdmin } from "../core/middleware";
-
-import { getDb, schema } from "../db";
-import { and, eq, like } from "drizzle-orm";
+import { stripExifFromBuffer } from "../utils/exif";
+import { handleBlobStream } from "../core/blob-handler";
 
 export const uploadRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -97,8 +96,8 @@ uploadRouter.post("/", requireAdmin, async (c) => {
       );
     }
 
-    const fileBuffer = await file.arrayBuffer();
-    if (!validateImageMagicBytes(fileBuffer, mime)) {
+    const rawBuffer = await file.arrayBuffer();
+    if (!validateImageMagicBytes(rawBuffer, mime)) {
       return c.json(
         {
           success: false,
@@ -108,9 +107,13 @@ uploadRouter.post("/", requireAdmin, async (c) => {
       );
     }
 
+    // Strip EXIF metadata to protect user privacy (GPS, camera info, serial numbers)
+    const fileBuffer = stripExifFromBuffer(rawBuffer, mime);
+
     const hashBuffer = await crypto.subtle.digest("SHA-1", fileBuffer);
     const hash = buf2hex(hashBuffer);
-    const key = `uploads/${hash}.${safeExt}`;
+    const entropy = crypto.randomUUID().slice(0, 8);
+    const key = `uploads/${hash}-${entropy}.${safeExt}`;
 
     if (c.env.STORAGE) {
       await c.env.STORAGE.put(key, fileBuffer, {
@@ -127,7 +130,7 @@ uploadRouter.post("/", requireAdmin, async (c) => {
         success: true,
         url: publicUrl,
         key,
-        size: file.size,
+        size: fileBuffer.byteLength,
         type: mime,
       });
     } else {
@@ -145,7 +148,7 @@ uploadRouter.post("/", requireAdmin, async (c) => {
         success: true,
         url: dataUrl,
         key,
-        size: file.size,
+        size: fileBuffer.byteLength,
         type: mime,
         note: "R2 binding not detected, returned preview data URI.",
       });
@@ -156,85 +159,7 @@ uploadRouter.post("/", requireAdmin, async (c) => {
   }
 });
 
-// GET /api/blob/* (Stream file from R2 with X-Content-Type-Options #132)
+// GET /api/upload/blob/* (Stream file from R2 using secure ACL check)
 uploadRouter.get("/blob/*", async (c) => {
-  try {
-    const key = c.req.path.replace(/^\/blob\/?/, "").replace(/^\/api\/blob\/?/, "");
-    if (!key) {
-      return c.text("Key is required", 400);
-    }
-
-    if (!c.env.STORAGE) {
-      return c.text("Storage bucket not bound", 404);
-    }
-
-    const decodedKey = decodeURIComponent(key);
-    const object = await c.env.STORAGE.get(decodedKey);
-    if (!object) {
-      return c.text("Object not found", 404);
-    }
-
-    let isProtected = false;
-    if (c.env.DB) {
-      try {
-        const db = getDb(c.env.DB);
-        const photoMatch = await db.query.albumPhotos.findFirst({
-          where: like(schema.albumPhotos.url, `%${decodedKey}%`),
-        });
-        if (photoMatch) {
-          const album = await db.query.albums.findFirst({
-            where: eq(schema.albums.id, photoMatch.albumId),
-          });
-          if (album && (album.draft === 1 || album.permissionType !== "public")) {
-            isProtected = true;
-            const user = c.get("user");
-            const isAdmin = user && (user.role === "superadmin" || user.role === "admin");
-            const isAuthor = user && album.uid && user.id === album.uid;
-            if (!isAdmin && !isAuthor) {
-              if (!user) {
-                return c.text("Unauthorized: Authentication required to access protected media", 401);
-              }
-              if (album.draft === 1) {
-                return c.text("Forbidden: Draft album media is unpublished", 403);
-              }
-              if (album.permissionType === "points_required") {
-                const unlock = await db.query.albumUnlocks.findFirst({
-                  where: and(
-                    eq(schema.albumUnlocks.userId, user.id),
-                    eq(schema.albumUnlocks.albumId, album.id)
-                  ),
-                });
-                if (!unlock) {
-                  return c.text("Forbidden: Album must be unlocked before accessing media", 403);
-                }
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Blob authorization check failed:", err);
-      }
-    }
-
-    const headers = new Headers();
-    object.writeHttpMetadata(headers);
-    headers.set("etag", object.httpEtag);
-    headers.set("X-Content-Type-Options", "nosniff");
-
-    const contentType = headers.get("content-type") || "";
-    if (contentType.includes("svg") || contentType.includes("html") || contentType.includes("xml")) {
-      headers.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'");
-      headers.set("Content-Disposition", "attachment");
-    }
-
-    if (isProtected) {
-      headers.set("Cache-Control", "private, no-cache, no-store, must-revalidate");
-    } else {
-      headers.set("Cache-Control", "public, max-age=31536000, immutable");
-    }
-
-    return new Response(object.body, { headers });
-  } catch (err: any) {
-    return c.text("Error fetching file", 500);
-  }
+  return handleBlobStream(c);
 });
