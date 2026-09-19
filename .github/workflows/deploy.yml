@@ -10,6 +10,8 @@ jobs:
   deploy-server:
     name: Deploy Backend to Cloudflare Workers
     runs-on: ubuntu-latest
+    outputs:
+      api_url: ${{ steps.server_deploy.outputs.api_url }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -23,6 +25,7 @@ jobs:
         run: bun install
 
       - name: Deploy Backend
+        id: server_deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

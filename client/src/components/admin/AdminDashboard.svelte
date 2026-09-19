@@ -1214,11 +1214,11 @@
           </p>
           <form onsubmit={(e) => { e.preventDefault(); handleAdminLogin(); }} class="space-y-4 text-left">
             <div>
-              <label class="text-xs font-medium block mb-1.5">用户名 / 邮箱</label>
+              <label class="text-xs font-medium block mb-1.5">用户名或邮箱</label>
               <input
                 type="text"
                 bind:value={loginUsername}
-                placeholder="请输入管理员账号"
+                placeholder="请输入管理员账号或邮箱"
                 required
                 class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none"
               />

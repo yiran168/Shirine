@@ -47,11 +47,22 @@ const handleFocus = (): void => {
 	clearTimeout(blurTimer);
 	onfocus();
 };
+
+$effect(() => {
+	if (typeof document !== "undefined") {
+		const navbar = document.getElementById("navbar");
+		if (expanded) {
+			navbar?.classList.add("navbar--search-expanded");
+		} else {
+			navbar?.classList.remove("navbar--search-expanded");
+		}
+	}
+});
 </script>
 
 <div
-    class="hidden lg:flex items-center h-10 rounded-full transition-all duration-300 top-app-bar__search-shell overflow-hidden relative z-20
-           {expanded ? 'top-app-bar__search-shell--expanded w-48 bg-[var(--surface-container-high)] border border-[var(--outline-variant)]/40 shadow-sm' : 'w-10 bg-transparent hover:bg-[var(--surface-container)]'}"
+    class="hidden lg:flex items-center h-10 rounded-full transition-all duration-300 top-app-bar__search-shell overflow-hidden relative z-30
+           {expanded ? 'top-app-bar__search-shell--expanded w-60 md:w-72 bg-[var(--surface-container-highest)] border border-[var(--outline-variant)]/60 shadow-lg backdrop-blur-xl' : 'w-10 bg-transparent hover:bg-[var(--surface-container)]'}"
     onclick={() => {
         if (!expanded) expand();
     }}

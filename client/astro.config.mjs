@@ -144,7 +144,7 @@ export default defineConfig({
 		},
 		imageService: "passthrough",
 	}),
-	trailingSlash: "always",
+	trailingSlash: "ignore",
 	integrations: [
 		swup({
 			theme: false,

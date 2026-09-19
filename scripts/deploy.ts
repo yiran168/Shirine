@@ -367,6 +367,12 @@ export async function deployServer(): Promise<void> {
     if (match) {
       detectedWorkerApiUrl = `${match[0]}/api`;
       console.log(`📡 Auto-detected backend Worker API endpoint: ${detectedWorkerApiUrl}`);
+      if (process.env.GITHUB_OUTPUT) {
+        try {
+          const { appendFileSync } = await import("node:fs");
+          appendFileSync(process.env.GITHUB_OUTPUT, `api_url=${detectedWorkerApiUrl}\n`);
+        } catch {}
+      }
     }
   }
 
@@ -402,6 +408,30 @@ export async function deployClient(): Promise<void> {
     process.exit(buildProc.exitCode ?? 1);
   }
   console.log(`✅ Client built successfully into ./client/dist`);
+
+  // 1. Generate Cloudflare Pages native edge _redirects rule if external API URL is available
+  if (effectiveApiUrl && effectiveApiUrl.startsWith("http")) {
+    const cleanEffective = effectiveApiUrl.replace(/\/+$/, "");
+    const redirectsPath = path.join(clientDir, "dist", "_redirects");
+    const redirectRule = `/api/* ${cleanEffective}/:splat 200\n`;
+    try {
+      writeFileSync(redirectsPath, redirectRule, "utf-8");
+      console.log(`📝 Generated Cloudflare Pages edge proxy rule in dist/_redirects -> ${cleanEffective}`);
+    } catch {}
+  }
+
+  // 2. Ensure client/wrangler.toml has service binding to WORKER_NAME
+  const clientWranglerPath = path.join(clientDir, "wrangler.toml");
+  if (existsSync(clientWranglerPath)) {
+    let clientWrangler = readFileSync(clientWranglerPath, "utf-8");
+    if (!clientWrangler.includes("[[services]]")) {
+      clientWrangler += `\n[[services]]\nbinding = "SHIRINE_SERVER"\nservice = "${WORKER_NAME}"\n`;
+      writeFileSync(clientWranglerPath, clientWrangler, "utf-8");
+    } else if (WORKER_NAME && !clientWrangler.includes(`service = "${WORKER_NAME}"`)) {
+      clientWrangler = clientWrangler.replace(/service = "[^"]*"/, `service = "${WORKER_NAME}"`);
+      writeFileSync(clientWranglerPath, clientWrangler, "utf-8");
+    }
+  }
 
   // Ensure Cloudflare Pages project exists
   console.log(`📦 Checking Cloudflare Pages project "${PAGES_NAME}"...`);

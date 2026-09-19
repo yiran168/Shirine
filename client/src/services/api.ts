@@ -56,7 +56,13 @@ async function request<T = any>(
       data = text ? JSON.parse(text) : {};
     } catch {
       let userFriendlyError = "服务器返回了非预期响应";
-      if (res.status === 404) {
+      if (text.includes("<!DOCTYPE") || text.includes("<html")) {
+        if (res.status === 404) {
+          userFriendlyError = "后端 API 端点不存在 (404)，请检查 Worker 部署或 PUBLIC_API_URL 配置";
+        } else {
+          userFriendlyError = `后端返回了 HTML 页面而非 JSON 数据 (${res.status})，请检查 PUBLIC_API_URL 环境变量配置`;
+        }
+      } else if (res.status === 404) {
         userFriendlyError = "后端 API 端点不存在 (404)，请检查 Worker 部署或 PUBLIC_API_URL 配置";
       } else if (res.status === 502 || res.status === 503) {
         userFriendlyError = `无法连接到后端服务 (${res.status})，请检查后端 Worker 状态及 PUBLIC_API_URL 环境变量`;

@@ -259,13 +259,20 @@ $effect(() => {
 			>
 				<img
 					src={thumbnailSrc(image)}
-					srcset={image.thumbnailSrcset}
+					srcset={image.thumbnailSrcset || undefined}
 					sizes={tileSizes(i)}
-					alt={image.alt}
+					alt={image.alt || ""}
 					loading="lazy"
 					decoding="async"
 					class="w-full h-full object-cover"
 					onload={() => (loadedTiles = new Set(loadedTiles).add(image.src))}
+					onerror={(e) => {
+						const el = e.currentTarget as HTMLImageElement;
+						if (el && image.src && el.src !== image.src) {
+							el.removeAttribute("srcset");
+							el.src = image.src;
+						}
+					}}
 				/>
 				{#if remainder > 0 && i === MAX_TILES - 1}
 					<span class="moment-card__more">+{remainder}</span>

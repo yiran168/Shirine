@@ -9,90 +9,120 @@ import { siteMarkdownProcessor } from "@utils/markdown-processor";
 import { renderDynamicMarkdown } from "@utils/dynamic-markdown";
 import { initPostIdMap } from "@utils/permalink-utils";
 import { getCategoryUrl, getPostUrl, url } from "@utils/url-utils";
+import type { FriendItem } from "../data/friends";
+
+const POSTS_CACHE_TTL_MS = 20_000;
+let cachedPostsMap = new Map<string, { time: number; data: CollectionEntry<"posts">[] }>();
+let inFlightPostsPromise = new Map<string, Promise<CollectionEntry<"posts">[]>>();
 
 // Retrieve posts dynamically from backend API and sort them by publication date
 async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"posts">[]> {
-	const apiBase =
-		import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
-
-	let apiPosts: CollectionEntry<"posts">[] = [];
-	let apiConnected = false;
-	if (apiBase) {
-		try {
-			const headers: Record<string, string> = {};
-			if (request) {
-				const cookie = request.headers.get("cookie");
-				if (cookie) headers["cookie"] = cookie;
-				const auth = request.headers.get("authorization");
-				if (auth) headers["authorization"] = auth;
-			}
-
-			const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts?pageSize=500`, {
-				headers,
-				signal: AbortSignal.timeout(3000),
-			});
-		if (res.ok) {
-			const json = await res.json();
-			if (json.success && Array.isArray(json.data)) {
-				apiConnected = true;
-				apiPosts = json.data.map((p: any) => ({
-					id: p.slug || String(p.id),
-					body: p.content || "",
-					collection: "posts" as const,
-					data: {
-						dbId: p.id,
-						title: p.title,
-						published: new Date(p.createdAt),
-						updated: p.updatedAt ? new Date(p.updatedAt) : undefined,
-						description: p.description || "",
-						image: p.image || "",
-						category: p.category || "",
-						tags: Array.isArray(p.tags) ? p.tags : [],
-						pinned: Boolean(p.pinned),
-						draft: Boolean(p.draft),
-						comment: Boolean(p.commentEnabled ?? true),
-						encrypted: Boolean(p.password || p.permissionType === "password" || p.encrypted || p.requiresPassword),
-						password: p.password || undefined,
-						passwordHint: p.passwordHint || undefined,
-						permissionType: p.permissionType || "public",
-						requiredPoints: p.requiredPoints || 0,
-						isUnlocked: Boolean(p.isUnlocked),
-						requiresPassword: Boolean(p.requiresPassword),
-						hideHomeContent: Boolean(p.hideHomeContent),
-						isPurchased: Boolean(p.isPurchased),
-						isAuthenticated: Boolean(p.isAuthenticated),
-						lockReason: p.lockReason || "",
-						alias: p.alias,
-						permalink: p.permalink,
-						prevTitle: "",
-						prevSlug: "",
-						nextTitle: "",
-						nextSlug: "",
-					},
-				}));
-			}
-		}
-	} catch {}
+	const authKey = request
+		? request.headers.get("authorization") || request.headers.get("cookie") || "anon"
+		: "anon";
+	const now = Date.now();
+	const cached = cachedPostsMap.get(authKey);
+	if (cached && now - cached.time < POSTS_CACHE_TTL_MS) {
+		return cached.data;
 	}
 
-	let postsToUse: CollectionEntry<"posts">[] = [];
-	if (apiConnected) {
-		postsToUse = apiPosts;
-	} else {
-		const isDynamicProd = Boolean(import.meta.env.PROD && import.meta.env.PUBLIC_API_URL);
-		if (!isDynamicProd) {
+	const existingPromise = inFlightPostsPromise.get(authKey);
+	if (existingPromise) {
+		return existingPromise;
+	}
+
+	const fetchPromise = (async () => {
+		const apiBase =
+			import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
+
+		let apiPosts: CollectionEntry<"posts">[] = [];
+		let apiConnected = false;
+		if (apiBase) {
 			try {
-				postsToUse = await getCollection("posts", ({ data }) => {
-					return import.meta.env.PROD ? data.draft !== true : true;
+				const headers: Record<string, string> = {};
+				if (request) {
+					const cookie = request.headers.get("cookie");
+					if (cookie) headers["cookie"] = cookie;
+					const auth = request.headers.get("authorization");
+					if (auth) headers["authorization"] = auth;
+				}
+
+				const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts?pageSize=500`, {
+					headers,
+					signal: AbortSignal.timeout(3000),
 				});
+				if (res.ok) {
+					const json = await res.json();
+					if (json.success && Array.isArray(json.data)) {
+						apiConnected = true;
+						apiPosts = json.data.map((p: any) => ({
+							id: p.slug || String(p.id),
+							body: p.content || "",
+							collection: "posts" as const,
+							data: {
+								dbId: p.id,
+								title: p.title,
+								published: new Date(p.createdAt),
+								updated: p.updatedAt ? new Date(p.updatedAt) : undefined,
+								description: p.description || "",
+								image: p.image || "",
+								category: p.category || "",
+								tags: Array.isArray(p.tags) ? p.tags : [],
+								pinned: Boolean(p.pinned),
+								draft: Boolean(p.draft),
+								comment: Boolean(p.commentEnabled ?? true),
+								encrypted: Boolean(p.password || p.permissionType === "password" || p.encrypted || p.requiresPassword),
+								password: p.password || undefined,
+								passwordHint: p.passwordHint || undefined,
+								permissionType: p.permissionType || "public",
+								requiredPoints: p.requiredPoints || 0,
+								isUnlocked: Boolean(p.isUnlocked),
+								requiresPassword: Boolean(p.requiresPassword),
+								hideHomeContent: Boolean(p.hideHomeContent),
+								isPurchased: Boolean(p.isPurchased),
+								isAuthenticated: Boolean(p.isAuthenticated),
+								lockReason: p.lockReason || "",
+								alias: p.alias,
+								permalink: p.permalink,
+								prevTitle: "",
+								prevSlug: "",
+								nextTitle: "",
+								nextSlug: "",
+							},
+						}));
+					}
+				}
 			} catch {}
 		}
-	}
 
-	for (const post of postsToUse) validatePublicationMetadata(post);
-	const sorted = postsToUse.sort(comparePublicationEntries);
-	initPostIdMap(sorted);
-	return sorted;
+		let postsToUse: CollectionEntry<"posts">[] = [];
+		if (apiConnected) {
+			postsToUse = apiPosts;
+		} else {
+			const isDynamicProd = Boolean(import.meta.env.PROD && import.meta.env.PUBLIC_API_URL);
+			if (!isDynamicProd) {
+				try {
+					postsToUse = await getCollection("posts", ({ data }) => {
+						return import.meta.env.PROD ? data.draft !== true : true;
+					});
+				} catch {}
+			}
+		}
+
+		for (const post of postsToUse) validatePublicationMetadata(post);
+		const sorted = postsToUse.sort(comparePublicationEntries);
+		initPostIdMap(sorted);
+
+		cachedPostsMap.set(authKey, { time: Date.now(), data: sorted });
+		return sorted;
+	})();
+
+	inFlightPostsPromise.set(authKey, fetchPromise);
+	try {
+		return await fetchPromise;
+	} finally {
+		inFlightPostsPromise.delete(authKey);
+	}
 }
 
 export async function getSortedPosts(request?: Request): Promise<CollectionEntry<"posts">[]> {
@@ -222,105 +252,238 @@ let momentsRendererPromise: ReturnType<
 	typeof siteMarkdownProcessor.createRenderer
 > | null = null;
 
-const MOMENT_THUMBNAIL_WIDTHS = [192, 384, 640] as const;
-
 function withMomentThumbnails(image: MomentImage): MomentImage {
 	const resolvedSrc = image.src.startsWith("/") ? url(image.src) : image.src;
-	const match = image.src.match(/^\/images\/moments\/(.+)\.([^./]+)$/i);
-	if (!match) {
-		return {
-			...image,
-			src: resolvedSrc,
-			thumbnailSrc: image.thumbnailSrc
-				? image.thumbnailSrc.startsWith("/")
-					? url(image.thumbnailSrc)
-					: image.thumbnailSrc
-				: resolvedSrc,
-		};
-	}
-	const [, relativePath] = match;
-	const candidates = MOMENT_THUMBNAIL_WIDTHS.map((width) => ({
-		width,
-		src: url(`/assets/moments/thumbnails/${relativePath}-${width}.webp`),
-	}));
+	const resolvedThumb = image.thumbnailSrc
+		? image.thumbnailSrc.startsWith("/")
+			? url(image.thumbnailSrc)
+			: image.thumbnailSrc
+		: resolvedSrc;
+
 	return {
 		...image,
 		src: resolvedSrc,
-		thumbnailSrc: candidates.find(({ width }) => width === 384)?.src,
-		thumbnailSrcset: candidates
-			.map(({ src, width }) => `${src} ${width}w`)
-			.join(", "),
+		thumbnailSrc: resolvedThumb,
+		thumbnailSrcset: undefined,
 	};
 }
 
+let cachedMoments: { time: number; data: MomentItem[] } | null = null;
+let inFlightMomentsPromise: Promise<MomentItem[]> | null = null;
+const MOMENTS_CACHE_TTL_MS = 30_000;
+
 export async function getSortedMoments(): Promise<MomentItem[]> {
+	const now = Date.now();
+	if (cachedMoments && now - cachedMoments.time < MOMENTS_CACHE_TTL_MS) {
+		return cachedMoments.data;
+	}
+	if (inFlightMomentsPromise) {
+		return inFlightMomentsPromise;
+	}
+
+	const promise = (async () => {
+		const apiBase =
+			import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
+
+		let apiMoments: MomentItem[] = [];
+		let apiConnected = false;
+		if (apiBase) {
+			try {
+				const res = await fetch(`${apiBase.replace(/\/$/, "")}/moments`, {
+					signal: AbortSignal.timeout(3000),
+				});
+				if (res.ok) {
+					const json = await res.json();
+					if (json.success && Array.isArray(json.data)) {
+						apiConnected = true;
+						apiMoments = json.data.map((m: any) => ({
+							id: String(m.id),
+							published: new Date(m.createdAt).toISOString(),
+							html: renderDynamicMarkdown(m.content || ""),
+							pinned: Boolean(m.pinned),
+							location: m.location || "",
+							mood: m.mood || "",
+							tags: Array.isArray(m.tags) ? m.tags : [],
+							images: Array.isArray(m.images) ? m.images.map(withMomentThumbnails) : [],
+						}));
+					}
+				}
+			} catch {}
+		}
+
+		let momentsToUse: MomentItem[] = [];
+		if (apiConnected) {
+			momentsToUse = apiMoments;
+		} else {
+			const isDynamicProd = Boolean(import.meta.env.PROD && import.meta.env.PUBLIC_API_URL);
+			if (!isDynamicProd) {
+				let entries: CollectionEntry<"moments">[] = [];
+				try {
+					entries = await getCollection("moments", ({ data }) => {
+						return import.meta.env.PROD ? data.draft !== true : true;
+					});
+				} catch {}
+
+				momentsRendererPromise ??= siteMarkdownProcessor.createRenderer({});
+				const renderer = await momentsRendererPromise;
+
+				momentsToUse = await Promise.all(
+					entries.map(async (entry) => {
+						const { code } = await renderer.render(entry.body ?? "", {
+							frontmatter: entry.data as unknown as Record<string, unknown>,
+						});
+						return {
+							id: entry.id,
+							published: new Date(entry.data.published).toISOString(),
+							html: code,
+							pinned: entry.data.pinned,
+							location: entry.data.location,
+							mood: entry.data.mood,
+							tags: entry.data.tags,
+							images: entry.data.images.map(withMomentThumbnails),
+						} satisfies MomentItem;
+					}),
+				);
+			}
+		}
+
+		const sorted = momentsToUse.sort((a, b) => {
+			if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+			return new Date(b.published).getTime() - new Date(a.published).getTime();
+		});
+
+		cachedMoments = { time: Date.now(), data: sorted };
+		return sorted;
+	})();
+
+	inFlightMomentsPromise = promise;
+	try {
+		return await promise;
+	} finally {
+		inFlightMomentsPromise = null;
+	}
+}
+
+let cachedFriends: { time: number; data: FriendItem[] } | null = null;
+const FRIENDS_CACHE_TTL_MS = 60_000;
+
+export async function getDynamicFriends(): Promise<FriendItem[]> {
+	const now = Date.now();
+	if (cachedFriends && now - cachedFriends.time < FRIENDS_CACHE_TTL_MS) {
+		return cachedFriends.data;
+	}
+
 	const apiBase =
 		import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
-
-	let apiMoments: MomentItem[] = [];
+	let allFriends: FriendItem[] = [];
 	let apiConnected = false;
+
 	if (apiBase) {
 		try {
-			const res = await fetch(`${apiBase.replace(/\/$/, "")}/moments`, {
+			const res = await fetch(`${apiBase.replace(/\/$/, "")}/friends`, {
 				signal: AbortSignal.timeout(3000),
 			});
 			if (res.ok) {
 				const json = await res.json();
-				if (json.success && Array.isArray(json.data)) {
+				const list = json.data || json.friends || [];
+				if (Array.isArray(list)) {
 					apiConnected = true;
-					apiMoments = json.data.map((m: any) => ({
-						id: String(m.id),
-						published: new Date(m.createdAt).toISOString(),
-						html: renderDynamicMarkdown(m.content || ""),
-						pinned: Boolean(m.pinned),
-						location: m.location || "",
-						mood: m.mood || "",
-						tags: Array.isArray(m.tags) ? m.tags : [],
-						images: Array.isArray(m.images) ? m.images.map(withMomentThumbnails) : [],
+					allFriends = list.map((f: any) => ({
+						id: f.id,
+						title: f.name,
+						imgurl: f.avatar,
+						desc: f.desc || "",
+						siteurl: f.url,
+						tags: Array.isArray(f.tags) ? f.tags : ["Friend"],
 					}));
 				}
 			}
 		} catch {}
 	}
 
-	let momentsToUse: MomentItem[] = [];
-	if (apiConnected) {
-		momentsToUse = apiMoments;
-	} else {
-		const isDynamicProd = Boolean(import.meta.env.PROD && import.meta.env.PUBLIC_API_URL);
-		if (!isDynamicProd) {
-			let entries: CollectionEntry<"moments">[] = [];
-			try {
-				entries = await getCollection("moments", ({ data }) => {
-					return import.meta.env.PROD ? data.draft !== true : true;
-				});
-			} catch {}
-
-			momentsRendererPromise ??= siteMarkdownProcessor.createRenderer({});
-			const renderer = await momentsRendererPromise;
-
-			momentsToUse = await Promise.all(
-				entries.map(async (entry) => {
-					const { code } = await renderer.render(entry.body ?? "", {
-						frontmatter: entry.data as unknown as Record<string, unknown>,
-					});
-					return {
-						id: entry.id,
-						published: new Date(entry.data.published).toISOString(),
-						html: code,
-						pinned: entry.data.pinned,
-						location: entry.data.location,
-						mood: entry.data.mood,
-						tags: entry.data.tags,
-						images: entry.data.images.map(withMomentThumbnails),
-					} satisfies MomentItem;
-				}),
-			);
+	if (!apiConnected) {
+		try {
+			const { getFriendsList } = await import("../data/friends");
+			allFriends = [...getFriendsList()];
+		} catch {
+			allFriends = [];
 		}
 	}
 
-	return momentsToUse.sort((a, b) => {
-		if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-		return new Date(b.published).getTime() - new Date(a.published).getTime();
-	});
+	cachedFriends = { time: Date.now(), data: allFriends };
+	return allFriends;
+}
+
+let cachedAlbumsMap = new Map<string, { time: number; data: any[] }>();
+const ALBUMS_CACHE_TTL_MS = 30_000;
+
+export async function getDynamicAlbums(request?: Request): Promise<any[]> {
+	const authKey = request
+		? request.headers.get("authorization") || request.headers.get("cookie") || "anon"
+		: "anon";
+	const now = Date.now();
+	const cached = cachedAlbumsMap.get(authKey);
+	if (cached && now - cached.time < ALBUMS_CACHE_TTL_MS) {
+		return cached.data;
+	}
+
+	const apiBase =
+		import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
+	let dynamicAlbums: any[] = [];
+	let apiConnected = false;
+
+	if (apiBase) {
+		try {
+			const headers: Record<string, string> = {};
+			if (request) {
+				const cookie = request.headers.get("cookie");
+				if (cookie) headers["cookie"] = cookie;
+				const auth = request.headers.get("authorization");
+				if (auth) headers["authorization"] = auth;
+			}
+
+			const res = await fetch(`${apiBase.replace(/\/$/, "")}/albums`, {
+				headers,
+				signal: AbortSignal.timeout(3000),
+			});
+			if (res.ok) {
+				const json = await res.json();
+				if (json.success && Array.isArray(json.data)) {
+					apiConnected = true;
+					dynamicAlbums = json.data.map((a: any) => ({
+						id: a.slug || String(a.id),
+						dbId: a.id,
+						title: a.title,
+						description: a.description || "",
+						cover: a.cover || "",
+						count: a.photoCount ?? 0,
+						photoCount: a.photoCount ?? 0,
+						permissionType: a.permissionType || "public",
+						requiredPoints: a.requiredPoints || 0,
+						isUnlocked: Boolean(a.isUnlocked),
+						protected: a.permissionType !== "public",
+						tags: Array.isArray(a.tags) ? a.tags : [],
+						layout: a.layout || "masonry",
+						columns: a.columns || 3,
+						date: a.date || (a.createdAt ? new Date(a.createdAt).toISOString().slice(0, 10) : ""),
+					}));
+				}
+			}
+		} catch {}
+	}
+
+	let localAlbums: any[] = [];
+	if (!apiConnected) {
+		const isDynamicProd = Boolean(import.meta.env.PROD && import.meta.env.PUBLIC_API_URL);
+		if (!isDynamicProd) {
+			try {
+				const { scanVisibleAlbums, toAlbumIndexItem } = await import("./album-scanner");
+				localAlbums = scanVisibleAlbums().map(toAlbumIndexItem);
+			} catch {}
+		}
+	}
+
+	const result = apiConnected ? dynamicAlbums : localAlbums;
+	cachedAlbumsMap.set(authKey, { time: Date.now(), data: result });
+	return result;
 }

@@ -12,6 +12,7 @@ import { albumsRouter } from "./routes/albums";
 import { momentsRouter } from "./routes/moments";
 import { pagesRouter } from "./routes/pages";
 import { friendsRouter } from "./routes/friends";
+import { trimTrailingSlash } from "hono/trailing-slash";
 import { configRouter } from "./routes/config";
 import { adminRouter } from "./routes/admin";
 import { uploadRouter } from "./routes/upload";
@@ -19,6 +20,7 @@ import { uploadRouter } from "./routes/upload";
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // Global Middlewares
+app.use(trimTrailingSlash());
 app.use("*", logger());
 app.use(
   "*",

@@ -109,12 +109,12 @@
   }
 </script>
 
-<div id="shirine-user-nav-container" class="relative inline-flex items-center select-none">
+<div id="shirine-user-nav-container" class="relative inline-flex items-center select-none shrink-0">
   <!-- Avatar Button -->
   <button
     type="button"
     onclick={toggleMenu}
-    class="relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center border border-[var(--outline-variant)]/40 hover:border-primary/60 shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/40 group bg-[var(--surface-container-high)]/80 backdrop-blur-md"
+    class="relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center border border-[var(--outline-variant)]/30 hover:border-primary/50 shadow-xs hover:shadow-md transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/40 group bg-transparent text-[var(--on-surface)]"
     aria-label="用户菜单"
     aria-expanded={menuOpen}
   >
@@ -144,7 +144,7 @@
   <!-- Dropdown Menu -->
   {#if menuOpen}
     <div
-      class="shirine-dropdown absolute right-0 top-full mt-2 w-52 rounded-2xl bg-[var(--surface-container-high)] dark:bg-[var(--surface-container)] border border-[var(--outline-variant)]/30 shadow-2xl backdrop-blur-2xl p-2 z-[100] transition-all duration-150 animate-fade-in text-sm font-medium text-[var(--on-surface)]"
+      class="shirine-dropdown absolute right-0 top-full mt-2 w-52 rounded-2xl bg-[var(--surface-container-highest)] border border-[var(--outline-variant)]/30 shadow-2xl backdrop-blur-xl p-1.5 z-[100] transition-all duration-150 animate-fade-in text-sm font-medium text-[var(--on-surface)]"
       role="menu"
     >
       <!-- STATE 1: GUEST / NOT LOGGED IN -->
@@ -152,7 +152,7 @@
         <button
           type="button"
           onclick={handleLogin}
-          class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:bg-primary/10 hover:text-primary transition-all text-left !border-0 !shadow-none group"
+          class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:!bg-[var(--surface-container)] hover:!text-primary transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
           role="menuitem"
         >
           <svg class="w-4 h-4 text-[var(--on-surface-variant)] group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -164,7 +164,7 @@
         <button
           type="button"
           onclick={handleRegister}
-          class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:bg-primary/10 hover:text-primary transition-all text-left !border-0 !shadow-none group mt-1"
+          class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:!bg-[var(--surface-container)] hover:!text-primary transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
           role="menuitem"
         >
           <svg class="w-4 h-4 text-[var(--on-surface-variant)] group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -177,8 +177,7 @@
       <!-- STATE 2: NORMAL LOGGED-IN USER -->
       {#if isNormalUser}
         <!-- User summary header -->
-        <!-- User summary header -->
-        <div class="px-3.5 py-2 border-b border-[var(--outline-variant)]/15 mb-1">
+        <div class="px-3.5 py-2 rounded-xl bg-[var(--surface-container)]/40 mb-1">
           <div class="text-xs font-bold text-[var(--on-surface)] truncate">{authStore.user?.nickname || authStore.user?.username}</div>
           <div class="text-[11px] text-purple-600 dark:text-purple-400 font-semibold">{authStore.user?.points ?? 0} Points</div>
         </div>
@@ -188,7 +187,7 @@
           type="button"
           disabled={authStore.user?.checkedInToday || checkinLoading}
           onclick={handleCheckin}
-          class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-left transition-all !border-0 !shadow-none group {authStore.user?.checkedInToday ? 'opacity-50 text-[var(--on-surface-variant)] cursor-not-allowed bg-transparent' : 'text-[var(--on-surface)] hover:bg-amber-500/10 hover:text-amber-500'}"
+          class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-left transition-colors !border-0 !shadow-none !bg-transparent group cursor-pointer {authStore.user?.checkedInToday ? 'opacity-50 text-[var(--on-surface-variant)] cursor-not-allowed' : 'text-[var(--on-surface)] hover:!bg-amber-500/10 hover:!text-amber-500'}"
           role="menuitem"
         >
           <span class="flex items-center gap-2.5">
@@ -210,7 +209,7 @@
         <button
           type="button"
           onclick={handleChangeAvatar}
-          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:bg-primary/10 hover:text-primary transition-all text-left !border-0 !shadow-none group"
+          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:!bg-[var(--surface-container)] hover:!text-primary transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
           role="menuitem"
         >
           <svg class="w-4 h-4 text-[var(--on-surface-variant)] group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -225,7 +224,7 @@
         <button
           type="button"
           onclick={handleLogout}
-          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-error hover:bg-error/10 hover:text-error transition-all text-left !border-0 !shadow-none group"
+          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-error hover:!bg-error/10 hover:!text-error transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
           role="menuitem"
         >
           <svg class="w-4 h-4 text-error/80 group-hover:text-error transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -238,7 +237,7 @@
       <!-- STATE 3: ADMIN LOGGED-IN -->
       {#if isAdmin}
         <!-- Admin summary header -->
-        <div class="px-3.5 py-2 border-b border-[var(--outline-variant)]/15 mb-1">
+        <div class="px-3.5 py-2 rounded-xl bg-[var(--surface-container)]/40 mb-1">
           <div class="text-xs font-bold text-[var(--on-surface)] truncate">{authStore.user?.nickname || authStore.user?.username}</div>
           <div class="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Super Admin</div>
         </div>
@@ -246,7 +245,7 @@
         <!-- ① Admin panel -->
         <a
           href="/admin"
-          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400 transition-all text-left !border-0 !shadow-none group"
+          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:!bg-purple-500/10 hover:!text-purple-600 dark:hover:!text-purple-400 transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
           role="menuitem"
         >
           <svg class="w-4 h-4 text-[var(--on-surface-variant)] group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -260,7 +259,7 @@
         <button
           type="button"
           onclick={handleChangeAvatar}
-          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:bg-primary/10 hover:text-primary transition-all text-left !border-0 !shadow-none group"
+          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:!bg-[var(--surface-container)] hover:!text-primary transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
           role="menuitem"
         >
           <svg class="w-4 h-4 text-[var(--on-surface-variant)] group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -275,7 +274,7 @@
         <button
           type="button"
           onclick={handleLogout}
-          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-error hover:bg-error/10 hover:text-error transition-all text-left !border-0 !shadow-none group"
+          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-error hover:!bg-error/10 hover:!text-error transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
           role="menuitem"
         >
           <svg class="w-4 h-4 text-error/80 group-hover:text-error transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -298,3 +297,19 @@
     <span>{checkinToast.msg}</span>
   </div>
 {/if}
+
+<style>
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  .animate-fade-in {
+    animation: fadeIn 0.15s cubic-bezier(0.2, 0, 0, 1) forwards;
+  }
+</style>

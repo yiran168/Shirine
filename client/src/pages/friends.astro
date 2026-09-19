@@ -5,40 +5,9 @@ import FriendSection from "@components/organisms/FriendSection.svelte";
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import MainGridLayout from "@layouts/MainGridLayout.astro";
-import { getFriendsList, type FriendItem } from "../data/friends";
+import { getDynamicFriends } from "@utils/content-utils";
 
-let allFriends: FriendItem[] = [];
-let apiConnected = false;
-
-const apiBase = import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
-if (apiBase) {
-	try {
-		const res = await fetch(`${apiBase.replace(/\/$/, "")}/friends`, {
-			signal: AbortSignal.timeout(3000),
-		});
-		if (res.ok) {
-			const json = await res.json();
-			const list = json.data || json.friends || [];
-			if (Array.isArray(list)) {
-				apiConnected = true;
-				allFriends = list.map((f: any) => ({
-					id: f.id,
-					title: f.name,
-					imgurl: f.avatar,
-					desc: f.desc || "",
-					siteurl: f.url,
-					tags: Array.isArray(f.tags) ? f.tags : ["Friend"],
-				}));
-			}
-		}
-	} catch (e) {
-		// Fallback silently to static list
-	}
-}
-
-if (!apiConnected) {
-	allFriends = [...getFriendsList()];
-}
+const allFriends = await getDynamicFriends();
 ---
 
 <MainGridLayout title={i18n(I18nKey.friends)} description={i18n(I18nKey.friendsBanner)} page="friends">
