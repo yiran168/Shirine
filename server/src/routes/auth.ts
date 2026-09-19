@@ -359,16 +359,17 @@ authRouter.post("/login", async (c) => {
     const envAdminUsername = (c.env.ADMIN_USERNAME || (c.env.ADMIN_PASSWORD ? "admin" : "")).trim();
     const envAdminPassword = c.env.ADMIN_PASSWORD ? c.env.ADMIN_PASSWORD.trim() : "";
 
-    const isEnvAdminMatch = Boolean(
-      envAdminPassword &&
-      envAdminUsername &&
-      trimmedUsername.toLowerCase() === envAdminUsername.toLowerCase() &&
-      (password === c.env.ADMIN_PASSWORD || password === envAdminPassword)
-    );
-
     let user = await db.query.users.findFirst({
       where: sql`lower(${schema.users.username}) = lower(${trimmedUsername}) OR (coalesce(${schema.users.email}, '') != '' AND lower(${schema.users.email}) = lower(${trimmedUsername}))`,
     });
+
+    const isEnvAdminMatch = Boolean(
+      envAdminPassword &&
+      envAdminUsername &&
+      (trimmedUsername.toLowerCase() === envAdminUsername.toLowerCase() ||
+        (user && user.username.toLowerCase() === envAdminUsername.toLowerCase())) &&
+      (password === c.env.ADMIN_PASSWORD || password === envAdminPassword)
+    );
 
     if (isEnvAdminMatch) {
       if (!user) {

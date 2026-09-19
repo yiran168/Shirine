@@ -319,4 +319,32 @@ describe("Tier 2 - Boundary: Authentication & Session Gateways", () => {
 
     env.close();
   });
+
+  it("B2.12: Admin login using email address with ADMIN_PASSWORD succeeds", async () => {
+    const env = createTestEnv();
+    env.env.ADMIN_PASSWORD = "admin_secret_pass_888";
+
+    // Create an admin user with email in db
+    await env.createSuperadmin("admin", "anyInitialPwd");
+    const { schema } = await import("../../server/src/db");
+    const { eq } = await import("drizzle-orm");
+    await env.db.update(schema.users).set({ email: "superadmin@example.com" }).where(eq(schema.users.username, "admin"));
+
+    // Login using admin's email and ADMIN_PASSWORD
+    const adminLoginRes = await env.requestJson("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "superadmin@example.com",
+        password: "admin_secret_pass_888",
+      }),
+    });
+
+    expect(adminLoginRes.status).toBe(200);
+    expect(adminLoginRes.data.success).toBe(true);
+    expect(adminLoginRes.data.user.role).toBe("superadmin");
+    expect(adminLoginRes.data.token).toBeDefined();
+
+    env.close();
+  });
 });

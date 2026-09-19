@@ -336,10 +336,13 @@ document.addEventListener('swup:content:replace', bindSearchTriggers);
 		:global(.shirine-dropdown a),
 		:global(.top-app-bar--transparent .shirine-dropdown button),
 		:global(.top-app-bar--transparent .shirine-dropdown a) {
-			background-color: transparent !important;
-			border: none !important;
+			border: none;
 			text-shadow: none !important;
-			color: var(--on-surface) !important;
+		}
+
+		:global(.shirine-dropdown button:not(:hover):not([data-active="true"])),
+		:global(.shirine-dropdown a:not(:hover):not([data-active="true"])) {
+			background-color: transparent;
 		}
 
 		/* Hide navigation completely when search bar is expanded so nav text never covers or overlaps the search box */
@@ -356,11 +359,18 @@ document.addEventListener('swup:content:replace', bindSearchTriggers);
 				--on-surface-variant: var(--mc-on-surface-variant);
 				--primary: var(--mc-primary);
 				color: var(--mc-on-surface);
+				text-shadow: none !important;
 			}
 
 			:global(.top-app-bar--transparent .top-app-bar__search-shell--expanded input) {
 				color: var(--mc-on-surface) !important;
 				caret-color: var(--mc-primary) !important;
+				text-shadow: none !important;
+			}
+
+			:global(.top-app-bar--transparent .top-app-bar__search-shell--expanded input::placeholder) {
+				color: var(--mc-on-surface-variant) !important;
+				text-shadow: none !important;
 			}
 
 			:global(.top-app-bar--transparent .top-app-bar__search-shell--expanded svg) {

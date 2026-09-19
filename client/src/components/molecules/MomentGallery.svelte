@@ -236,11 +236,18 @@ $effect(() => {
 				>
 					<img
 						src={thumbnailSrc(image)}
-						srcset={image.thumbnailSrcset}
+						srcset={image.thumbnailSrcset || undefined}
 						sizes="56px"
 						alt=""
 						loading="lazy"
 						decoding="async"
+						onerror={(e) => {
+							const el = e.currentTarget as HTMLImageElement;
+							if (el && image.src && el.src !== image.src) {
+								el.removeAttribute("srcset");
+								el.src = image.src;
+							}
+						}}
 					/>
 				</button>
 			{/each}

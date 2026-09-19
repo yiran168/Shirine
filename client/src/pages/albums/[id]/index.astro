@@ -14,12 +14,15 @@ import { encryptProtectedContent } from "@utils/password-protection";
 import { url } from "@utils/url-utils";
 import { Icon } from "astro-icon/components";
 import type { ProtectedPayload } from "@/types/protectedContent";
+import { normalizeApiUrl } from "@/services/api";
 
 const id = Astro.params.id ?? "";
 let resolvedAlbum: any = null;
 let apiConnected = false;
 
-const apiBase = import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
+const apiBase = normalizeApiUrl(
+	import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api")
+);
 if (apiBase) {
 	try {
 		const headers: Record<string, string> = {};
@@ -28,7 +31,7 @@ if (apiBase) {
 		const authHeader = Astro.request.headers.get("authorization");
 		if (authHeader) headers["authorization"] = authHeader;
 
-		const res = await fetch(`${apiBase.replace(/\/$/, "")}/albums/${id}`, {
+		const res = await fetch(`${apiBase}/albums/${id}`, {
 			headers,
 			signal: AbortSignal.timeout(3000),
 		});

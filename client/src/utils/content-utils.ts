@@ -10,16 +10,17 @@ import { renderDynamicMarkdown } from "@utils/dynamic-markdown";
 import { initPostIdMap } from "@utils/permalink-utils";
 import { getCategoryUrl, getPostUrl, url } from "@utils/url-utils";
 import type { FriendItem } from "../data/friends";
+import { normalizeApiUrl, getAuthKey } from "@/services/api";
 
-const POSTS_CACHE_TTL_MS = 20_000;
+export { normalizeApiUrl, getAuthKey };
+
+const POSTS_CACHE_TTL_MS = 30_000;
 let cachedPostsMap = new Map<string, { time: number; data: CollectionEntry<"posts">[] }>();
 let inFlightPostsPromise = new Map<string, Promise<CollectionEntry<"posts">[]>>();
 
 // Retrieve posts dynamically from backend API and sort them by publication date
 async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"posts">[]> {
-	const authKey = request
-		? request.headers.get("authorization") || request.headers.get("cookie") || "anon"
-		: "anon";
+	const authKey = getAuthKey(request);
 	const now = Date.now();
 	const cached = cachedPostsMap.get(authKey);
 	if (cached && now - cached.time < POSTS_CACHE_TTL_MS) {
@@ -32,8 +33,9 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 	}
 
 	const fetchPromise = (async () => {
-		const apiBase =
-			import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
+		const apiBase = normalizeApiUrl(
+			import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api")
+		);
 
 		let apiPosts: CollectionEntry<"posts">[] = [];
 		let apiConnected = false;
@@ -282,8 +284,9 @@ export async function getSortedMoments(): Promise<MomentItem[]> {
 	}
 
 	const promise = (async () => {
-		const apiBase =
-			import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
+		const apiBase = normalizeApiUrl(
+			import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api")
+		);
 
 		let apiMoments: MomentItem[] = [];
 		let apiConnected = false;
@@ -373,8 +376,9 @@ export async function getDynamicFriends(): Promise<FriendItem[]> {
 		return cachedFriends.data;
 	}
 
-	const apiBase =
-		import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
+	const apiBase = normalizeApiUrl(
+		import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api")
+	);
 	let allFriends: FriendItem[] = [];
 	let apiConnected = false;
 
@@ -418,17 +422,16 @@ let cachedAlbumsMap = new Map<string, { time: number; data: any[] }>();
 const ALBUMS_CACHE_TTL_MS = 30_000;
 
 export async function getDynamicAlbums(request?: Request): Promise<any[]> {
-	const authKey = request
-		? request.headers.get("authorization") || request.headers.get("cookie") || "anon"
-		: "anon";
+	const authKey = getAuthKey(request);
 	const now = Date.now();
 	const cached = cachedAlbumsMap.get(authKey);
 	if (cached && now - cached.time < ALBUMS_CACHE_TTL_MS) {
 		return cached.data;
 	}
 
-	const apiBase =
-		import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
+	const apiBase = normalizeApiUrl(
+		import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api")
+	);
 	let dynamicAlbums: any[] = [];
 	let apiConnected = false;
 
@@ -486,4 +489,63 @@ export async function getDynamicAlbums(request?: Request): Promise<any[]> {
 	const result = apiConnected ? dynamicAlbums : localAlbums;
 	cachedAlbumsMap.set(authKey, { time: Date.now(), data: result });
 	return result;
+}
+
+let cachedDiscovery: { time: number; data: any[] } | null = null;
+let inFlightDiscoveryPromise: Promise<any[]> | null = null;
+const DISCOVERY_CACHE_TTL_MS = 60_000;
+
+export async function getDiscoveryCandidates(request?: Request): Promise<any[]> {
+	const now = Date.now();
+	if (cachedDiscovery && now - cachedDiscovery.time < DISCOVERY_CACHE_TTL_MS) {
+		return cachedDiscovery.data;
+	}
+	if (inFlightDiscoveryPromise) {
+		return inFlightDiscoveryPromise;
+	}
+
+	const promise = (async () => {
+		const apiBase = normalizeApiUrl(
+			import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api")
+		);
+		let candidates: any[] = [];
+		if (apiBase) {
+			try {
+				const headers: Record<string, string> = {};
+				if (request) {
+					const cookie = request.headers.get("cookie");
+					if (cookie) headers["cookie"] = cookie;
+					const auth = request.headers.get("authorization");
+					if (auth) headers["authorization"] = auth;
+				}
+				const discRes = await fetch(`${apiBase}/posts?pageSize=10`, {
+					headers,
+					signal: AbortSignal.timeout(2000),
+				});
+				if (discRes.ok) {
+					const discJson = await discRes.json();
+					if (discJson.success && Array.isArray(discJson.data)) {
+						candidates = discJson.data.map((p: any) => ({
+							slug: p.slug || String(p.id),
+							data: {
+								title: p.title,
+								published: new Date(p.createdAt),
+								category: p.category || "",
+								tags: Array.isArray(p.tags) ? p.tags : [],
+							},
+						}));
+					}
+				}
+			} catch {}
+		}
+		cachedDiscovery = { time: Date.now(), data: candidates };
+		return candidates;
+	})();
+
+	inFlightDiscoveryPromise = promise;
+	try {
+		return await promise;
+	} finally {
+		inFlightDiscoveryPromise = null;
+	}
 }

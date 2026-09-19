@@ -3,12 +3,43 @@
  * Centralized API client for communicating with Cloudflare Workers backend.
  */
 
-const API_BASE =
-  typeof window !== "undefined"
-    ? (window as any).__SHIRINE_API_URL__ ||
+export function normalizeApiUrl(rawUrl?: string): string {
+  if (!rawUrl) return "";
+  let base = rawUrl.trim().replace(/\/+$/, "");
+  if (base.startsWith("http") && !base.endsWith("/api")) {
+    base = `${base}/api`;
+  }
+  return base;
+}
+
+export function getAuthKey(request?: Request): string {
+  if (!request) return "anon";
+  const auth = request.headers.get("authorization");
+  if (auth && auth.trim()) return auth.trim();
+  const cookie = request.headers.get("cookie");
+  if (cookie) {
+    const match = cookie.match(/(?:^|;\s*)shirine_token=([^;]+)/);
+    if (match && match[1]) {
+      return `token:${match[1]}`;
+    }
+  }
+  return "anon";
+}
+
+export function getApiBase(): string {
+  let base = "";
+  if (typeof window !== "undefined") {
+    base =
+      (window as any).__SHIRINE_API_URL__ ||
       import.meta.env.PUBLIC_API_URL ||
-      (window.location.port === "4321" ? "http://localhost:11498/api" : "/api")
-    : import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
+      (window.location.port === "4321" ? "http://localhost:11498/api" : "/api");
+  } else {
+    base = import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
+  }
+  return normalizeApiUrl(base) || (typeof window !== "undefined" ? "/api" : "http://localhost:11498/api");
+}
+
+export const API_BASE = getApiBase();
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -31,7 +62,8 @@ async function request<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<{ success: boolean; data?: T; error?: string; [key: string]: any }> {
-  const url = `${API_BASE.replace(/\/$/, "")}${endpoint.startsWith("/") ? endpoint : "/" + endpoint}`;
+  const base = getApiBase().replace(/\/$/, "");
+  const url = `${base}${endpoint.startsWith("/") ? endpoint : "/" + endpoint}`;
   const token = getToken();
 
   const headers: Record<string, string> = {
@@ -262,7 +294,8 @@ export async function uploadFile(file: File): Promise<{ success: boolean; url?: 
   const formData = new FormData();
   formData.append("file", file);
 
-  const url = `${API_BASE.replace(/\/$/, "")}/upload`;
+  const base = getApiBase().replace(/\/$/, "");
+  const url = `${base}/upload`;
   const headers: Record<string, string> = {};
   if (token) headers["Authorization"] = `Bearer ${token}`;
 

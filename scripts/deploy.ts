@@ -412,11 +412,12 @@ export async function deployClient(): Promise<void> {
   // 1. Generate Cloudflare Pages native edge _redirects rule if external API URL is available
   if (effectiveApiUrl && effectiveApiUrl.startsWith("http")) {
     const cleanEffective = effectiveApiUrl.replace(/\/+$/, "");
+    const targetBase = cleanEffective.endsWith("/api") ? cleanEffective : `${cleanEffective}/api`;
     const redirectsPath = path.join(clientDir, "dist", "_redirects");
-    const redirectRule = `/api/* ${cleanEffective}/:splat 200\n`;
+    const redirectRule = `/api/* ${targetBase}/:splat 200\n`;
     try {
       writeFileSync(redirectsPath, redirectRule, "utf-8");
-      console.log(`📝 Generated Cloudflare Pages edge proxy rule in dist/_redirects -> ${cleanEffective}`);
+      console.log(`📝 Generated Cloudflare Pages edge proxy rule in dist/_redirects -> ${targetBase}`);
     } catch {}
   }
 

@@ -109,4 +109,41 @@ describe("Tier 2 - Boundary: Content Access & Routing Edge Cases", () => {
 
     env.close();
   });
+
+  it("B2.7: normalizeApiUrl correctly appends /api and trims slashes", async () => {
+    const { normalizeApiUrl } = await import("../../client/src/services/api");
+
+    expect(normalizeApiUrl("")).toBe("");
+    expect(normalizeApiUrl("http://localhost:11498")).toBe("http://localhost:11498/api");
+    expect(normalizeApiUrl("http://localhost:11498/")).toBe("http://localhost:11498/api");
+    expect(normalizeApiUrl("http://localhost:11498/api")).toBe("http://localhost:11498/api");
+    expect(normalizeApiUrl("http://localhost:11498/api/")).toBe("http://localhost:11498/api");
+    expect(normalizeApiUrl("https://shirine-server.my.workers.dev")).toBe("https://shirine-server.my.workers.dev/api");
+    expect(normalizeApiUrl("https://shirine-server.my.workers.dev/api/")).toBe("https://shirine-server.my.workers.dev/api");
+  });
+
+  it("B2.8: getAuthKey isolates auth tokens from arbitrary tracking/language cookies", async () => {
+    const { getAuthKey } = await import("../../client/src/services/api");
+
+    // Anonymous without cookies
+    expect(getAuthKey()).toBe("anon");
+
+    // Anonymous with arbitrary analytics and language cookies
+    const reqWithMiscCookies = new Request("https://shirine.pages.dev/", {
+      headers: { cookie: "shirine_lang=zh_CN; _ga=GA1.2.123; __cf_bm=456" },
+    });
+    expect(getAuthKey(reqWithMiscCookies)).toBe("anon");
+
+    // Authenticated with cookie
+    const reqWithTokenCookie = new Request("https://shirine.pages.dev/", {
+      headers: { cookie: "shirine_lang=zh_CN; shirine_token=jwt_secret_token_123; _ga=GA1.2.123" },
+    });
+    expect(getAuthKey(reqWithTokenCookie)).toBe("token:jwt_secret_token_123");
+
+    // Authenticated with Authorization header
+    const reqWithAuthHeader = new Request("https://shirine.pages.dev/", {
+      headers: { authorization: "Bearer bearer_token_xyz" },
+    });
+    expect(getAuthKey(reqWithAuthHeader)).toBe("Bearer bearer_token_xyz");
+  });
 });

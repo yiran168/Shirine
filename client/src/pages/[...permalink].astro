@@ -24,7 +24,7 @@ import MainGridLayout from "@layouts/MainGridLayout.astro";
 import { discoverArticles } from "@utils/article-discovery";
 import { resolveAsset } from "@utils/asset-utils";
 import { getPublishedInstant, getUpdatedInstant } from "@utils/content-date";
-import { getSortedPosts } from "@utils/content-utils";
+import { getSortedPosts, normalizeApiUrl, getDiscoveryCandidates } from "@utils/content-utils";
 import { formatDateToYYYYMMDD } from "@utils/date-utils";
 import { getMarkdownStylesheetAssets } from "@utils/markdown-assets";
 import { getSourceMarkdownSyntaxSnapshot } from "@utils/markdown-source-syntaxes.mjs";
@@ -69,7 +69,9 @@ if (/^\d+$/.test(permalink)) {
 	return Astro.redirect(parseInt(permalink, 10) <= 1 ? "/" : `/page/${permalink}/`);
 }
 
-const apiBase = import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
+const apiBase = normalizeApiUrl(
+	import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api")
+);
 const cookieHeader = Astro.request.headers.get("cookie") || "";
 const authHeader = Astro.request.headers.get("authorization") || "";
 
@@ -78,7 +80,7 @@ let dynamicDetail: any = null;
 let apiPostNotFound = false;
 if (apiBase) {
 	try {
-		const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts/${encodeURIComponent(permalink)}`, {
+		const res = await fetch(`${apiBase}/posts/${encodeURIComponent(permalink)}`, {
 			headers: {
 				...(cookieHeader ? { cookie: cookieHeader } : {}),
 				...(authHeader ? { authorization: authHeader } : {}),
@@ -138,30 +140,8 @@ if (dynamicDetail) {
 		},
 	};
 
-	// Lightweight candidates for article discovery (only 10 posts, not 500)
-	try {
-		const discRes = await fetch(`${apiBase.replace(/\/$/, "")}/posts?pageSize=10`, {
-			headers: {
-				...(cookieHeader ? { cookie: cookieHeader } : {}),
-				...(authHeader ? { authorization: authHeader } : {}),
-			},
-			signal: AbortSignal.timeout(2000),
-		});
-		if (discRes.ok) {
-			const discJson = await discRes.json();
-			if (discJson.success && Array.isArray(discJson.data)) {
-				discoveryCandidates = discJson.data.map((p: any) => ({
-					slug: p.slug || String(p.id),
-					data: {
-						title: p.title,
-						published: new Date(p.createdAt),
-						category: p.category || "",
-						tags: Array.isArray(p.tags) ? p.tags : [],
-					},
-				}));
-			}
-		}
-	} catch {}
+	// Fast cached candidates for article discovery (only 10 posts, not 500)
+	discoveryCandidates = await getDiscoveryCandidates(Astro.request);
 } else {
 	// Fallback to local static markdown entries only if API did not provide post
 	const blogEntries = await getSortedPosts();

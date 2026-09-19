@@ -110,6 +110,7 @@
         <button
           type="button"
           role="menuitem"
+          data-active={currentLang === lang.code ? "true" : undefined}
           onclick={() => selectLanguage(lang)}
           class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-left transition-colors !border-0 !shadow-none {currentLang === lang.code ? '!bg-primary/15 !text-primary font-bold' : '!text-[var(--on-surface)] hover:!bg-[var(--surface-container)] hover:!text-primary'}"
         >
