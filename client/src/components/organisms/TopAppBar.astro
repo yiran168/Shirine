@@ -16,6 +16,7 @@ const { site: siteConfig } = await getDynamicSiteConfig();
 import DisplaySettings from "./DisplaySettings.svelte";
 import LightDarkSwitch from "./LightDarkSwitch.svelte";
 import Search from "./Search.svelte";
+import LanguageSwitch from "./LanguageSwitch.svelte";
 import UserNavMenu from "./UserNavMenu.svelte";
 import AuthModal from "@components/auth/AuthModal.svelte";
 import UserDrawer from "@components/auth/UserDrawer.svelte";
@@ -91,6 +92,7 @@ function isActive(link: (typeof links)[number]): boolean {
 		</nav>
 		<div class="flex-1"></div>
 		<Search client:only="svelte"></Search>
+		<LanguageSwitch client:only="svelte" />
 		{!siteConfig.themeColor.fixed && (
 			<IconButton id="display-settings-switch" label="Display Settings" class="shrink-0">
 				<Icon name="material-symbols:palette-outline" class="text-[1.25rem]"></Icon>

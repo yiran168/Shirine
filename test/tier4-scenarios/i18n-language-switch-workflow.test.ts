@@ -117,4 +117,46 @@ describe("Tier 4 - Scenario: 4-Language Switching & UI Text Parity", () => {
       expect(content).toContain("export const");
     }
   });
+
+  it("Verifies admin dashboard i18n dictionary and language switcher components", async () => {
+    const { adminI18n, getAdminText, SUPPORTED_LANGUAGES } = await import("../../client/src/i18n/adminI18n");
+    expect(SUPPORTED_LANGUAGES.length).toBe(4);
+
+    const adminKeys = [
+      "adminTitle",
+      "adminConsole",
+      "backToSite",
+      "signOut",
+      "overview",
+      "posts",
+      "albums",
+      "moments",
+      "pages",
+      "friends",
+      "users",
+      "settings",
+      "defaultLang",
+      "languageSwitched",
+    ] as const;
+
+    for (const lang of supportedLangs) {
+      const dict = adminI18n[lang];
+      expect(dict).toBeDefined();
+      for (const key of adminKeys) {
+        expect(dict[key]).toBeDefined();
+        expect(typeof dict[key]).toBe("string");
+        expect(dict[key].length).toBeGreaterThan(0);
+      }
+      const text = getAdminText(lang);
+      expect(text.adminTitle).toBe("Shirine Admin");
+    }
+
+    // Verify frontend LanguageSwitch component exists
+    const langSwitchPath = resolve(PROJECT_ROOT, "client/src/components/organisms/LanguageSwitch.svelte");
+    expect(existsSync(langSwitchPath)).toBe(true);
+    const langSwitchContent = readFileSync(langSwitchPath, "utf-8");
+    expect(langSwitchContent).toContain("shirine_lang");
+    expect(langSwitchContent).toContain("SUPPORTED_LANGUAGES");
+  });
 });
+

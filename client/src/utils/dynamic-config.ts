@@ -45,9 +45,10 @@ export async function getDynamicSiteConfig(): Promise<DynamicSiteConfigResult> {
 
   cachedTime = now;
   cachedPromise = (async () => {
-    const apiBase = import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
+    const rawBase = (import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api").replace(/\/$/, "");
+    const apiBase = rawBase.endsWith("/api") ? rawBase : `${rawBase}/api`;
     try {
-      const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
+      const res = await fetch(`${apiBase}/config/site`, {
         signal: AbortSignal.timeout(3000),
       });
       if (res.ok) {

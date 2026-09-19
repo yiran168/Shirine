@@ -93,9 +93,17 @@ if (title) {
 const favicons: Favicon[] =
 	siteConfig.favicon.length > 0 ? siteConfig.favicon : defaultFavicons;
 
-if (!lang) {
-	lang = `${siteConfig.lang}`;
+const cookieLang = Astro.cookies.get("shirine_lang")?.value;
+const queryLang = Astro.url.searchParams.get("lang");
+if (queryLang && queryLang !== cookieLang) {
+	try {
+		Astro.cookies.set("shirine_lang", queryLang, { path: "/", maxAge: 31536000, sameSite: "lax" });
+	} catch {}
 }
+if (!lang) {
+	lang = queryLang || cookieLang || `${siteConfig.lang}` || "zh_CN";
+}
+siteConfig.lang = lang as any;
 const siteLang = lang.replace("_", "-");
 const fontRoleStyle = createFontRoleStyle(resolvedFontOptions);
 const customFontsEnabled = resolvedFontOptions.mode === "custom";

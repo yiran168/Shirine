@@ -9,9 +9,10 @@ export const prerender = false;
  * made to the frontend domain are transparently forwarded to the Workers backend.
  */
 export const ALL: APIRoute = async ({ request, params }) => {
-  const apiBase = (
+  const rawBase = (
     import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api"
   ).replace(/\/$/, "");
+  const apiBase = rawBase.endsWith("/api") ? rawBase : `${rawBase}/api`;
 
   const rawPath = params.path || "";
   const incomingUrl = new URL(request.url);

@@ -5,9 +5,12 @@
  */
 import FooterBar from "@components/atoms/blog/FooterBar.astro";
 import { url } from "@utils/url-utils";
-import { footerConfig, profileConfig } from "@/config";
+import { footerConfig, profileConfig as staticProfileConfig } from "@/config";
+import { getDynamicSiteConfig } from "@utils/dynamic-config";
 import rawFooterHtml from "@/config/FooterConfig.html?raw";
 import packageMetadata from "../../../package.json";
+
+const { profile: profileConfig } = await getDynamicSiteConfig();
 
 const currentYear = new Date().getFullYear();
 const links = [

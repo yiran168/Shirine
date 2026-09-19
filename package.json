@@ -17,7 +17,12 @@
     "build:server": "npm run build --workspace=server",
     "build:client": "npm run build --workspace=client",
     "build:docs": "npm run build --workspace=docs",
-    "build": "npm run build:server && npm run build:client && npm run build:docs"
+    "build": "npm run build:server && npm run build:client && npm run build:docs",
+    "deploy:server": "npm run deploy --workspace=server",
+    "deploy:client": "npm run deploy --workspace=client",
+    "deploy": "npm run deploy:server && npm run deploy:client",
+    "db:migrate:local": "npm run db:migrate:local --workspace=server",
+    "db:migrate:remote": "npm run db:migrate:remote --workspace=server"
   },
   "keywords": [
     "shirine",

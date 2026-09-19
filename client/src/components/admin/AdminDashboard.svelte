@@ -13,6 +13,7 @@
     uploadFile,
     setToken,
   } from "../../services/api";
+  import { SUPPORTED_LANGUAGES, getAdminText, type AdminLang, type LanguageOption } from "../../i18n/adminI18n";
 
   type TabType = "overview" | "posts" | "albums" | "moments" | "pages" | "friends" | "users" | "settings";
 
@@ -20,6 +21,26 @@
   let loading = $state(true);
   let errorMsg = $state("");
   let successMsg = $state("");
+
+  // Admin Language i18n State
+  let adminLang = $state("zh_CN");
+  let adminLangOpen = $state(false);
+  const at = $derived(getAdminText(adminLang));
+  const currentAdminLangOption = $derived(
+    SUPPORTED_LANGUAGES.find((l) => l.code === adminLang) || SUPPORTED_LANGUAGES[0]
+  );
+
+  function setAdminLanguage(langCode: string) {
+    adminLang = langCode;
+    adminLangOpen = false;
+    if (typeof window !== "undefined") {
+      localStorage.setItem("shirine_admin_lang", langCode);
+      localStorage.setItem("shirine_lang", langCode);
+      document.cookie = `shirine_lang=${langCode}; path=/; max-age=31536000; SameSite=Lax`;
+      const selected = SUPPORTED_LANGUAGES.find((l) => l.code === langCode);
+      showMessage(`${at.languageSwitched}: ${selected ? selected.name : langCode}`);
+    }
+  }
 
   // Auth & Permissions
   let isAdmin = $derived(
@@ -910,6 +931,18 @@
   }
 
   onMount(async () => {
+    if (typeof window !== "undefined") {
+      const savedAdminLang = localStorage.getItem("shirine_admin_lang") || localStorage.getItem("shirine_lang");
+      if (savedAdminLang) adminLang = savedAdminLang;
+      const onDocClick = (e: MouseEvent) => {
+        const target = e.target as HTMLElement;
+        if (!target.closest("#shirine-admin-lang-container")) {
+          adminLangOpen = false;
+        }
+      };
+      document.addEventListener("click", onDocClick);
+    }
+
     // 1. Check if initial setup is needed
     try {
       const setupRes = await authApi.getSetupStatus();
@@ -951,20 +984,56 @@
     <div class="flex items-center gap-4">
       <a href="/" class="flex items-center gap-2 text-primary font-bold text-lg hover:opacity-80 transition-opacity">
         <span class="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">S</span>
-        <span>Shirine Admin</span>
+        <span>{at.adminTitle}</span>
       </a>
       <span class="text-xs px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium hidden sm:inline-block">
-        管理控制台
+        {at.adminConsole}
       </span>
     </div>
 
     <div class="flex items-center gap-3">
+      <!-- Admin Language Switcher -->
+      <div id="shirine-admin-lang-container" class="relative inline-block text-left">
+        <button
+          type="button"
+          onclick={(e) => { e.stopPropagation(); adminLangOpen = !adminLangOpen; }}
+          class="text-xs font-medium px-3 py-1.5 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] transition-all flex items-center gap-1.5"
+          title="Switch Language / 切换语言"
+        >
+          <svg class="w-3.5 h-3.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+          </svg>
+          <span class="font-semibold">{currentAdminLangOption.name}</span>
+          <svg class="w-3 h-3 opacity-60 transition-transform duration-200 {adminLangOpen ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {#if adminLangOpen}
+          <div class="absolute right-0 mt-2 w-36 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-xl py-1.5 z-50 animate-fade-in backdrop-blur-lg">
+            {#each SUPPORTED_LANGUAGES as lang}
+              <button
+                type="button"
+                onclick={() => setAdminLanguage(lang.code)}
+                class="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-left transition-colors {adminLang === lang.code ? 'bg-primary/10 text-primary font-bold' : 'text-[var(--on-surface)] hover:bg-[var(--surface-container)]'}"
+              >
+                <span>{lang.name}</span>
+                {#if adminLang === lang.code}
+                  <svg class="w-3.5 h-3.5 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                  </svg>
+                {/if}
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+
       <a
         href="/"
         class="text-xs font-medium px-3.5 py-1.5 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] transition-all flex items-center gap-1.5"
       >
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-        <span>返回前台</span>
+        <span>{at.backToSite}</span>
       </a>
 
       {#if authStore.user}
@@ -977,7 +1046,7 @@
           <button
             onclick={() => authStore.logout()}
             class="text-xs text-[var(--on-surface-variant)] hover:text-error ml-2 p-1.5 rounded-lg hover:bg-[var(--surface-container)]"
-            title="退出登录"
+            title={at.signOut}
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
           </button>
@@ -1121,7 +1190,7 @@
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'overview' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
         >
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-          <span>概览与数据</span>
+          <span>{at.overview}</span>
         </button>
 
         <button
@@ -1129,7 +1198,7 @@
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'posts' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
         >
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
-          <span>博文管理</span>
+          <span>{at.posts}</span>
         </button>
 
         <button
@@ -1137,7 +1206,7 @@
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'albums' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
         >
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-          <span>相册图库</span>
+          <span>{at.albums}</span>
         </button>
 
         <button
@@ -1145,7 +1214,7 @@
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'moments' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
         >
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-          <span>动态日记</span>
+          <span>{at.moments}</span>
         </button>
 
         <button
@@ -1153,7 +1222,7 @@
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'pages' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
         >
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-          <span>独立页面</span>
+          <span>{at.pages}</span>
         </button>
 
         <button
@@ -1161,7 +1230,7 @@
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'friends' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
         >
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-          <span>友链申请</span>
+          <span>{at.friends}</span>
         </button>
 
         <button
@@ -1169,7 +1238,7 @@
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'users' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
         >
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-          <span>用户管理</span>
+          <span>{at.users}</span>
         </button>
 
         <button
@@ -1177,7 +1246,7 @@
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'settings' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
         >
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-          <span>系统与设置</span>
+          <span>{at.settings}</span>
         </button>
       </aside>
 
@@ -1777,6 +1846,17 @@
                   >
                     <option value="center">居中对齐 (Center)</option>
                     <option value="left">靠左对齐 (Left)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs font-semibold block mb-1.5">{at.defaultLang}</label>
+                  <select
+                    bind:value={siteConfigState.lang}
+                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                  >
+                    {#each SUPPORTED_LANGUAGES as l}
+                      <option value={l.code}>{l.name} ({l.code})</option>
+                    {/each}
                   </select>
                 </div>
               </div>
