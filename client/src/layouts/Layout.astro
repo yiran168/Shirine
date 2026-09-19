@@ -1,5 +1,4 @@
 ---
-import { Font } from "astro:assets";
 import Snackbar from "@components/atoms/overlay/Snackbar.svelte";
 import Live2DControl from "@components/features/pio/Live2DControl.svelte";
 import ConfigCarrier from "@components/system/ConfigCarrier.astro";
@@ -106,13 +105,6 @@ setSiteLang(lang);
 siteConfig.lang = lang as any;
 const siteLang = lang.replace("_", "-");
 const fontRoleStyle = createFontRoleStyle(resolvedFontOptions);
-const customFontsEnabled = resolvedFontOptions.mode === "custom";
-const hasBodyFont =
-	customFontsEnabled && Boolean(resolvedFontOptions.roles.body.family);
-const hasCjkFont =
-	customFontsEnabled && Boolean(resolvedFontOptions.roles.cjk.family);
-const hasMonoFont =
-	customFontsEnabled && Boolean(resolvedFontOptions.roles.mono.family);
 ---
 
 <!DOCTYPE html>
@@ -147,9 +139,6 @@ const hasMonoFont =
 		<meta name="generator" content={Astro.generator} />
 		{fontRoleStyle && <style is:inline set:html={fontRoleStyle}></style>}
 		{textureEnabled && <style is:inline set:html={textureStyles}></style>}
-		{hasBodyFont && <Font cssVariable={resolvedFontOptions.roles.body.cssVariable as never} preload={resolvedFontOptions.roles.body.preload} />}
-		{hasCjkFont && <Font cssVariable={resolvedFontOptions.roles.cjk.cssVariable as never} preload={resolvedFontOptions.roles.cjk.preload} />}
-		{hasMonoFont && <Font cssVariable={resolvedFontOptions.roles.mono.cssVariable as never} preload={resolvedFontOptions.roles.mono.preload} />}
 		{umamiOptions?.websiteId && umamiOptions.scriptUrl && (
 			<script is:inline async src={umamiOptions.scriptUrl} data-website-id={umamiOptions.websiteId} data-auto-track="true"></script>
 		)}

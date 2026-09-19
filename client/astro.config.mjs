@@ -66,8 +66,6 @@ const optionalMusicSidebarPlugin = {
 const isBuildCommand = process.argv.includes("build");
 const isDevCommand = process.argv.includes("dev");
 
-const configuredFonts = [];
-
 const prismVirtualPlugin = {
 	name: "vite-plugin-astro-cloudflare-prism-virtual",
 	resolveId(id) {
@@ -131,7 +129,6 @@ export default defineConfig({
 		imageService: "passthrough",
 	}),
 	trailingSlash: "always",
-	fonts: configuredFonts,
 	integrations: [
 		swup({
 			theme: false,
