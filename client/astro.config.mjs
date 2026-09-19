@@ -18,7 +18,9 @@ import { sidebarConfig } from "./src/config/sidebarConfig.ts";
 import { siteConfig } from "./src/config/siteConfig.ts";
 import { pluginCustomCopyButton } from "./src/plugins/expressive-code/custom-copy-button.ts";
 import { pluginLanguageBadge } from "./src/plugins/expressive-code/language-badge.ts";
-import { getLocalFontVariants } from "./src/utils/font-options.ts";
+import iconManifest from "./src/generated/icon-manifest.json" with {
+	type: "json",
+};
 import { siteMarkdownProcessor } from "./src/utils/markdown-processor.mjs";
 
 const musicWidgetEnabled =
@@ -80,6 +82,21 @@ const prismVirtualPlugin = {
 	},
 };
 
+const shikiVirtualPlugin = {
+	name: "vite-plugin-astro-cloudflare-shiki-virtual",
+	enforce: "pre",
+	resolveId(id) {
+		if (id.includes("rehype-shiki")) {
+			return "\0virtual:astro-cloudflare:rehype-shiki";
+		}
+	},
+	load(id) {
+		if (id === "\0virtual:astro-cloudflare:rehype-shiki") {
+			return "export const rehypeShiki = () => () => {};\nexport default rehypeShiki;";
+		}
+	},
+};
+
 // https://astro.build/config
 export default defineConfig({
 	site: siteConfig.site,
@@ -114,12 +131,7 @@ export default defineConfig({
 			skipPopStateHandling: (event) => Boolean(event.state?.url?.includes("#")),
 		}),
 		icon({
-			include: {
-				"fa6-brands": ["*"],
-				"fa6-regular": ["*"],
-				"fa6-solid": ["*"],
-				"material-symbols": ["*"],
-			},
+			include: iconManifest,
 		}),
 		expressiveCode({
 			themes: [
@@ -196,7 +208,12 @@ export default defineConfig({
 				},
 			],
 		},
-		plugins: [optionalMusicSidebarPlugin, prismVirtualPlugin, tailwindcss()],
+		plugins: [
+			optionalMusicSidebarPlugin,
+			prismVirtualPlugin,
+			shikiVirtualPlugin,
+			tailwindcss(),
+		],
 		optimizeDeps: {
 			include: [
 				"mermaid",
@@ -204,6 +221,9 @@ export default defineConfig({
 				"overlayscrollbars",
 				"@fancyapps/ui",
 			],
+		},
+		build: {
+			minify: true,
 		},
 	},
 });

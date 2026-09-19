@@ -1,6 +1,8 @@
-import materialSymbols from "@iconify-json/material-symbols/icons.json" with {
+import iconCollections from "../generated/local-icon-collections.json" with {
 	type: "json",
 };
+
+const { materialSymbols } = iconCollections;
 import { h } from "hastscript";
 
 import { getAudioReaderEmbedData } from "./markdown/core/audio-reader.mjs";

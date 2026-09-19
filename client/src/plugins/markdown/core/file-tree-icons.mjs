@@ -1,9 +1,8 @@
-import materialSymbols from "@iconify-json/material-symbols/icons.json" with {
+import iconCollections from "../../../generated/local-icon-collections.json" with {
 	type: "json",
 };
-import simpleIcons from "@iconify-json/simple-icons/icons.json" with {
-	type: "json",
-};
+
+const { materialSymbols, simpleIcons } = iconCollections;
 import { h } from "hastscript";
 
 const MATERIAL_ICON_NAMES = {

@@ -226,8 +226,8 @@ export async function prepareBackendConfig(): Promise<string> {
     }
   }
 
-  // Ensure R2 bucket exists
-  if (R2_BUCKET_NAME) {
+  // Ensure R2 bucket exists when Cloudflare token is available
+  if (R2_BUCKET_NAME && CF_API_TOKEN) {
     console.log(`🪣 Checking R2 Bucket "${R2_BUCKET_NAME}"...`);
     const r2Result = runWrangler(["r2", "bucket", "create", R2_BUCKET_NAME]);
     if (r2Result.exitCode === 0) {
