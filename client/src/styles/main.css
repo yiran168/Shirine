@@ -49,7 +49,7 @@
         @apply transition rounded-md p-1 -m-1;
     }
     .float-panel {
-        @apply top-[5.25rem] rounded-[var(--radius-large)] overflow-hidden bg-[var(--float-panel-bg)] transition shadow-xl dark:shadow-none
+        @apply top-[5.25rem] rounded-[var(--radius-large)] bg-[var(--float-panel-bg)] transition shadow-xl dark:shadow-none max-h-[calc(100dvh-6rem)] overflow-y-auto overflow-x-hidden overscroll-contain
     }
     .float-panel-closed {
         @apply -translate-y-1 opacity-0 pointer-events-none

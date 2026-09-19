@@ -10,36 +10,40 @@ import { resolveNavBarLinks, resolvePageKey } from "@utils/nav-utils";
 import { url } from "@utils/url-utils";
 import { onMount, tick } from "svelte";
 import { siteConfig } from "@/config";
-import { navBarConfig } from "@/config/navBarConfig";
+import { getDynamicNavBarConfig, getLinkPresets } from "@/config/navBarConfig";
+import { getCurrentLang } from "../../i18n/translation";
 
 let open = $state(false);
 let activePrimary = $state("");
 const openGroups = $state<Record<string, boolean>>({});
+let currentLang = $state(getCurrentLang());
 
-const links = resolveNavBarLinks(navBarConfig.links);
-
-const primaryItems = links.map((link) => {
-	const key = link.name.toLowerCase();
-	return {
-		value: key,
-		label: link.name,
-		icon: link.icon,
-		href: link.url ? (link.external ? link.url : url(link.url)) : undefined,
-		external: !!link.external,
-		pageKey: link.pageKey ?? "",
-		children: link.children?.map((child) => ({
-			value: child.name.toLowerCase(),
-			label: child.name,
-			icon: child.icon,
-			href: child.url
-				? child.external
-					? child.url
-					: url(child.url)
-				: undefined,
-			external: !!child.external,
-			pageKey: child.pageKey ?? "",
-		})),
-	};
+const primaryItems = $derived.by(() => {
+	const activeConfig = getDynamicNavBarConfig(currentLang);
+	const links = resolveNavBarLinks(activeConfig.links, getLinkPresets(currentLang));
+	return links.map((link) => {
+		const key = (link.pageKey || link.name).toLowerCase();
+		return {
+			value: key,
+			label: link.name,
+			icon: link.icon,
+			href: link.url ? (link.external ? link.url : url(link.url)) : undefined,
+			external: !!link.external,
+			pageKey: link.pageKey ?? "",
+			children: link.children?.map((child) => ({
+				value: (child.pageKey || child.name).toLowerCase(),
+				label: child.name,
+				icon: child.icon,
+				href: child.url
+					? child.external
+						? child.url
+						: url(child.url)
+					: undefined,
+				external: !!child.external,
+				pageKey: child.pageKey ?? "",
+			})),
+		};
+	});
 });
 
 function syncFromRoute() {
@@ -83,13 +87,19 @@ onMount(() => {
 	const onKey = (e: KeyboardEvent) => {
 		if (e.key === "Escape") open = false;
 	};
+	const onLangChange = (e: Event) => {
+		const detail = (e as CustomEvent).detail;
+		if (detail?.lang) currentLang = detail.lang;
+	};
 	document.addEventListener("site-drawer:toggle", onToggle);
 	document.addEventListener("swup:content:replace", syncFromRoute);
 	window.addEventListener("keydown", onKey);
+	window.addEventListener("shirine-lang-change", onLangChange);
 	return () => {
 		document.removeEventListener("site-drawer:toggle", onToggle);
 		document.removeEventListener("swup:content:replace", syncFromRoute);
 		window.removeEventListener("keydown", onKey);
+		window.removeEventListener("shirine-lang-change", onLangChange);
 	};
 });
 

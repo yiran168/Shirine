@@ -21,127 +21,133 @@ import { getUserConfig } from "../utils/config-overlay.ts";
  *
  * 内容仓可用 `config/nav-bar.yaml` 整体替换 `links`，写法见 `NavBarLinkOverride`。
  */
-export const LinkPresets: Record<string, NavBarLink> = {
-	Home: {
-		name: i18n(I18nKey.home),
-		url: "/",
-		icon: "material-symbols:home-outline-rounded",
-		pageKey: "home",
-	},
-	Archive: {
-		name: i18n(I18nKey.archive),
-		url: "/archive/",
-		icon: "material-symbols:archive-outline-rounded",
-		pageKey: "archive",
-	},
-	Friends: {
-		name: i18n(I18nKey.friends),
-		url: "/friends/",
-		icon: "material-symbols:handshake-outline-rounded",
-		pageKey: "friends",
-	},
-	Moments: {
-		name: i18n(I18nKey.moments),
-		url: "/moments/",
-		icon: "material-symbols:auto-awesome-outline-rounded",
-		pageKey: "moments",
-	},
-	Anime: {
-		name: i18n(I18nKey.anime),
-		url: "/anime/",
-		icon: "material-symbols:live-tv-outline-rounded",
-		pageKey: "anime",
-	},
-	Compass: {
-		name: i18n(I18nKey.compass),
-		url: "/compass/",
-		icon: "material-symbols:explore-rounded",
-		pageKey: "compass",
-	},
-	Skills: {
-		name: i18n(I18nKey.skills),
-		url: "/skills/",
-		icon: "material-symbols:workspaces-outline-rounded",
-		pageKey: "skills",
-	},
-	Projects: {
-		name: i18n(I18nKey.projects),
-		url: "/projects/",
-		icon: "material-symbols:deployed-code-outline-rounded",
-		pageKey: "projects",
-	},
-	Devices: {
-		name: i18n(I18nKey.devices),
-		url: "/devices/",
-		icon: "material-symbols:devices-rounded",
-		pageKey: "devices",
-	},
-	Timeline: {
-		name: i18n(I18nKey.timeline),
-		url: "/timeline/",
-		icon: "material-symbols:timeline-rounded",
-		pageKey: "timeline",
-	},
-	Albums: {
-		name: i18n(I18nKey.albums),
-		url: "/albums/",
-		icon: "material-symbols:photo-library-outline-rounded",
-		pageKey: "albums",
-	},
-	Categories: {
-		name: i18n(I18nKey.categories),
-		url: "/categories/",
-		icon: "material-symbols:folder-outline-rounded",
-		pageKey: "categories",
-	},
-	Tags: {
-		name: i18n(I18nKey.tags),
-		url: "/tags/",
-		icon: "material-symbols:tag-rounded",
-		pageKey: "tags",
-	},
-	About: {
-		name: i18n(I18nKey.about),
-		url: "/about/",
-		icon: "material-symbols:info-outline-rounded",
-		pageKey: "about",
-	},
-	GitHub: {
-		name: "GitHub",
-		url: "https://github.com/yiran168/Shirine",
-		icon: "fa6-brands:github",
-		external: true,
-		pageKey: "github",
-	},
-};
-
-const defaultNavBarConfig: NavBarConfig = {
-	links: [
-		LinkPresets.Home,
-		LinkPresets.Archive,
-		LinkPresets.Friends,
-		LinkPresets.Moments,
-		LinkPresets.Anime,
-		LinkPresets.Compass,
-		LinkPresets.Albums,
-		{
-			name: i18n(I18nKey.more),
-			icon: "material-symbols:apps-rounded",
-			children: [
-				...(timelineConfig.enable ? [LinkPresets.Timeline] : []),
-				...(projectsConfig.enable ? [LinkPresets.Projects] : []),
-				...(devicesConfig.enable ? [LinkPresets.Devices] : []),
-				...(skillsConfig.enable ? [LinkPresets.Skills] : []),
-				// 分类/标签入口不进导航菜单（避免菜单项过多），预设已登记指向独立页面，
-				// 需要时取消注释即可
-				// LinkPresets.Categories,
-				// LinkPresets.Tags,
-				LinkPresets.About,
-				LinkPresets.GitHub,
-			],
+export function getLinkPresets(lang?: string): Record<string, NavBarLink> {
+	return {
+		Home: {
+			name: i18n(I18nKey.home, lang),
+			url: "/",
+			icon: "material-symbols:home-outline-rounded",
+			pageKey: "home",
 		},
-	],
-};
+		Archive: {
+			name: i18n(I18nKey.archive, lang),
+			url: "/archive/",
+			icon: "material-symbols:archive-outline-rounded",
+			pageKey: "archive",
+		},
+		Friends: {
+			name: i18n(I18nKey.friends, lang),
+			url: "/friends/",
+			icon: "material-symbols:handshake-outline-rounded",
+			pageKey: "friends",
+		},
+		Moments: {
+			name: i18n(I18nKey.moments, lang),
+			url: "/moments/",
+			icon: "material-symbols:auto-awesome-outline-rounded",
+			pageKey: "moments",
+		},
+		Anime: {
+			name: i18n(I18nKey.anime, lang),
+			url: "/anime/",
+			icon: "material-symbols:live-tv-outline-rounded",
+			pageKey: "anime",
+		},
+		Compass: {
+			name: i18n(I18nKey.compass, lang),
+			url: "/compass/",
+			icon: "material-symbols:explore-rounded",
+			pageKey: "compass",
+		},
+		Skills: {
+			name: i18n(I18nKey.skills, lang),
+			url: "/skills/",
+			icon: "material-symbols:workspaces-outline-rounded",
+			pageKey: "skills",
+		},
+		Projects: {
+			name: i18n(I18nKey.projects, lang),
+			url: "/projects/",
+			icon: "material-symbols:deployed-code-outline-rounded",
+			pageKey: "projects",
+		},
+		Devices: {
+			name: i18n(I18nKey.devices, lang),
+			url: "/devices/",
+			icon: "material-symbols:devices-rounded",
+			pageKey: "devices",
+		},
+		Timeline: {
+			name: i18n(I18nKey.timeline, lang),
+			url: "/timeline/",
+			icon: "material-symbols:timeline-rounded",
+			pageKey: "timeline",
+		},
+		Albums: {
+			name: i18n(I18nKey.albums, lang),
+			url: "/albums/",
+			icon: "material-symbols:photo-library-outline-rounded",
+			pageKey: "albums",
+		},
+		Categories: {
+			name: i18n(I18nKey.categories, lang),
+			url: "/categories/",
+			icon: "material-symbols:folder-outline-rounded",
+			pageKey: "categories",
+		},
+		Tags: {
+			name: i18n(I18nKey.tags, lang),
+			url: "/tags/",
+			icon: "material-symbols:tag-rounded",
+			pageKey: "tags",
+		},
+		About: {
+			name: i18n(I18nKey.about, lang),
+			url: "/about/",
+			icon: "material-symbols:info-outline-rounded",
+			pageKey: "about",
+		},
+		GitHub: {
+			name: "GitHub",
+			url: "https://github.com/yiran168/Shirine",
+			icon: "fa6-brands:github",
+			external: true,
+			pageKey: "github",
+		},
+	};
+}
+
+export const LinkPresets: Record<string, NavBarLink> = getLinkPresets();
+
+export function getDynamicNavBarConfig(lang?: string): NavBarConfig {
+	const presets = getLinkPresets(lang);
+	return {
+		links: [
+			presets.Home,
+			presets.Archive,
+			presets.Friends,
+			presets.Moments,
+			presets.Anime,
+			presets.Compass,
+			presets.Albums,
+			{
+				name: i18n(I18nKey.more, lang),
+				icon: "material-symbols:apps-rounded",
+				pageKey: "more",
+				children: [
+					...(timelineConfig.enable ? [presets.Timeline] : []),
+					...(projectsConfig.enable ? [presets.Projects] : []),
+					...(devicesConfig.enable ? [presets.Devices] : []),
+					...(skillsConfig.enable ? [presets.Skills] : []),
+					presets.About,
+					presets.GitHub,
+				],
+			},
+		],
+	};
+}
+
+const defaultNavBarConfig: NavBarConfig = getDynamicNavBarConfig();
 
 /** `$t:home` 形式的 i18n 引用前缀；不带前缀的 name 一律按字面量处理。 */
 const I18N_REFERENCE_PREFIX = "$t:";

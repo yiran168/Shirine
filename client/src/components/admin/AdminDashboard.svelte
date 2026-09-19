@@ -1109,7 +1109,7 @@
 
       {#if authStore.user}
         <div class="flex items-center gap-2 pl-2 border-l border-[var(--outline-variant)]/20">
-          <img src={authStore.user.avatar || "/assets/avatars/avatar-1.webp"} alt="Admin" class="w-8 h-8 rounded-full ring-2 ring-primary/20 object-cover" />
+          <img src={authStore.user.avatar || "/assets/avatars/avatar_01.webp"} alt="Admin" class="w-8 h-8 rounded-full ring-2 ring-primary/20 object-cover" />
           <div class="hidden md:flex flex-col text-left">
             <span class="text-xs font-semibold">{authStore.user.nickname || authStore.user.username}</span>
             <span class="text-[10px] text-primary capitalize font-medium">{authStore.user.role}</span>
@@ -1721,7 +1721,7 @@
                 {#each users as user}
                   <tr class="hover:bg-[var(--surface-container-lowest)] transition-colors">
                     <td class="px-6 py-4 flex items-center gap-3">
-                      <img src={user.avatar || "/assets/avatars/avatar-1.webp"} alt={user.username} class="w-8 h-8 rounded-full object-cover" />
+                      <img src={user.avatar || "/assets/avatars/avatar_01.webp"} alt={user.username} class="w-8 h-8 rounded-full object-cover" />
                       <div>
                         <span class="font-semibold block">{user.nickname || user.username}</span>
                         <span class="text-xs text-[var(--on-surface-variant)]">{user.email || user.username}</span>

@@ -18,12 +18,25 @@ export async function resolveImageAsset(
 	basePath = "",
 ): Promise<ImageMetadata | string> {
 	if (!src) return src;
-	const isLocal = !(
-		src.startsWith("/") ||
-		src.startsWith("http") ||
-		src.startsWith("https") ||
-		src.startsWith("data:")
-	);
+	const isExternalOrData =
+		src.startsWith("http://") ||
+		src.startsWith("https://") ||
+		src.startsWith("//") ||
+		src.startsWith("data:");
+	if (isExternalOrData) return src;
+
+	// Check if this path maps to a local src asset (even if prefixed with /assets/)
+	if (src.startsWith("/assets/images/") || src.startsWith("/assets/fonts/")) {
+		const relativePath = src.replace(/^\//, "");
+		const localFile = getLocalImageLoader(relativePath, basePath);
+		if (localFile) {
+			try {
+				return await localFile();
+			} catch {}
+		}
+	}
+
+	const isLocal = !src.startsWith("/");
 	if (!isLocal) return src;
 	const file = getLocalImageLoader(src, basePath);
 	return file ? file() : src;

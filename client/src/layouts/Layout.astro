@@ -1,6 +1,8 @@
 ---
 import Snackbar from "@components/atoms/overlay/Snackbar.svelte";
 import Live2DControl from "@components/features/pio/Live2DControl.svelte";
+import AuthModal from "@components/auth/AuthModal.svelte";
+import UserDrawer from "@components/auth/UserDrawer.svelte";
 import ConfigCarrier from "@components/system/ConfigCarrier.astro";
 import UmamiRuntime from "@components/system/UmamiRuntime.astro";
 import { resolveAsset } from "@utils/asset-utils";
@@ -231,6 +233,8 @@ const fontRoleStyle = createFontRoleStyle(resolvedFontOptions);
 		<slot />
 		<div id="page-height-extend" class="hidden h-[300vh]"></div>
 		<Live2DControl client:only="svelte" mode="guest" />
+		<AuthModal client:only="svelte" />
+		<UserDrawer client:only="svelte" />
 	</body>
 </html>
 

@@ -1,9 +1,58 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="utf-8" />
 <style>
-  * { margin: 0; padding: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+
+  /* Speech bubble sitting nicely just above NOIR's head instead of far away */
+  div[style*="calc(100%"] {
+    bottom: calc(100% - 130px) !important;
+    max-width: 220px !important;
+    pointer-events: none !important;
+  }
+  div[style*="calc(100%"] > div {
+    background: rgba(26, 26, 36, 0.88) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.22) !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+    border-radius: 12px !important;
+    color: #ffffff !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    line-height: 1.5 !important;
+    padding: 8px 12px !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+  }
+  div[style*="calc(100%"] > div > div[style*="border-top"] {
+    border-top-color: rgba(26, 26, 36, 0.88) !important;
+  }
+
+  /* Right-side menu buttons strictly within bounds */
+  div[style*="display: flex"][style*="flex-direction: column"] {
+    right: 8px !important;
+    max-width: 32px !important;
+  }
+  div[style*="display: flex"][style*="flex-direction: column"] button {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important;
+    overflow: hidden !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    font-size: 0 !important; /* Hide any raw text overflow */
+  }
+  div[style*="display: flex"][style*="flex-direction: column"] button svg {
+    width: 15px !important;
+    height: 15px !important;
+    pointer-events: none !important;
+    fill: currentColor !important;
+  }
 </style>
 </head>
 <body>
@@ -19,10 +68,41 @@
   var layoutObserver = null;
   var layoutFrame = 0;
 
+  var cuteQuotes = [
+    '今天也是美好的一天～',
+    '欢迎来到 Shirine！',
+    '有什么想和我聊聊的吗？',
+    '看文章累了就伸个懒腰吧！',
+    '点击右边的按钮可以返回顶部哦～',
+    '我会一直在这里陪着你的！'
+  ];
+
+  var actionIcons = {
+    talk: '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>',
+    scrollToTop: '<svg viewBox="0 0 24 24"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg>',
+    sleep: '<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
+    home: '<svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>'
+  };
+
   var menuActions = {
     home: function() { parent.postMessage({ type: 'l2d-action', action: 'home' }, '*'); },
     scrollToTop: function() { parent.postMessage({ type: 'l2d-action', action: 'scrollToTop' }, '*'); },
     sleep: function(w) { w.sleep(); },
+    talk: function(w) {
+      var quote = cuteQuotes[Math.floor(Math.random() * cuteQuotes.length)];
+      var tipSpan = document.querySelector('div[style*="calc(100%"] span');
+      if (tipSpan) {
+        tipSpan.textContent = quote;
+        var bubble = tipSpan.parentElement;
+        if (bubble) {
+          bubble.style.opacity = '1';
+          bubble.style.animation = 'l2dw-tips-float 2.5s ease-in-out infinite';
+          setTimeout(function() {
+            if (bubble) bubble.style.opacity = '0';
+          }, 3500);
+        }
+      }
+    }
   };
 
   function notifyLoaded() {
@@ -87,6 +167,21 @@
     document.head.appendChild(style);
   }
 
+  function applyButtonIcons(items) {
+    var buttons = document.querySelectorAll('div[style*="flex-direction: column"] button');
+    buttons.forEach(function(btn, index) {
+      var item = items && items[index];
+      if (item) {
+        var action = item.action || '';
+        var svg = actionIcons[action] || actionIcons[item.icon] || '';
+        if (svg) {
+          btn.innerHTML = svg;
+          btn.title = item.label || '';
+        }
+      }
+    });
+  }
+
   function destroyWidget() {
     if (!widgetInstance) return;
     try {
@@ -100,6 +195,34 @@
     layoutObserver = null;
     cancelAnimationFrame(layoutFrame);
   }
+
+  // Dragging support inside iframe
+  var isMouseDown = false;
+  var startX = 0;
+  var startY = 0;
+
+  window.addEventListener('mousedown', function(e) {
+    // Only drag on canvas or container, not on action buttons
+    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+    isMouseDown = true;
+    startX = e.clientX;
+    startY = e.clientY;
+  });
+
+  window.addEventListener('mousemove', function(e) {
+    if (!isMouseDown) return;
+    var dx = e.clientX - startX;
+    var dy = e.clientY - startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+      parent.postMessage({ type: 'l2d-drag', dx: dx, dy: dy }, '*');
+      startX = e.clientX;
+      startY = e.clientY;
+    }
+  });
+
+  window.addEventListener('mouseup', function() {
+    isMouseDown = false;
+  });
 
   window.addEventListener('message', function(e) {
     if (e.data.type !== 'l2d-init') return;
@@ -120,12 +243,18 @@
       destroyWidget();
     }
 
+    var originalItems = (config.menus && config.menus.items) ? [...config.menus.items] : [];
+
     if (config.menus && config.menus.items) {
       config.menus.items = config.menus.items.map(function(item) {
         return {
           icon: item.icon,
           label: item.label,
-          onClick: menuActions[item.action] || function() {}
+          onClick: function(w) {
+            if (menuActions[item.action]) {
+              menuActions[item.action](w);
+            }
+          }
         };
       });
     }
@@ -135,6 +264,9 @@
       activeConfigKey = configKey;
       baseContentHeight = getWidgetHeight(config.size);
       lastContentHeight = baseContentHeight;
+      setTimeout(function() {
+        applyButtonIcons(originalItems);
+      }, 50);
     } catch (err) {
       loadingConfigKey = '';
       activeConfigKey = '';
@@ -149,6 +281,7 @@
 
     widgetInstance.l2d.on('loaded', function() {
       widgetLoaded = true;
+      applyButtonIcons(originalItems);
       notifyLoaded();
       observeWidgetLayout();
       scheduleLayoutMeasurement();

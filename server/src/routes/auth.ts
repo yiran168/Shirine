@@ -15,15 +15,18 @@ authRouter.post("/register", async (c) => {
 
     // V10-P0-23: Require setup to be completed before allowing public user registration in production
     if (c.env.ENVIRONMENT === "production") {
-      const superadmin = await db.query.users.findFirst({
-        where: eq(schema.users.role, "superadmin"),
-        columns: { id: true },
-      });
-      if (!superadmin) {
-        return c.json(
-          { success: false, error: "Initial system setup is required before public registration is available", code: "SETUP_REQUIRED" },
-          403
-        );
+      const hasEnvAdmin = Boolean(c.env.ADMIN_USERNAME && c.env.ADMIN_PASSWORD);
+      if (!hasEnvAdmin) {
+        const superadmin = await db.query.users.findFirst({
+          where: eq(schema.users.role, "superadmin"),
+          columns: { id: true },
+        });
+        if (!superadmin) {
+          return c.json(
+            { success: false, error: "Initial system setup is required before public registration is available", code: "SETUP_REQUIRED" },
+            403
+          );
+        }
       }
     }
 
@@ -50,7 +53,10 @@ authRouter.post("/register", async (c) => {
       "moderator",
       "mod",
     ];
-    if (reservedUsernames.includes(username.trim().toLowerCase())) {
+    if (
+      reservedUsernames.includes(username.trim().toLowerCase()) ||
+      (c.env.ADMIN_USERNAME && username.trim().toLowerCase() === c.env.ADMIN_USERNAME.trim().toLowerCase())
+    ) {
       return c.json({ success: false, error: "This username is reserved by the system" }, 400);
     }
 
@@ -149,10 +155,11 @@ authRouter.get("/setup/status", async (c) => {
       where: eq(schema.setupState.id, 1),
     });
 
+    const hasEnvAdmin = Boolean(c.env.ADMIN_USERNAME && c.env.ADMIN_PASSWORD);
     let state: "completed" | "uninitialized" | "broken" = "uninitialized";
     let needsSetup = true;
 
-    if (superadmin) {
+    if (superadmin || hasEnvAdmin) {
       state = "completed";
       needsSetup = false;
     } else if (setupStateRow && setupStateRow.completed === 1) {
@@ -329,21 +336,87 @@ authRouter.post("/login", async (c) => {
     }
 
     const db = getDb(c.env.DB);
-    const user = await db.query.users.findFirst({
-      where: eq(schema.users.username, username.trim()),
+    const trimmedUsername = username.trim();
+
+    const isEnvAdminMatch = Boolean(
+      c.env.ADMIN_USERNAME &&
+      c.env.ADMIN_PASSWORD &&
+      trimmedUsername === c.env.ADMIN_USERNAME.trim() &&
+      password === c.env.ADMIN_PASSWORD
+    );
+
+    let user = await db.query.users.findFirst({
+      where: eq(schema.users.username, trimmedUsername),
     });
 
-    if (!user) {
-      return c.json({ success: false, error: "Invalid username or password" }, 401);
-    }
+    if (isEnvAdminMatch) {
+      if (!user) {
+        // Auto-bootstrap superadmin user from environment secrets (V10 / Rin parity)
+        const salt = generateSalt();
+        const passwordHash = await hashPassword(password, salt);
+        const inserted = await db
+          .insert(schema.users)
+          .values({
+            username: trimmedUsername,
+            nickname: trimmedUsername,
+            passwordHash,
+            salt,
+            role: "superadmin",
+            points: 100,
+            status: "active",
+            sessionVersion: 1,
+          })
+          .returning();
+        user = inserted[0];
 
-    if (user.status === "banned") {
-      return c.json({ success: false, error: "This account has been banned" }, 403);
-    }
+        // Mark setup state as completed
+        try {
+          await db
+            .insert(schema.setupState)
+            .values({ id: 1, completed: 1 })
+            .onConflictDoUpdate({
+              target: schema.setupState.id,
+              set: { completed: 1 },
+            });
+        } catch {}
 
-    const isMatch = await verifyPassword(password, user.salt, user.passwordHash);
-    if (!isMatch) {
-      return c.json({ success: false, error: "Invalid username or password" }, 401);
+        // Claim orphan records
+        try {
+          await db.update(schema.posts).set({ uid: user.id }).where(sql`${schema.posts.uid} IS NULL`);
+          await db.update(schema.albums).set({ uid: user.id }).where(sql`${schema.albums.uid} IS NULL`);
+          await db.update(schema.moments).set({ uid: user.id }).where(sql`${schema.moments.uid} IS NULL`);
+          await db.update(schema.friends).set({ uid: user.id }).where(sql`${schema.friends.uid} IS NULL`);
+        } catch {}
+      } else {
+        // User exists: ensure superadmin role, active status, and sync password hash if needed
+        const salt = generateSalt();
+        const passwordHash = await hashPassword(password, salt);
+        await db
+          .update(schema.users)
+          .set({
+            role: "superadmin",
+            status: "active",
+            passwordHash,
+            salt,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.users.id, user.id));
+        user.role = "superadmin";
+        user.status = "active";
+      }
+    } else {
+      if (!user) {
+        return c.json({ success: false, error: "Invalid username or password" }, 401);
+      }
+
+      if (user.status === "banned") {
+        return c.json({ success: false, error: "This account has been banned" }, 403);
+      }
+
+      const isMatch = await verifyPassword(password, user.salt, user.passwordHash);
+      if (!isMatch) {
+        return c.json({ success: false, error: "Invalid username or password" }, 401);
+      }
     }
 
     const token = await signToken(

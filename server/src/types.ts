@@ -7,6 +7,8 @@ export interface Env {
   CF_TURNSTILE_SECRET?: string;
   ALLOWED_ORIGINS?: string;
   ENVIRONMENT?: string;
+  ADMIN_USERNAME?: string;
+  ADMIN_PASSWORD?: string;
 }
 
 export interface UserPayload {

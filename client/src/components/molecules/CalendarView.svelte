@@ -83,7 +83,7 @@ const cells = $derived.by(() => {
 const selectedPosts = $derived(
 	selectedDate ? (postsByDate[selectedDate] ?? []) : [],
 );
-const listOpen = $derived(selectedPosts.length > 0);
+const listOpen = $derived(selectedDate !== null);
 
 const isCurrentMonth = $derived(
 	year === today.getFullYear() && month === today.getMonth(),
@@ -97,36 +97,11 @@ function isTodayCell(cell: DayCell): boolean {
 
 const currentMonthKey = $derived(`${year}-${pad(month + 1)}`);
 
-// 相邻有文月：prev/next 跳过空月——博客日历的信息单元是「有文章的
-// 月份」，空月没有可浏览的内容；无文章数据时退化为逐月 ±1。
-const prevMonthKey = $derived.by(() => {
-	let best: string | null = null;
-	for (const key of activeMonths) {
-		if (key < currentMonthKey) best = key;
-		else break;
-	}
-	return best;
-});
-const nextMonthKey = $derived.by(() => {
-	for (const key of activeMonths) {
-		if (key > currentMonthKey) return key;
-	}
-	return null;
-});
-// 边界禁用：有文月存在且相邻方向没有更多有文月
-const canPrev = $derived(activeMonths.length === 0 || prevMonthKey !== null);
-const canNext = $derived(activeMonths.length === 0 || nextMonthKey !== null);
+// 自由月度导航：支持任意月份浏览与日期查看
+const canPrev = $derived(year > 1970);
+const canNext = $derived(year < 2100);
 
 function shiftMonth(delta: number) {
-	if (activeMonths.length > 0) {
-		const target = delta < 0 ? prevMonthKey : nextMonthKey;
-		if (!target) return;
-		const [y, m] = target.split("-").map(Number);
-		year = y;
-		month = m - 1;
-		selectedDate = null;
-		return;
-	}
 	const next = new Date(year, month + delta, 1);
 	year = next.getFullYear();
 	month = next.getMonth();
@@ -140,7 +115,6 @@ function backToToday() {
 }
 
 function toggleDay(cell: DayCell) {
-	if (cell.posts.length === 0) return;
 	selectedDate = selectedDate === cell.key ? null : cell.key;
 }
 </script>
@@ -192,7 +166,6 @@ function toggleDay(cell: DayCell) {
 					<button
 						type="button"
 						class={`m3-calendar__day${cell.posts.length > 0 ? " m3-calendar__day--has-posts" : ""}${isTodayCell(cell) ? " m3-calendar__day--today" : ""}${cell.key === selectedDate ? " m3-calendar__day--selected" : ""}`}
-						disabled={cell.posts.length === 0}
 						aria-current={isTodayCell(cell) ? "date" : undefined}
 						aria-label={`${cell.key}${cell.posts.length > 0 ? `，${cell.posts.length} 篇文章` : ""}`}
 						onclick={() => toggleDay(cell)}
@@ -205,14 +178,20 @@ function toggleDay(cell: DayCell) {
 	{/key}
 
 	<div class="m3-calendar__panel" use:collapse={{ open: listOpen }}>
-		<ul class="m3-calendar__posts">
-			{#each selectedPosts as post}
-				<li class="m3-calendar__post">
-					<a href={post.url}>{post.title}</a>
-					<span class="m3-calendar__post-date">{post.date.slice(5)}</span>
-				</li>
-			{/each}
-		</ul>
+		{#if selectedPosts.length > 0}
+			<ul class="m3-calendar__posts">
+				{#each selectedPosts as post}
+					<li class="m3-calendar__post">
+						<a href={post.url}>{post.title}</a>
+						<span class="m3-calendar__post-date">{post.date.slice(5)}</span>
+					</li>
+				{/each}
+			</ul>
+		{:else if selectedDate}
+			<div class="m3-calendar__empty text-xs text-center py-2 text-[var(--on-surface-variant)] opacity-70">
+				{selectedDate} 无文章发布
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -280,8 +259,11 @@ function toggleDay(cell: DayCell) {
 			font: var(--m3e-type-label-large)
 			font-variant-numeric: tabular-nums
 			color: var(--on-surface-variant)
-			cursor: default
+			cursor: pointer
 			transition: background-color var(--m3e-duration-short) var(--m3e-easing-standard)
+
+			&:hover
+				background: unquote("color-mix(in oklab, var(--on-surface) 6%, transparent)")
 
 			&--has-posts
 				/* 淡 tint 状态层（primary 12%）：比实底 container 柔和得多，

@@ -49,31 +49,28 @@ const handleFocus = (): void => {
 };
 </script>
 
-<div class="hidden lg:block relative w-10 h-10 shrink-0">
-    <div
-        class="m3-state-layer absolute right-0 top-0 flex items-center overflow-hidden rounded-full transition-all duration-300 h-10 top-app-bar__search-shell
-               {expanded ? 'top-app-bar__search-shell--expanded w-48 bg-(--surface-container-high)' : 'w-10 bg-transparent'}"
-        onclick={() => {
-            if (!expanded) expand();
-        }}
-    >
+<div
+    class="hidden lg:flex items-center h-10 rounded-full transition-all duration-300 top-app-bar__search-shell overflow-hidden
+           {expanded ? 'top-app-bar__search-shell--expanded w-48 bg-[var(--surface-container-high)] border border-[var(--outline-variant)]/40 shadow-sm' : 'w-10 bg-transparent hover:bg-[var(--surface-container)]'}"
+    onclick={() => {
+        if (!expanded) expand();
+    }}
+>
+    <div class="w-10 h-10 flex items-center justify-center shrink-0">
         <Icon
             icon="material-symbols:search"
-            class="pointer-events-none shrink-0 text-[1.25rem] transition-all
-                   {expanded
-                       ? 'ml-3 text-[var(--on-surface-variant)]'
-                       : 'mx-auto text-[var(--on-surface)]'}"
+            class="pointer-events-none text-[1.25rem] transition-all text-[var(--on-surface)]"
         ></Icon>
-        <input
-            {id}
-            {name}
-            {placeholder}
-            bind:value
-            tabindex={expanded ? 0 : -1}
-            onfocus={handleFocus}
-            onblur={handleBlur}
-            class="h-full bg-transparent outline-0 text-(--on-surface) caret-(--primary) transition-all
-                   {expanded ? 'w-32 pl-2 opacity-100' : 'w-0 opacity-0'}"
-        />
     </div>
+    <input
+        {id}
+        {name}
+        {placeholder}
+        bind:value
+        tabindex={expanded ? 0 : -1}
+        onfocus={handleFocus}
+        onblur={handleBlur}
+        class="h-full bg-transparent outline-0 text-[var(--on-surface)] caret-[var(--primary)] text-sm transition-all
+               {expanded ? 'flex-1 pr-3 opacity-100' : 'w-0 opacity-0 pointer-events-none'}"
+    />
 </div>

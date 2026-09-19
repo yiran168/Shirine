@@ -135,4 +135,52 @@ describe("Tier 2 - Boundary: Authentication & Session Gateways", () => {
 
     env.close();
   });
+
+  it("B2.7: Login with ADMIN_USERNAME and ADMIN_PASSWORD environment secrets auto-bootstraps superadmin", async () => {
+    const env = createTestEnv();
+    env.env.ADMIN_USERNAME = "secret_admin";
+    env.env.ADMIN_PASSWORD = "secret_password_987";
+
+    // 1. Setup status reports completed because admin secrets are present
+    const statusRes = await env.requestJson("/api/auth/setup/status");
+    expect(statusRes.status).toBe(200);
+    expect(statusRes.data.state).toBe("completed");
+    expect(statusRes.data.needsSetup).toBe(false);
+
+    // 2. Wrong password for env admin fails with 401
+    const wrongPassRes = await env.requestJson("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "secret_admin",
+        password: "incorrect_password",
+      }),
+    });
+    expect(wrongPassRes.status).toBe(401);
+    expect(wrongPassRes.data.success).toBe(false);
+
+    // 3. Correct env credentials auto-bootstraps superadmin
+    const loginRes = await env.requestJson("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "secret_admin",
+        password: "secret_password_987",
+      }),
+    });
+    expect(loginRes.status).toBe(200);
+    expect(loginRes.data.success).toBe(true);
+    expect(loginRes.data.user.role).toBe("superadmin");
+    expect(loginRes.data.user.username).toBe("secret_admin");
+    expect(typeof loginRes.data.token).toBe("string");
+
+    // 4. Authenticated request as superadmin succeeds
+    const meRes = await env.requestJson("/api/auth/me", {
+      headers: { Authorization: `Bearer ${loginRes.data.token}` },
+    });
+    expect(meRes.status).toBe(200);
+    expect(meRes.data.user.role).toBe("superadmin");
+
+    env.close();
+  });
 });

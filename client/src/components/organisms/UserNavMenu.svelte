@@ -114,15 +114,15 @@
   <button
     type="button"
     onclick={toggleMenu}
-    class="relative w-9 h-9 rounded-full overflow-hidden flex items-center justify-center border border-outline/20 hover:border-primary/50 shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/40 group bg-surface-container"
+    class="relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center border border-[var(--outline-variant)]/40 hover:border-primary/60 shadow-sm hover:shadow-md transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/40 group bg-[var(--surface-container-high)]/80 backdrop-blur-md"
     aria-label="用户菜单"
     aria-expanded={menuOpen}
   >
     {#if isGuest}
       <!-- Guest default icon -->
-      <div class="w-full h-full flex items-center justify-center text-on-surface-variant group-hover:text-primary transition-colors bg-surface-container-high">
+      <div class="w-full h-full flex items-center justify-center text-[var(--on-surface)] group-hover:text-primary transition-colors bg-[var(--surface-container-high)]/60">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
         </svg>
       </div>
     {:else}
@@ -134,7 +134,7 @@
           class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
         />
       {:else}
-        <div class="w-full h-full flex items-center justify-center bg-primary/15 text-primary text-sm font-bold">
+        <div class="w-full h-full flex items-center justify-center bg-primary/20 text-primary text-sm font-bold">
           {authStore.user?.username.slice(0, 1).toUpperCase()}
         </div>
       {/if}

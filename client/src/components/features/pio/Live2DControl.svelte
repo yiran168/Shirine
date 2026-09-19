@@ -17,6 +17,14 @@
 
   const WIDGET_WIDTH = 280;
 
+  let posX = $state(0);
+  let posY = $state(0);
+  let isDragging = $state(false);
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let initialPosX = 0;
+  let initialPosY = 0;
+
   onMount(async () => {
     if (typeof window === "undefined") return;
 
@@ -24,6 +32,15 @@
     const saved = localStorage.getItem("shirine_live2d_visible");
     if (saved !== null) {
       userVisible = saved === "true";
+    }
+
+    const savedPos = localStorage.getItem("shirine_live2d_pos");
+    if (savedPos) {
+      try {
+        const parsed = JSON.parse(savedPos);
+        if (typeof parsed.x === "number" && !isNaN(parsed.x)) posX = Math.max(0, Math.min(window.innerWidth - WIDGET_WIDTH, parsed.x));
+        if (typeof parsed.y === "number" && !isNaN(parsed.y)) posY = Math.max(0, Math.min(window.innerHeight - 100, parsed.y));
+      } catch {}
     }
 
     // 2. Fetch backend configuration
@@ -60,6 +77,10 @@
         } else if (e.data.action === "scrollToTop") {
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
+      } else if (e.data?.type === "l2d-drag") {
+        posX = Math.max(0, Math.min(window.innerWidth - WIDGET_WIDTH, posX + (e.data.dx || 0)));
+        posY = Math.max(0, Math.min(window.innerHeight - 100, posY - (e.data.dy || 0)));
+        localStorage.setItem("shirine_live2d_pos", JSON.stringify({ x: posX, y: posY }));
       }
     };
 
@@ -83,6 +104,40 @@
     };
   });
 
+  function startDrag(e: MouseEvent | TouchEvent) {
+    isDragging = true;
+    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+    dragStartX = clientX;
+    dragStartY = clientY;
+    initialPosX = posX;
+    initialPosY = posY;
+
+    const onMove = (ev: MouseEvent | TouchEvent) => {
+      if (!isDragging) return;
+      const curX = "touches" in ev ? ev.touches[0].clientX : ev.clientX;
+      const curY = "touches" in ev ? ev.touches[0].clientY : ev.clientY;
+      const deltaX = curX - dragStartX;
+      const deltaY = dragStartY - curY;
+      posX = Math.max(0, Math.min(window.innerWidth - WIDGET_WIDTH, initialPosX + deltaX));
+      posY = Math.max(0, Math.min(window.innerHeight - 100, initialPosY + deltaY));
+    };
+
+    const onEnd = () => {
+      isDragging = false;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onEnd);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onEnd);
+      localStorage.setItem("shirine_live2d_pos", JSON.stringify({ x: posX, y: posY }));
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onEnd);
+    window.addEventListener("touchmove", onMove);
+    window.addEventListener("touchend", onEnd);
+  }
+
   function initWidget() {
     if (!iframeEl || !iframeEl.contentWindow) return;
     const widgetConfig = {
@@ -94,9 +149,9 @@
       _hideAbout: true,
       menus: {
         items: [
-          { icon: "fa-home", label: "首页", action: "home" },
-          { icon: "fa-arrow-up", label: "返回顶部", action: "scrollToTop" },
-          { icon: "fa-close", label: "关闭", action: "sleep" },
+          { icon: "talk", label: "互动", action: "talk" },
+          { icon: "scrollToTop", label: "返回顶部", action: "scrollToTop" },
+          { icon: "sleep", label: "收起", action: "sleep" },
         ],
       },
     };
@@ -119,33 +174,55 @@
 </script>
 
 {#if enabledByBackend}
-  <!-- Live2D Host Iframe (Sandboxed) -->
-  <iframe
-    bind:this={iframeEl}
-    id="l2d-iframe"
-    src="/pio/live2d-host.html"
-    onload={handleIframeLoad}
-    title="Shirine Live2D 看板娘"
-    allowtransparency="true"
-    class="fixed left-0 bottom-0 z-40 border-none transition-opacity duration-300"
-    style="width: {WIDGET_WIDTH}px; height: {iframeHeight}px; opacity: {shouldShow && isLoaded ? '1' : '0'}; pointer-events: {shouldShow && isLoaded ? 'auto' : 'none'}; display: {shouldShow ? 'block' : 'none'};"
-  ></iframe>
+  <!-- Draggable Live2D Container -->
+  <div
+    class="fixed z-40 select-none"
+    style="left: {posX}px; bottom: {posY}px;"
+  >
+    <!-- Live2D Host Iframe (Sandboxed) -->
+    <iframe
+      bind:this={iframeEl}
+      id="l2d-iframe"
+      src="/pio/live2d-host.html"
+      onload={handleIframeLoad}
+      title="Shirine Live2D 看板娘"
+      allowtransparency="true"
+      class="border-none transition-opacity duration-300 block"
+      style="width: {WIDGET_WIDTH}px; height: {iframeHeight}px; opacity: {shouldShow && isLoaded ? '1' : '0'}; pointer-events: {shouldShow && isLoaded ? 'auto' : 'none'}; display: {shouldShow ? 'block' : 'none'};"
+    ></iframe>
 
-  <!-- Floating Toggle Button -->
-  <div class="fixed bottom-5 left-5 z-50">
-    <button
-      type="button"
-      onclick={toggleVisible}
-      class="w-9 h-9 rounded-full bg-surface/80 hover:bg-surface border border-outline/20 text-on-surface shadow-md hover:shadow-lg backdrop-blur-md flex items-center justify-center transition-all hover:scale-110 active:scale-95 group focus:outline-none"
-      title={userVisible ? "收起看板娘" : "呼唤看板娘"}
-      aria-label={userVisible ? "收起看板娘" : "呼唤看板娘"}
-    >
-      {#if userVisible}
-        <span class="text-sm group-hover:rotate-12 transition-transform select-none">🌸</span>
-      {:else}
-        <span class="text-sm opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all select-none">✨</span>
+    <!-- Drag Handle and Toggle Button Bar -->
+    <div class="absolute bottom-4 left-4 z-50 flex items-center gap-1.5">
+      <!-- Toggle Visibility Button -->
+      <button
+        type="button"
+        onclick={toggleVisible}
+        class="w-9 h-9 rounded-full bg-[var(--surface-container-high)]/90 hover:bg-[var(--surface-container)] border border-[var(--outline-variant)]/40 text-[var(--on-surface)] shadow-md hover:shadow-lg backdrop-blur-md flex items-center justify-center transition-all hover:scale-110 active:scale-95 group focus:outline-none"
+        title={userVisible ? "收起看板娘" : "呼唤看板娘"}
+        aria-label={userVisible ? "收起看板娘" : "呼唤看板娘"}
+      >
+        {#if userVisible}
+          <span class="text-sm group-hover:rotate-12 transition-transform select-none">🌸</span>
+        {:else}
+          <span class="text-sm opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all select-none">✨</span>
+        {/if}
+      </button>
+
+      <!-- Move / Drag Handle Button -->
+      {#if shouldShow && isLoaded}
+        <button
+          type="button"
+          onmousedown={startDrag}
+          ontouchstart={startDrag}
+          class="w-8 h-8 rounded-full bg-[var(--surface-container-high)]/80 hover:bg-[var(--surface-container)] border border-[var(--outline-variant)]/40 text-[var(--on-surface-variant)] hover:text-[var(--primary)] shadow-sm backdrop-blur-md flex items-center justify-center cursor-move transition-all active:scale-90"
+          title="按住拖拽看板娘位置"
+          aria-label="按住拖拽看板娘位置"
+        >
+          <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
+          </svg>
+        </button>
       {/if}
-    </button>
+    </div>
   </div>
 {/if}
-

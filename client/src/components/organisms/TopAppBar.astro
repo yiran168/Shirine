@@ -9,7 +9,8 @@ import IconButton from "@components/atoms/action/IconButton.svelte";
 import { resolveNavBarLinks, resolvePageKey } from "@utils/nav-utils";
 import { url } from "@utils/url-utils";
 import { getDynamicSiteConfig } from "@utils/dynamic-config";
-import { navBarConfig } from "@/config/navBarConfig";
+import { getDynamicNavBarConfig } from "@/config/navBarConfig";
+import { getCurrentLang } from "@i18n/translation";
 import { Icon } from "astro-icon/components";
 
 const { site: siteConfig } = await getDynamicSiteConfig();
@@ -18,11 +19,11 @@ import LightDarkSwitch from "./LightDarkSwitch.svelte";
 import Search from "./Search.svelte";
 import LanguageSwitch from "./LanguageSwitch.svelte";
 import UserNavMenu from "./UserNavMenu.svelte";
-import AuthModal from "@components/auth/AuthModal.svelte";
-import UserDrawer from "@components/auth/UserDrawer.svelte";
 
 const className = Astro.props.class;
-const links = resolveNavBarLinks(navBarConfig.links);
+const currentLang = Astro.locals.lang || siteConfig.lang || getCurrentLang();
+const activeNavBarConfig = getDynamicNavBarConfig(currentLang);
+const links = resolveNavBarLinks(activeNavBarConfig.links);
 const currentPageKey = resolvePageKey(Astro.url);
 
 function hrefFor(path?: string) {
@@ -65,16 +66,16 @@ function isActive(link: (typeof links)[number]): boolean {
 							<button class:list={[
 								"top-app-bar__nav-link m3-state-layer relative flex h-10 items-center gap-1 px-3 text-sm font-bold text-[var(--on-surface-variant)] transition-colors hover:text-[var(--on-surface)]",
 								active && "top-app-bar__nav-link--active",
-							]} aria-expanded="false">
+							]} aria-expanded="false" data-nav-key={link.pageKey || "more"}>
 								{link.icon && <Icon name={link.icon} class="text-[1.1rem]"></Icon>}
-								{link.name}
+								<span data-nav-label>{link.name}</span>
 								<Icon name="material-symbols:keyboard-arrow-down-rounded" class="text-[1rem]"></Icon>
 							</button>
 						) : (
 							<a href={href} target={link.external ? "_blank" : undefined} rel={link.external ? "noopener noreferrer" : undefined}
 								aria-current={active ? "page" : undefined} data-nav-key={link.pageKey ?? ""}
 								class:list={["top-app-bar__nav-link m3-state-layer relative flex h-10 items-center gap-1 px-3 text-sm font-bold text-[var(--on-surface-variant)] transition-colors hover:text-[var(--on-surface)]", active && "top-app-bar__nav-link--active"]}>
-								{link.icon && <Icon name={link.icon} class="text-[1.1rem]"></Icon>}{link.name}
+								{link.icon && <Icon name={link.icon} class="text-[1.1rem]"></Icon>}<span data-nav-label>{link.name}</span>
 								{link.external && <Icon name="material-symbols:arrow-outward-rounded" class="ml-1 text-[0.875rem]"></Icon>}
 							</a>
 						)}
@@ -82,7 +83,7 @@ function isActive(link: (typeof links)[number]): boolean {
 							{link.children.map((child) => {
 								const childHref = child.external ? child.url : hrefFor(child.url);
 							return <a href={childHref} target={child.external ? "_blank" : undefined} rel={child.external ? "noopener noreferrer" : undefined} role="menuitem" data-nav-key={child.pageKey ?? ""} class="top-app-bar__submenu-item">
-									{child.icon && <Icon name={child.icon} class="text-[1.2rem]"></Icon>}{child.name}{child.external && <Icon name="material-symbols:arrow-outward-rounded" class="ml-auto text-[0.875rem]"></Icon>}
+									{child.icon && <Icon name={child.icon} class="text-[1.2rem]"></Icon>}<span data-nav-label>{child.name}</span>{child.external && <Icon name="material-symbols:arrow-outward-rounded" class="ml-auto text-[0.875rem]"></Icon>}
 								</a>;
 							})}
 						</div>}
@@ -101,13 +102,47 @@ function isActive(link: (typeof links)[number]): boolean {
 		<LightDarkSwitch client:only="svelte"></LightDarkSwitch>
 		<UserNavMenu client:only="svelte" />
 		<DisplaySettings client:only="svelte" class="top-full right-4 max-w-[calc(100vw-2rem)] md:right-0"></DisplaySettings>
-		<AuthModal client:only="svelte" />
-		<UserDrawer client:only="svelte" />
 	</div>
 </div>
 
 <script>
 	import { resolvePageKey } from "@utils/nav-utils";
+	import { getTranslation, getCurrentLang } from "@i18n/translation";
+	import I18nKey from "@i18n/i18nKey";
+
+	const NAV_I18N_MAP: Record<string, I18nKey> = {
+		home: I18nKey.home,
+		archive: I18nKey.archive,
+		friends: I18nKey.friends,
+		moments: I18nKey.moments,
+		anime: I18nKey.anime,
+		compass: I18nKey.compass,
+		skills: I18nKey.skills,
+		projects: I18nKey.projects,
+		devices: I18nKey.devices,
+		timeline: I18nKey.timeline,
+		albums: I18nKey.albums,
+		categories: I18nKey.categories,
+		tags: I18nKey.tags,
+		about: I18nKey.about,
+		more: I18nKey.more,
+	};
+
+	function updateNavLabels(lang?: string) {
+		const targetLang = lang || getCurrentLang();
+		const translations = getTranslation(targetLang);
+		document.querySelectorAll<HTMLElement>("[data-nav-key]").forEach((el) => {
+			const key = el.dataset.navKey;
+			if (!key) return;
+			const i18nKey = NAV_I18N_MAP[key];
+			if (i18nKey && translations[i18nKey]) {
+				const labelEl = el.querySelector<HTMLElement>("[data-nav-label]");
+				if (labelEl) {
+					labelEl.textContent = translations[i18nKey];
+				}
+			}
+		});
+	}
 
 	function syncTopAppBarNavigation() {
 		setTopAppBarNavigation(resolvePageKey(new URL(window.location.href)));
@@ -137,6 +172,7 @@ function isActive(link: (typeof links)[number]): boolean {
 	}
 
 	function loadTopAppBar() {
+		updateNavLabels();
 		const drawerBtn = document.getElementById("nav-drawer-switch");
 		if (drawerBtn) {
 			drawerBtn.onclick = () => {
@@ -185,6 +221,11 @@ function isActive(link: (typeof links)[number]): boolean {
 				if (event.key === "Escape") closeTopAppBarMenus();
 			});
 			window.addEventListener("popstate", syncTopAppBarNavigation);
+			window.addEventListener("shirine-lang-change", (event: any) => {
+				if (event.detail?.lang) {
+					updateNavLabels(event.detail.lang);
+				}
+			});
 		}
 	}
 
@@ -254,6 +295,21 @@ document.addEventListener('swup:content:replace', bindSearchTriggers);
 			--on-surface: white;
 			--on-surface-variant: rgba(255, 255, 255, 0.9);
 			--primary: white;
+			text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+		}
+
+		:global(.top-app-bar--transparent #shirine-lang-switch-container button),
+		:global(.top-app-bar--transparent #shirine-user-nav-container button) {
+			background-color: rgba(0, 0, 0, 0.4) !important;
+			backdrop-filter: blur(8px) !important;
+			border: 1px solid rgba(255, 255, 255, 0.35) !important;
+			color: #ffffff !important;
+			text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
+		}
+
+		:global(.top-app-bar--transparent #shirine-lang-switch-container button svg),
+		:global(.top-app-bar--transparent #shirine-user-nav-container button svg) {
+			color: #ffffff !important;
 		}
 
 			:global(.top-app-bar--transparent .top-app-bar__search-shell--expanded) {

@@ -83,7 +83,7 @@
   <button
     type="button"
     onclick={toggleDropdown}
-    class="flex items-center gap-1.5 h-10 px-2.5 rounded-full text-xs font-semibold text-[var(--on-surface-variant)] hover:text-[var(--on-surface)] hover:bg-[var(--surface-container)] transition-all border border-transparent hover:border-[var(--outline-variant)]/40 active:scale-95"
+    class="flex items-center gap-1.5 h-10 px-3 rounded-full text-xs font-bold text-[var(--on-surface)] bg-[var(--surface-container-high)]/60 hover:bg-[var(--surface-container)] backdrop-blur-md transition-all border border-[var(--outline-variant)]/40 hover:border-[var(--outline-variant)] shadow-sm active:scale-95"
     title="Switch Language / 切换语言"
     aria-expanded={open}
     aria-haspopup="true"
@@ -92,8 +92,8 @@
     <svg class="w-4 h-4 text-[var(--primary)] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
     </svg>
-    <span class="font-medium tracking-wide">{currentOption.label}</span>
-    <svg class="w-3.5 h-3.5 opacity-60 transition-transform duration-200 {open ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <span class="font-bold tracking-wide">{currentOption.label}</span>
+    <svg class="w-3.5 h-3.5 opacity-70 transition-transform duration-200 {open ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
     </svg>
   </button>
