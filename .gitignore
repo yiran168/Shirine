@@ -3,6 +3,7 @@ dist/
 build/
 .astro/
 .wrangler/
+server/wrangler.json
 doc_build/
 .cache/
 .vitepress/dist/

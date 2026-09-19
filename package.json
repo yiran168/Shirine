@@ -18,11 +18,11 @@
     "build:client": "bun run --cwd client build",
     "build:docs": "bun run --cwd docs build",
     "build": "bun run build:server && bun run build:client && bun run build:docs",
-    "deploy:server": "bun run --cwd server deploy",
-    "deploy:client": "bun run --cwd client deploy",
-    "deploy": "bun run deploy:server && bun run deploy:client",
+    "deploy:server": "bun run scripts/deploy.ts --server",
+    "deploy:client": "bun run scripts/deploy.ts --client",
+    "deploy": "bun run scripts/deploy.ts",
     "db:migrate:local": "bun run --cwd server db:migrate:local",
-    "db:migrate:remote": "bun run --cwd server db:migrate:remote",
+    "db:migrate:remote": "bun run scripts/deploy.ts --migrate",
     "test": "bun test",
     "tsc": "bun run --cwd server tsc",
     "check": "bun run --cwd server tsc --noEmit && bun run --cwd client astro check"
@@ -39,6 +39,7 @@
     "svelte-5"
   ],
   "devDependencies": {
-    "drizzle-orm": "^0.45.2"
+    "drizzle-orm": "^0.45.2",
+    "wrangler": "^3.86.0"
   }
 }
