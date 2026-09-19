@@ -122,7 +122,7 @@ export const llmsConfig: LlmsConfig = withUserConfig("llms", {
 	 *     title: "Open Source Projects",
 	 *     description: "Featured open source repositories maintained by the author.",
 	 *     items: [
-	 *       { title: "Shirine Theme", url: "https://github.com/LyraVoid/Shirine", description: "M3E blog theme for Astro." },
+	 *       { title: "Shirine Theme", url: "https://github.com/yiran168/Shirine", description: "M3E blog theme for Astro." },
 	 *     ],
 	 *   },
 	 * ]

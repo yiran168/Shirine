@@ -27,7 +27,7 @@ jobs:
         run: bun test
 
       - name: Run Typecheck
-        run: bun run tsc --noEmit
+        run: bun run check
 
       - name: Build All Workspaces
         run: bun run build

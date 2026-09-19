@@ -36,7 +36,9 @@
     if (typeof window !== "undefined") {
       localStorage.setItem("shirine_admin_lang", langCode);
       localStorage.setItem("shirine_lang", langCode);
+      document.cookie = `shirine_admin_lang=${langCode}; path=/; max-age=31536000; SameSite=Lax`;
       document.cookie = `shirine_lang=${langCode}; path=/; max-age=31536000; SameSite=Lax`;
+      document.documentElement.lang = langCode.replace("_", "-");
       const selected = SUPPORTED_LANGUAGES.find((l) => l.code === langCode);
       showMessage(`${at.languageSwitched}: ${selected ? selected.name : langCode}`);
     }
@@ -330,7 +332,9 @@
             ...siteConfigState,
             title: s.title ?? siteConfigState.title,
             subtitle: s.subtitle ?? siteConfigState.subtitle,
+            lang: s.lang ?? siteConfigState.lang,
             themeHue: s.themeColor?.hue ?? siteConfigState.themeHue,
+            themeStyle: s.themeColor?.style ?? siteConfigState.themeStyle,
             topAppBarAlign: s.topAppBar?.contentAlign ?? siteConfigState.topAppBarAlign,
             wallpaperMode: s.wallpaperMode?.defaultMode ?? siteConfigState.wallpaperMode,
             texturePreset: s.texture?.defaultPreset ?? siteConfigState.texturePreset,
@@ -894,6 +898,10 @@
         .filter(Boolean);
       const sitePayload = {
         ...siteConfigState,
+        lang: siteConfigState.lang,
+        defaultLang: siteConfigState.lang,
+        themeHue: siteConfigState.themeHue,
+        themeStyle: siteConfigState.themeStyle,
         bannerDesktop: desktopBanners.length > 0 ? desktopBanners : ["/assets/images/banner/desktop/1.webp"],
         bannerMobile: mobileBanners.length > 0 ? mobileBanners : ["/assets/images/banner/mobile/1.webp"],
         bannerSubtitles: siteConfigState.bannerSubtitles.split("\n").map((s: string) => s.trim()).filter(Boolean),
@@ -932,7 +940,8 @@
 
   onMount(async () => {
     if (typeof window !== "undefined") {
-      const savedAdminLang = localStorage.getItem("shirine_admin_lang") || localStorage.getItem("shirine_lang");
+      const urlLang = new URL(window.location.href).searchParams.get("lang");
+      const savedAdminLang = urlLang || localStorage.getItem("shirine_admin_lang") || localStorage.getItem("shirine_lang");
       if (savedAdminLang) adminLang = savedAdminLang;
       const onDocClick = (e: MouseEvent) => {
         const target = e.target as HTMLElement;

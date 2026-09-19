@@ -158,5 +158,79 @@ describe("Tier 4 - Scenario: 4-Language Switching & UI Text Parity", () => {
     expect(langSwitchContent).toContain("shirine_lang");
     expect(langSwitchContent).toContain("SUPPORTED_LANGUAGES");
   });
+
+  it("Verifies dynamic i18n runtime switching and translation output parity", async () => {
+    const { setSiteLang, i18n, getCurrentLang } = await import("../../client/src/i18n/translation");
+    const I18nKey = (await import("../../client/src/i18n/i18nKey")).default;
+
+    // Test zh_CN
+    setSiteLang("zh_CN");
+    expect(getCurrentLang()).toBe("zh_CN");
+    expect(i18n(I18nKey.archive)).toBe("归档");
+    expect(i18n(I18nKey.categories)).toBe("分类");
+    expect(i18n(I18nKey.tags)).toBe("标签");
+
+    // Test en
+    setSiteLang("en");
+    expect(getCurrentLang()).toBe("en");
+    expect(i18n(I18nKey.archive)).toBe("Archive");
+    expect(i18n(I18nKey.categories)).toBe("Categories");
+    expect(i18n(I18nKey.tags)).toBe("Tags");
+
+    // Test ja
+    setSiteLang("ja");
+    expect(getCurrentLang()).toBe("ja");
+    expect(i18n(I18nKey.search)).toBe("検索");
+    expect(i18n(I18nKey.categories)).toBe("カテゴリ");
+    expect(i18n(I18nKey.tags)).toBe("タグ");
+
+    // Test zh_TW
+    setSiteLang("zh_TW");
+    expect(getCurrentLang()).toBe("zh_TW");
+    expect(i18n(I18nKey.archive)).toBe("彙整");
+    expect(i18n(I18nKey.categories)).toBe("分類");
+    expect(i18n(I18nKey.tags)).toBe("標籤");
+
+    // Restore to zh_CN
+    setSiteLang("zh_CN");
+  });
+
+  it("Verifies Astro SSR language middleware exists and correctly binds language runtime", () => {
+    const middlewarePath = resolve(PROJECT_ROOT, "client/src/middleware.ts");
+    expect(existsSync(middlewarePath)).toBe(true);
+    const middlewareContent = readFileSync(middlewarePath, "utf-8");
+    expect(middlewareContent).toContain("defineMiddleware");
+    expect(middlewareContent).toContain("setSiteLang");
+    expect(middlewareContent).toContain("shirine_lang");
+    expect(middlewareContent).toContain("context.locals.lang");
+  });
+
+  it("Verifies admin config API persists defaultLang, lang, and themeStyle dynamically", async () => {
+    const { createTestEnv } = await import("../helpers/test-env");
+    const env = createTestEnv();
+    const admin = await env.createSuperadmin("i18n_admin", "adminpass123");
+
+    // Admin saves new language setting (ja) and themeStyle (expressive)
+    const updateRes = await env.requestJson("/api/config/site", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${admin.token}`,
+      },
+      body: JSON.stringify({
+        title: "Shirine Global",
+        lang: "ja",
+        defaultLang: "ja",
+        themeStyle: "expressive",
+      }),
+    });
+    expect(updateRes.status).toBe(200);
+
+    // Verify GET /api/config/site reflects updated language and themeStyle
+    const getRes = await env.requestJson("/api/config/site");
+    expect(getRes.status).toBe(200);
+    expect(getRes.data.data.lang).toBe("ja");
+    expect(getRes.data.data.themeColor.style).toBe("expressive");
+  });
 });
 

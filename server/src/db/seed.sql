@@ -967,10 +967,10 @@ Use warning containers to signal potential pitfalls or breaking changes.
 Embed live, beautifully styled GitHub repository cards using the directive syntax:
 
 ```markdown
-::github{repo="LyraVoid/Shirine"}
+::github{repo="yiran168/Shirine"}
 ```
 
-::github{repo="LyraVoid/Shirine"}
+::github{repo="yiran168/Shirine"}
 
 ### 5.3 Expressive Code Blocks
 
@@ -1026,9 +1026,9 @@ Images automatically integrate with Fancybox for lossless zoom, pan gestures, an
 
 ## 6. Next Steps & Customization
 
-- **Site Configuration**: Learn about global settings in `src/config/siteConfig.ts` and [`src/config/README.md`](https://github.com/LyraVoid/Shirine/blob/main/src/config/README.md).
+- **Site Configuration**: Learn about global settings in `src/config/siteConfig.ts` and [`src/config/README.md`](https://github.com/yiran168/Shirine/blob/main/src/config/README.md).
 - **Design Tokens**: Explore tokens and color palettes in `DESIGN.md` and `docs/m3e-standard.md`.
-- **Feedback & Community**: Share your ideas and questions on [GitHub Issues](https://github.com/LyraVoid/Shirine/issues).', './cover.jpeg', 'Guides', '["Shirine","Guide","Markdown","M3E","Blogging"]', 'zh_CN', 1, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787702400)
+- **Feedback & Community**: Share your ideas and questions on [GitHub Issues](https://github.com/yiran168/Shirine/issues).', './cover.jpeg', 'Guides', '["Shirine","Guide","Markdown","M3E","Blogging"]', 'zh_CN', 1, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787702400)
 ON CONFLICT(slug) DO NOTHING;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('image-grid-demo', NULL, NULL, 'Image Gallery Grid: Syntax and Complete Examples', 'A complete guide to image gallery grid syntax, parameters, cropping, responsive behavior, captions, and lightbox navigation.', '`:::grid` is the blog''s image gallery container directive. It arranges ordinary Markdown images in a responsive grid with a consistent aspect ratio and automatically enables lightbox viewing. Use it for article images, screenshots, portfolios, or small albums.
@@ -2556,7 +2556,7 @@ Wrap one Markdown ordered list in a `:::steps` container. Each top-level list it
    Clone the repository and enter the project directory.
 
    ```powershell
-   git clone https://github.com/LyraVoid/Shirine.git
+   git clone https://github.com/yiran168/Shirine.git
    Set-Location Shirine
    ```
 
@@ -2593,7 +2593,7 @@ Wrap one Markdown ordered list in a `:::steps` container. Each top-level list it
    Clone the repository and enter the project directory.
 
    ```powershell
-   git clone https://github.com/LyraVoid/Shirine.git
+   git clone https://github.com/yiran168/Shirine.git
    Set-Location Shirine
    ```
 

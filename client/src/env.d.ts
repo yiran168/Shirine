@@ -1,6 +1,12 @@
 /// <reference types="astro/client" />
 /// <reference path="../.astro/types.d.ts" />
 
+declare namespace App {
+	interface Locals {
+		lang?: string;
+	}
+}
+
 declare module "virtual:shirine-music-sidebar" {
 	const component:
 		| typeof import("@components/organisms/music/MusicSidebar.astro").default

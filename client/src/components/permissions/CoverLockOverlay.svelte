@@ -31,14 +31,24 @@
   onMount(() => {
     if (propLang) return;
     if (typeof window !== "undefined") {
-      currentLang = localStorage.getItem("shirine_lang") || document.documentElement.lang || siteConfig.lang || "zh_CN";
+      currentLang = localStorage.getItem("shirine_lang") || document.documentElement.lang?.replace("-", "_") || siteConfig.lang || "zh_CN";
       const onStorage = (e: StorageEvent) => {
         if (e.key === "shirine_lang" && e.newValue) {
           currentLang = e.newValue;
         }
       };
+      const onLangChange = (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        if (detail?.lang) {
+          currentLang = detail.lang;
+        }
+      };
       window.addEventListener("storage", onStorage);
-      return () => window.removeEventListener("storage", onStorage);
+      window.addEventListener("shirine-lang-change", onLangChange);
+      return () => {
+        window.removeEventListener("storage", onStorage);
+        window.removeEventListener("shirine-lang-change", onLangChange);
+      };
     }
   });
 

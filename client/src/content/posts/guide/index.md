@@ -150,10 +150,10 @@ Use warning containers to signal potential pitfalls or breaking changes.
 Embed live, beautifully styled GitHub repository cards using the directive syntax:
 
 ```markdown
-::github{repo="LyraVoid/Shirine"}
+::github{repo="yiran168/Shirine"}
 ```
 
-::github{repo="LyraVoid/Shirine"}
+::github{repo="yiran168/Shirine"}
 
 ### 5.3 Expressive Code Blocks
 
@@ -209,6 +209,6 @@ Images automatically integrate with Fancybox for lossless zoom, pan gestures, an
 
 ## 6. Next Steps & Customization
 
-- **Site Configuration**: Learn about global settings in `src/config/siteConfig.ts` and [`src/config/README.md`](https://github.com/LyraVoid/Shirine/blob/main/src/config/README.md).
+- **Site Configuration**: Learn about global settings in `src/config/siteConfig.ts` and [`src/config/README.md`](https://github.com/yiran168/Shirine/blob/main/src/config/README.md).
 - **Design Tokens**: Explore tokens and color palettes in `DESIGN.md` and `docs/m3e-standard.md`.
-- **Feedback & Community**: Share your ideas and questions on [GitHub Issues](https://github.com/LyraVoid/Shirine/issues).
+- **Feedback & Community**: Share your ideas and questions on [GitHub Issues](https://github.com/yiran168/Shirine/issues).

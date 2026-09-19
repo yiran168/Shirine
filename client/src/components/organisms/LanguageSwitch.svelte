@@ -1,13 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { SUPPORTED_LANGUAGES, type LanguageOption } from "../../i18n/adminI18n";
+  import { setSiteLang } from "../../i18n/translation";
 
   let open = $state(false);
   let currentLang = $state("zh_CN");
 
   onMount(() => {
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("shirine_lang");
+      const urlLang = new URL(window.location.href).searchParams.get("lang");
+      const stored = urlLang || localStorage.getItem("shirine_lang");
       if (stored) {
         currentLang = stored;
       } else {
@@ -15,6 +17,7 @@
         const found = SUPPORTED_LANGUAGES.find((l) => l.code.toLowerCase() === docLang.toLowerCase());
         if (found) currentLang = found.code;
       }
+      setSiteLang(currentLang);
 
       const onDocClick = (e: MouseEvent) => {
         const target = e.target as HTMLElement;
@@ -22,8 +25,18 @@
           open = false;
         }
       };
+      const onLangChange = (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        if (detail?.lang && detail.lang !== currentLang) {
+          currentLang = detail.lang;
+        }
+      };
       document.addEventListener("click", onDocClick);
-      return () => document.removeEventListener("click", onDocClick);
+      window.addEventListener("shirine-lang-change", onLangChange);
+      return () => {
+        document.removeEventListener("click", onDocClick);
+        window.removeEventListener("shirine-lang-change", onLangChange);
+      };
     }
   });
 
@@ -50,12 +63,15 @@
       // 3. Document attribute
       document.documentElement.lang = option.code.replace("_", "-");
 
-      // 4. Custom event for client-side components
+      // 4. Update memory runtime
+      setSiteLang(option.code);
+
+      // 5. Custom event for client-side components
       window.dispatchEvent(
         new CustomEvent("shirine-lang-change", { detail: { lang: option.code } })
       );
 
-      // 5. Reload to update SSR and static components smoothly
+      // 6. Reload to update SSR and static components smoothly
       const url = new URL(window.location.href);
       url.searchParams.set("lang", option.code);
       window.location.href = url.toString();

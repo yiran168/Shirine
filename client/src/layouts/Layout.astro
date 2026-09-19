@@ -16,6 +16,7 @@ import {
 	umamiConfig,
 } from "@/config";
 import { getDynamicSiteConfig } from "@utils/dynamic-config";
+import { setSiteLang } from "@i18n/translation";
 
 const { site: siteConfig, profile: profileConfig } = await getDynamicSiteConfig();
 import type { SidebarPage } from "@/types/sidebarConfig";
@@ -103,6 +104,7 @@ if (queryLang && queryLang !== cookieLang) {
 if (!lang) {
 	lang = queryLang || cookieLang || `${siteConfig.lang}` || "zh_CN";
 }
+setSiteLang(lang);
 siteConfig.lang = lang as any;
 const siteLang = lang.replace("_", "-");
 const fontRoleStyle = createFontRoleStyle(resolvedFontOptions);

@@ -17,7 +17,7 @@ export type Translation = {
 	[K in I18nKey]: string;
 };
 
-const defaultTranslation = en;
+const defaultTranslation = zh_CN;
 
 const map: { [key: string]: Translation } = {
 	es: es,
@@ -40,11 +40,39 @@ const map: { [key: string]: Translation } = {
 	tr_tr: tr,
 };
 
+let activeRuntimeLang: string | null = null;
+
+export function setSiteLang(lang: string) {
+	activeRuntimeLang = lang;
+	if (siteConfig) {
+		siteConfig.lang = lang as any;
+	}
+}
+
+export function getCurrentLang(): string {
+	if (typeof window !== "undefined") {
+		const stored = localStorage.getItem("shirine_lang");
+		if (stored) return stored;
+		const htmlLang = document.documentElement.lang?.replace("-", "_");
+		if (htmlLang) return htmlLang;
+	}
+	return activeRuntimeLang || siteConfig.lang || "zh_CN";
+}
+
 export function getTranslation(lang: string): Translation {
 	return map[lang.toLowerCase()] || defaultTranslation;
 }
 
-export function i18n(key: I18nKey): string {
-	const lang = siteConfig.lang || "en";
+export function i18n(key: I18nKey, langOverride?: string): string {
+	const lang = langOverride || getCurrentLang();
 	return getTranslation(lang)[key];
+}
+
+if (typeof window !== "undefined") {
+	window.addEventListener("shirine-lang-change", (e: Event) => {
+		const detail = (e as CustomEvent).detail;
+		if (detail?.lang) {
+			setSiteLang(detail.lang);
+		}
+	});
 }

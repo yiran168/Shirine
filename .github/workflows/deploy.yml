@@ -29,7 +29,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: server
-          command: d1 execute shirine-db --remote --file=./src/db/schema.sql
+          command: d1 execute ${{ vars.DB_NAME || 'shirine-db' }} --remote --file=./src/db/schema.sql
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
@@ -58,7 +58,7 @@ jobs:
       - name: Build Client
         working-directory: ./client
         env:
-          PUBLIC_API_URL: ${{ secrets.PUBLIC_API_URL }}
+          PUBLIC_API_URL: ${{ secrets.PUBLIC_API_URL || vars.PUBLIC_API_URL }}
         run: bun run build
 
       - name: Deploy to Cloudflare Pages
@@ -67,5 +67,5 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: client
-          command: pages deploy dist --project-name=shirine
+          command: pages deploy dist --project-name=${{ vars.PAGES_NAME || 'shirine' }}
 

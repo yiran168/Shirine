@@ -298,7 +298,10 @@ configRouter.put("/site", requireAdmin, async (c) => {
     if (
       "title" in body ||
       "subtitle" in body ||
+      "lang" in body ||
+      "defaultLang" in body ||
       "themeHue" in body ||
+      "themeStyle" in body ||
       "topAppBarAlign" in body ||
       "wallpaperMode" in body ||
       "texturePreset" in body ||
@@ -321,9 +324,17 @@ configRouter.put("/site", requireAdmin, async (c) => {
       const siteUpdates: Record<string, any> = {};
       if (body.title !== undefined) siteUpdates.title = body.title;
       if (body.subtitle !== undefined) siteUpdates.subtitle = body.subtitle;
-      if (body.themeHue !== undefined) {
-        const hueNum = Number(body.themeHue);
-        siteUpdates.themeColor = { hue: Number.isFinite(hueNum) ? hueNum : 315 };
+      if (body.lang !== undefined || body.defaultLang !== undefined) {
+        siteUpdates.lang = body.lang || body.defaultLang;
+      }
+      if (body.themeHue !== undefined || body.themeStyle !== undefined) {
+        const existingTheme = baseSite.themeColor || {};
+        const hueNum = body.themeHue !== undefined ? Number(body.themeHue) : existingTheme.hue;
+        siteUpdates.themeColor = {
+          ...existingTheme,
+          hue: Number.isFinite(hueNum) ? hueNum : 315,
+          style: body.themeStyle || existingTheme.style || "tonalSpot",
+        };
       }
       if (body.topAppBarAlign !== undefined) siteUpdates.topAppBar = { contentAlign: body.topAppBarAlign };
       if (body.wallpaperMode !== undefined) siteUpdates.wallpaperMode = { defaultMode: body.wallpaperMode };

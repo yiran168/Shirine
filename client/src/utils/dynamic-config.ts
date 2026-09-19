@@ -2,7 +2,9 @@ import { siteConfig } from "@/config/siteConfig";
 import { profileConfig } from "@/config/profileConfig";
 import { musicConfig } from "@/config/musicConfig";
 import { announcementConfig } from "@/config/announcementConfig";
+import { footerConfig } from "@/config/footerConfig";
 import type { TrackDescriptor } from "@/types/musicConfig";
+import { setSiteLang } from "@/i18n/translation";
 
 function deepMerge<T extends Record<string, any>>(target: T, source: any): T {
   if (!source || typeof source !== "object") return target;
@@ -31,6 +33,7 @@ export interface DynamicSiteConfigResult {
   profile: typeof profileConfig;
   music: typeof musicConfig & { tracks?: readonly TrackDescriptor[] | TrackDescriptor[] };
   announcement: typeof announcementConfig;
+  footer: typeof footerConfig;
 }
 
 let cachedPromise: Promise<DynamicSiteConfigResult> | null = null;
@@ -55,11 +58,16 @@ export async function getDynamicSiteConfig(): Promise<DynamicSiteConfigResult> {
         const json = await res.json();
         const data = json.data || json.config;
         if (json.success && data) {
+          const mergedSite = deepMerge(siteConfig, data.site || {});
+          if (mergedSite.lang) {
+            setSiteLang(mergedSite.lang);
+          }
           return {
-            site: deepMerge(siteConfig, data.site || {}),
+            site: mergedSite,
             profile: deepMerge(profileConfig, data.profile || {}),
             music: deepMerge(musicConfig, data.music || {}),
             announcement: deepMerge(announcementConfig, data.announcement || {}),
+            footer: deepMerge(footerConfig, data.footer || {}),
           };
         }
       }
@@ -70,6 +78,7 @@ export async function getDynamicSiteConfig(): Promise<DynamicSiteConfigResult> {
       profile: profileConfig,
       music: musicConfig,
       announcement: announcementConfig,
+      footer: footerConfig,
     };
   })();
 

@@ -5,12 +5,13 @@
  */
 import FooterBar from "@components/atoms/blog/FooterBar.astro";
 import { url } from "@utils/url-utils";
-import { footerConfig, profileConfig as staticProfileConfig } from "@/config";
+import { footerConfig as staticFooterConfig } from "@/config";
 import { getDynamicSiteConfig } from "@utils/dynamic-config";
 import rawFooterHtml from "@/config/FooterConfig.html?raw";
 import packageMetadata from "../../../package.json";
 
-const { profile: profileConfig } = await getDynamicSiteConfig();
+const { profile: profileConfig, footer: dynamicFooterConfig } = await getDynamicSiteConfig();
+const footerConfig = dynamicFooterConfig || staticFooterConfig;
 
 const currentYear = new Date().getFullYear();
 const links = [
@@ -18,23 +19,13 @@ const links = [
 	{ label: "Atom", href: url("atom/") },
 	{ label: "Sitemap", href: url("sitemap-index.xml"), external: true },
 ];
-const isShirinesPackage = packageMetadata.name === "shirines";
 const poweredBy = [
 	{ label: "Astro", href: "https://astro.build", external: true },
 	{
 		label: "Shirine",
-		href: "https://github.com/LyraVoid/Shirine",
+		href: "https://github.com/yiran168/Shirine",
 		external: true,
 	},
-	...(isShirinesPackage
-		? [
-				{
-					label: "shirines",
-					href: "https://github.com/yCENzh/shirines",
-					external: true,
-				},
-			]
-		: []),
 ];
 
 let customFooterHtml = "";
@@ -56,6 +47,6 @@ if (footerConfig.enable && rawFooterHtml) {
 	links={links}
 	poweredBy={poweredBy}
 	version={packageMetadata.version}
-	versionHref={isShirinesPackage ? "https://www.npmjs.com/package/shirines" : "https://github.com/LyraVoid/Shirine"}
+	versionHref="https://github.com/yiran168/Shirine"
 	customHtml={customFooterHtml}
 />

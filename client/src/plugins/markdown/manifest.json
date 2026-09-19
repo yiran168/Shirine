@@ -835,7 +835,7 @@
 				{
 					"kind": "leaf-directive",
 					"pattern": "::github{repo=\"owner/repo\"}",
-					"example": "::github{repo=\"LyraVoid/Shirine\"}"
+					"example": "::github{repo=\"yiran168/Shirine\"}"
 				}
 			],
 			"attributes": [

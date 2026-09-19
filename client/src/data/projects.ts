@@ -17,7 +17,7 @@ export const projectsData: ProjectItem[] = [
 		cover: "/assets/projects/shirine.webp",
 		coverAlt: "Shirine theme homepage preview",
 		featured: true,
-		repository: "https://github.com/LyraVoid/Shirine",
+		repository: "https://github.com/yiran168/Shirine",
 		year: "2026",
 	},
 	{
