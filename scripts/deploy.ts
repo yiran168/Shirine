@@ -14,7 +14,7 @@
  * 9. Builds and deploys the frontend Astro application to Cloudflare Pages.
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import path from "node:path";
 
 const rootDir = process.cwd();
@@ -37,6 +37,15 @@ const PUBLIC_R2_URL = getEnv("PUBLIC_R2_URL", "");
 const D1_DATABASE_ID = getEnv("D1_DATABASE_ID", "");
 const CF_API_TOKEN = getEnv("CLOUDFLARE_API_TOKEN", getEnv("CF_API_TOKEN", ""));
 const CF_ACCOUNT_ID = getEnv("CLOUDFLARE_ACCOUNT_ID", getEnv("CF_ACCOUNT_ID", ""));
+
+// Production secrets aligned with Rin parity
+const WORKER_SECRET_KEYS = [
+  "JWT_SECRET",
+  "CF_TURNSTILE_SECRET",
+  "ADMIN_USERNAME",
+  "ADMIN_PASSWORD",
+  "ALLOWED_ORIGINS",
+] as const;
 
 // Check credentials before network calls
 function checkCredentials(isPrepareOnly = false) {
@@ -72,9 +81,88 @@ function runWrangler(args: string[], cwd: string = serverDir): { exitCode: numbe
   };
 }
 
-// Strip comments for clean JSON parsing
-function stripJsonComments(jsonc: string): string {
-  return jsonc.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+// Extract JSON array even when CLI prefixes output with banners or update warnings like [WARNING]
+export function extractJsonArray(text: string): any[] | null {
+  // Match array of objects [ { ... } ]
+  const match = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+  if (match) {
+    try {
+      const parsed = JSON.parse(match[0]);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  // Also handle empty array: [ ]
+  const emptyMatch = text.match(/\[\s*\]/);
+  if (emptyMatch) {
+    try {
+      const parsed = JSON.parse(emptyMatch[0]);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+  }
+  return null;
+}
+
+// Strip comments and trailing commas for clean JSON parsing
+export function stripJsonCommentsAndTrailingCommas(jsonc: string): string {
+  return jsonc
+    .replace(/\/\/.*$/gm, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/,\s*([\]}])/g, "$1");
+}
+
+export function collectWorkerSecrets(source: Record<string, string | undefined> = process.env): Record<string, string> {
+  const secrets: Record<string, string> = {};
+  for (const key of WORKER_SECRET_KEYS) {
+    const val = source[key];
+    if (val && val.trim() && val !== "dev_fallback_jwt_secret_please_set_in_wrangler_secrets") {
+      secrets[key] = val.trim();
+    }
+  }
+  return secrets;
+}
+
+async function syncWorkerSecrets(workerName: string): Promise<void> {
+  const secrets = collectWorkerSecrets();
+  const keys = Object.keys(secrets);
+  if (keys.length === 0) {
+    console.log("ℹ️ No production worker secrets provided; skipping secret sync.");
+    return;
+  }
+
+  console.log(`🔐 Synchronizing ${keys.length} worker secret(s) (${keys.join(", ")})...`);
+  const tempFile = path.join(serverDir, ".wrangler-secrets.json");
+  writeFileSync(tempFile, JSON.stringify(secrets, null, 2), "utf-8");
+
+  try {
+    const bulkRes = runWrangler(["secret", "bulk", ".wrangler-secrets.json", "--name", workerName], serverDir);
+    if (bulkRes.exitCode === 0) {
+      console.log(`✅ Synced ${keys.length} worker secret(s) successfully via bulk upload.`);
+    } else {
+      console.warn(`⚠️ Note from secret bulk: ${bulkRes.stderr.trim() || bulkRes.stdout.trim()}`);
+      // Fallback: Individual secret put
+      for (const [k, v] of Object.entries(secrets)) {
+        try {
+          const putProc = Bun.spawnSync([bunExec, "run", "--cwd", serverDir, "wrangler", "secret", "put", k, "--name", workerName], {
+            stdin: Buffer.from(v),
+            env: {
+              ...process.env,
+              ...(CF_API_TOKEN ? { CLOUDFLARE_API_TOKEN: CF_API_TOKEN } : {}),
+              ...(CF_ACCOUNT_ID ? { CLOUDFLARE_ACCOUNT_ID: CF_ACCOUNT_ID } : {}),
+            },
+          });
+          if (putProc.exitCode === 0) {
+            console.log(`  ✅ Synced secret ${k}`);
+          }
+        } catch {}
+      }
+    }
+  } finally {
+    if (existsSync(tempFile)) {
+      try {
+        unlinkSync(tempFile);
+      } catch {}
+    }
+  }
 }
 
 // 1. Prepare Backend Configuration (D1 creation, UUID discovery, R2 creation, config patch)
@@ -96,8 +184,9 @@ export async function prepareBackendConfig(): Promise<string> {
     if (createResult.exitCode === 0) {
       console.log(`✅ Created D1 database "${DB_NAME}"`);
       // Try to parse database_id from output
-      const match = createResult.stdout.match(/database_id\s*=\s*"([0-9a-fA-F-]+)"/) ||
-                    createResult.stdout.match(/"database_id":\s*"([0-9a-fA-F-]+)"/);
+      const match =
+        createResult.stdout.match(/database_id\s*[=:]\s*["']?([0-9a-fA-F-]{36})["']?/) ||
+        createResult.stdout.match(/["']([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})["']/);
       if (match) {
         resolvedUuid = match[1];
       }
@@ -119,14 +208,19 @@ export async function prepareBackendConfig(): Promise<string> {
       console.log(`🔎 Resolving D1 UUID via "wrangler d1 list --json"...`);
       const listResult = runWrangler(["d1", "list", "--json"]);
       if (listResult.exitCode === 0 && listResult.stdout) {
-        try {
-          const list = JSON.parse(listResult.stdout) as Array<{ name: string; uuid: string }>;
-          const match = list.find((item) => item.name === DB_NAME);
-          if (match && match.uuid) {
-            resolvedUuid = match.uuid;
+        const list = extractJsonArray(listResult.stdout);
+        if (list) {
+          const match = list.find((item: any) => item && (item.name === DB_NAME || item.DatabaseName === DB_NAME));
+          if (match && (match.uuid || match.database_id)) {
+            resolvedUuid = match.uuid || match.database_id;
           }
-        } catch (err) {
-          console.warn(`⚠️ Failed to parse wrangler d1 list JSON: ${(err as Error).message}`);
+        } else {
+          // Fallback: search for UUID in raw stdout
+          const regex = new RegExp(`["']?${DB_NAME}["']?[\\s\\S]*?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`);
+          const fallbackMatch = listResult.stdout.match(regex);
+          if (fallbackMatch) {
+            resolvedUuid = fallbackMatch[1];
+          }
         }
       }
     }
@@ -180,11 +274,16 @@ export async function prepareBackendConfig(): Promise<string> {
 
     // Also write a sanitized server/wrangler.json for maximum tool compatibility
     try {
-      const cleanJson = JSON.parse(stripJsonComments(content));
+      const cleanJson = JSON.parse(stripJsonCommentsAndTrailingCommas(content));
       writeFileSync(wranglerJsonPath, JSON.stringify(cleanJson, null, 2), "utf-8");
       console.log(`📝 Generated server/wrangler.json successfully.`);
     } catch {
-      // Ignored if comment stripping is incomplete
+      // If parsing fails, remove wrangler.json so it does not shadow wrangler.jsonc with stale data
+      if (existsSync(wranglerJsonPath)) {
+        try {
+          unlinkSync(wranglerJsonPath);
+        } catch {}
+      }
     }
   }
 
@@ -230,6 +329,20 @@ export async function deployServer(): Promise<void> {
   await prepareBackendConfig();
   await migrateDatabase();
 
+  // Fail-fast guard: ensure database_id is not the invalid placeholder
+  const wranglerJsoncPath = path.join(serverDir, "wrangler.jsonc");
+  if (existsSync(wranglerJsoncPath)) {
+    const raw = readFileSync(wranglerJsoncPath, "utf-8");
+    if (raw.includes('"database_id": "shirine-db-id"')) {
+      console.error(`\n❌ [Fatal Deploy Error] Cloudflare D1 database UUID is still configured as placeholder "shirine-db-id".`);
+      console.error(`Cloudflare Workers deployment requires a real 36-character UUID of an existing D1 database.`);
+      console.error(`Please check:`);
+      console.error(`1. CLOUDFLARE_API_TOKEN has 'Workers D1:Edit' permissions so it can create or list the database.`);
+      console.error(`2. Or provide the D1 database UUID explicitly via D1_DATABASE_ID secret or variable in GitHub Actions.\n`);
+      process.exit(1);
+    }
+  }
+
   console.log(`🚀 Running "wrangler deploy" in ./server ...`);
   const deployRes = runWrangler(["deploy"], serverDir);
 
@@ -245,23 +358,8 @@ export async function deployServer(): Promise<void> {
     console.log(deployRes.stdout.trim());
   }
 
-  // Sync secrets if JWT_SECRET was supplied
-  if (JWT_SECRET && JWT_SECRET !== "dev_fallback_jwt_secret_please_set_in_wrangler_secrets") {
-    console.log(`🔐 Synchronizing JWT_SECRET secret...`);
-    const secretProc = Bun.spawnSync([bunExec, "run", "--cwd", serverDir, "wrangler", "secret", "put", "JWT_SECRET", "--name", WORKER_NAME], {
-      stdin: Buffer.from(JWT_SECRET),
-      env: {
-        ...process.env,
-        ...(CF_API_TOKEN ? { CLOUDFLARE_API_TOKEN: CF_API_TOKEN } : {}),
-        ...(CF_ACCOUNT_ID ? { CLOUDFLARE_ACCOUNT_ID: CF_ACCOUNT_ID } : {}),
-      },
-    });
-    if (secretProc.exitCode === 0) {
-      console.log(`✅ JWT_SECRET synchronized.`);
-    } else {
-      console.warn(`⚠️ Could not sync JWT_SECRET: ${secretProc.stderr?.toString().trim()}`);
-    }
-  }
+  // Bulk synchronize production secrets with Rin parity
+  await syncWorkerSecrets(WORKER_NAME);
 }
 
 // 4. Deploy Frontend Client (Cloudflare Pages)
@@ -270,12 +368,16 @@ export async function deployClient(): Promise<void> {
   console.log(`   • Project Name:   ${PAGES_NAME}`);
   console.log(`   • PUBLIC_API_URL: ${PUBLIC_API_URL || "(relative /api fallback)"}`);
 
+  checkCredentials(false);
+
   // Build client with Bun
   console.log(`🔨 Building client Astro project...`);
   const buildProc = Bun.spawnSync([bunExec, "run", "build"], {
     cwd: clientDir,
     env: {
       ...process.env,
+      NODE_ENV: "production",
+      ASTRO_TELEMETRY_DISABLED: "1",
       PUBLIC_API_URL: PUBLIC_API_URL,
     },
     stdout: "inherit",
@@ -338,7 +440,9 @@ async function main() {
   console.log(`\n🎉 Shirine full-stack deployment completed successfully!`);
 }
 
-main().catch((err) => {
-  console.error(`\n❌ Deployment encountered fatal error:`, err);
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error(`\n❌ Deployment encountered fatal error:`, err);
+    process.exit(1);
+  });
+}

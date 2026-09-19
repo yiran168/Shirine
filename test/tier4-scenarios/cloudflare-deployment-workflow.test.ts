@@ -30,6 +30,9 @@ describe("Tier 4 - Scenario: Cloudflare Deployment Workflow & Rin Parity", () =>
     expect(yml).toContain("WORKER_NAME: ${{ vars.WORKER_NAME || 'shirine-server' }}");
     expect(yml).toContain("R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME || 'shirine-storage' }}");
     expect(yml).toContain("JWT_SECRET: ${{ secrets.JWT_SECRET }}");
+    expect(yml).toContain("CF_TURNSTILE_SECRET: ${{ secrets.CF_TURNSTILE_SECRET }}");
+    expect(yml).toContain("ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}");
+    expect(yml).toContain("ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}");
     expect(yml).toContain("D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID || vars.D1_DATABASE_ID }}");
 
     // deploy-client job configuration
@@ -132,4 +135,92 @@ describe("Tier 4 - Scenario: Cloudflare Deployment Workflow & Rin Parity", () =>
       require("node:fs").writeFileSync(jsonPath, restoredJson, "utf-8");
     }
   });
+
+  it("collects worker secrets adhering to Rin parity and filters empty/default keys", async () => {
+    const { collectWorkerSecrets } = await import("../../scripts/deploy");
+    const mockEnv = {
+      JWT_SECRET: "test-jwt-secret-xyz-12345",
+      CF_TURNSTILE_SECRET: "0x4AAAAAAABBBBBBBB",
+      ADMIN_PASSWORD: "super-secure-admin-pass",
+      ALLOWED_ORIGINS: "https://shirine.pages.dev",
+      IRRELEVANT_VAR: "ignored",
+    };
+
+    const secrets = collectWorkerSecrets(mockEnv);
+    expect(secrets.JWT_SECRET).toBe("test-jwt-secret-xyz-12345");
+    expect(secrets.CF_TURNSTILE_SECRET).toBe("0x4AAAAAAABBBBBBBB");
+    expect(secrets.ADMIN_PASSWORD).toBe("super-secure-admin-pass");
+    expect(secrets.ALLOWED_ORIGINS).toBe("https://shirine.pages.dev");
+    expect((secrets as any).IRRELEVANT_VAR).toBeUndefined();
+
+    // Default dev fallback secret must be excluded
+    const fallbackEnv = {
+      JWT_SECRET: "dev_fallback_jwt_secret_please_set_in_wrangler_secrets",
+    };
+    const emptySecrets = collectWorkerSecrets(fallbackEnv);
+    expect(emptySecrets.JWT_SECRET).toBeUndefined();
+  });
+
+  it("verifies deployServer fails fast with actionable guidance if D1 UUID is unresolved placeholder", () => {
+    // Run deployServer with CI=true and no credentials, ensuring it detects placeholder shirine-db-id
+    const proc = Bun.spawnSync([process.execPath, "run", "scripts/deploy.ts", "--server"], {
+      cwd: rootDir,
+      env: {
+        ...process.env,
+        CI: "true",
+        CLOUDFLARE_API_TOKEN: "",
+        D1_DATABASE_ID: "",
+      },
+    });
+
+    // Should fail with exitCode 1 and explain missing token or unresolved D1 UUID
+    expect(proc.exitCode).toBe(1);
+    const combinedOutput = (proc.stdout?.toString() || "") + (proc.stderr?.toString() || "");
+    expect(combinedOutput).toContain("CLOUDFLARE_API_TOKEN");
+  });
+
+  it("extracts JSON array resiliently from CLI output containing warnings and banners", async () => {
+    const { extractJsonArray, stripJsonCommentsAndTrailingCommas } = await import("../../scripts/deploy");
+
+    const noisyOutput = `
+▲ [WARNING] The version of Wrangler you are using is now out-of-date.
+  Run \`npm install --save-dev wrangler@4\` to update.
+
+[
+  {
+    "uuid": "4c8f1e58-693c-4bc3-9580-f00e39527ec5",
+    "name": "shirine-db",
+    "created_at": "2024-11-01T00:00:00.000Z"
+  }
+]
+
+🪵 Logs were written to wrangler.log
+`;
+    const parsed = extractJsonArray(noisyOutput);
+    expect(parsed).not.toBeNull();
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed![0].name).toBe("shirine-db");
+    expect(parsed![0].uuid).toBe("4c8f1e58-693c-4bc3-9580-f00e39527ec5");
+
+    // Test comments and trailing commas stripping
+    const jsoncWithTrailing = `
+    {
+      // Database binding
+      "name": "shirine",
+      /* Multi-line
+         comment */
+      "items": [1, 2, ],
+      "nested": {
+        "key": "val",
+      },
+    }
+    `;
+    const cleaned = stripJsonCommentsAndTrailingCommas(jsoncWithTrailing);
+    expect(() => JSON.parse(cleaned)).not.toThrow();
+    const cleanParsed = JSON.parse(cleaned);
+    expect(cleanParsed.name).toBe("shirine");
+    expect(cleanParsed.items).toEqual([1, 2]);
+    expect(cleanParsed.nested.key).toBe("val");
+  });
 });
+
