@@ -390,6 +390,22 @@ export async function deployClient(): Promise<void> {
   }
   console.log(`✅ Client built successfully into ./client/dist`);
 
+  // Ensure Cloudflare Pages project exists
+  console.log(`📦 Checking Cloudflare Pages project "${PAGES_NAME}"...`);
+  const createProjRes = runWrangler(["pages", "project", "create", PAGES_NAME, "--production-branch=main"], clientDir);
+  if (createProjRes.exitCode === 0) {
+    console.log(`✅ Created Cloudflare Pages project "${PAGES_NAME}"`);
+  } else if (
+    createProjRes.stderr.includes("already exists") ||
+    createProjRes.stdout.includes("already exists") ||
+    createProjRes.stderr.includes("8000002") ||
+    createProjRes.stdout.includes("8000002")
+  ) {
+    console.log(`ℹ️ Cloudflare Pages project "${PAGES_NAME}" already exists on Cloudflare.`);
+  } else {
+    console.warn(`⚠️ Note from Pages project create: ${createProjRes.stderr.trim() || createProjRes.stdout.trim()}`);
+  }
+
   // Deploy to Cloudflare Pages
   console.log(`🚀 Deploying ./client/dist to Cloudflare Pages project "${PAGES_NAME}"...`);
   const pagesRes = runWrangler(["pages", "deploy", "dist", `--project-name=${PAGES_NAME}`], clientDir);

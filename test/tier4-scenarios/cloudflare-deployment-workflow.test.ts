@@ -77,6 +77,9 @@ describe("Tier 4 - Scenario: Cloudflare Deployment Workflow & Rin Parity", () =>
     expect(deployTs).toContain("list");
     expect(deployTs).toContain("--json");
     expect(deployTs).toContain("-y");
+    expect(deployTs).toContain("pages");
+    expect(deployTs).toContain("project");
+    expect(deployTs).toContain("create");
   });
 
   it("simulates prepareBackendConfig behavior with mock UUID injection", () => {
