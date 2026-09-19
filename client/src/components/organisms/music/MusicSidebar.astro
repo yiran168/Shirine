@@ -4,13 +4,11 @@ import WidgetLayout from "@components/molecules/WidgetLayout.astro";
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import { resolveImageAsset } from "@utils/asset-utils";
-import stylus from "stylus";
 import { musicConfig as staticMusicConfig, resolveMusicOptions } from "@/config/musicConfig";
 import { musicTracks } from "@/data/music";
 import { getDynamicSiteConfig } from "@utils/dynamic-config";
 import type { MusicWidget } from "@/types/sidebarConfig";
 import MusicSidebarClient from "./MusicSidebarClient.svelte";
-import { musicSidebarStylus } from "./musicSidebarStyles";
 
 interface Props {
 	class?: string;
@@ -67,14 +65,6 @@ const optimizedOptions = options
 			),
 		}
 	: null;
-const musicSidebarStyles = options
-	? await new Promise<string>((resolve, reject) => {
-			stylus.render(musicSidebarStylus, (error, css) => {
-				if (error) reject(error);
-				else resolve(css);
-			});
-		})
-	: null;
 const labels = {
 	previous: i18n(I18nKey.musicPrevious),
 	play: i18n(I18nKey.musicPlay),
@@ -103,15 +93,16 @@ const labels = {
 ---
 
 {optimizedOptions && (
-	<>
-		<style is:inline set:html={musicSidebarStyles}></style>
-		<WidgetLayout
-			name={i18n(I18nKey.musicPlayerTitle)}
-			id="sidebar-music-player"
-			class={className}
-			style={style}
-		>
-			<MusicSidebarClient client:load options={optimizedOptions} {labels} />
-		</WidgetLayout>
-	</>
+	<WidgetLayout
+		name={i18n(I18nKey.musicPlayerTitle)}
+		id="sidebar-music-player"
+		class={className}
+		style={style}
+	>
+		<MusicSidebarClient client:load options={optimizedOptions} {labels} />
+	</WidgetLayout>
 )}
+
+<style lang="stylus" is:global>
+@import "./musicSidebarStyles.styl"
+</style>

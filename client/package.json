@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "bun run ../scripts/generate-icons.ts",
     "dev": "astro dev --port 4321",
     "start": "astro dev --port 4321",
     "prebuild": "bun run ../scripts/generate-icons.ts",

@@ -392,7 +392,14 @@ export async function deployClient(): Promise<void> {
 
   // Ensure Cloudflare Pages project exists
   console.log(`📦 Checking Cloudflare Pages project "${PAGES_NAME}"...`);
-  const createProjRes = runWrangler(["pages", "project", "create", PAGES_NAME, "--production-branch=main"], clientDir);
+  const createProjRes = runWrangler([
+    "pages",
+    "project",
+    "create",
+    PAGES_NAME,
+    "--production-branch=main",
+    "--compatibility-flags=nodejs_compat"
+  ], clientDir);
   if (createProjRes.exitCode === 0) {
     console.log(`✅ Created Cloudflare Pages project "${PAGES_NAME}"`);
   } else if (

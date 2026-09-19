@@ -1,7 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fromHtml } from "hast-util-from-html";
-import sharp from "sharp";
 
 /**
  * rehype 插件：Markdown 图片通用增强。
@@ -146,6 +145,98 @@ function onlyImageChild(node) {
 		: null;
 }
 
+function getImageSize(buffer) {
+	if (!buffer || buffer.length < 16) return undefined;
+	// PNG
+	if (
+		buffer[0] === 0x89 &&
+		buffer[1] === 0x50 &&
+		buffer[2] === 0x4e &&
+		buffer[3] === 0x47
+	) {
+		return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
+	}
+	// GIF
+	if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+		return { width: buffer.readUInt16LE(6), height: buffer.readUInt16LE(8) };
+	}
+	// WebP
+	if (
+		buffer[0] === 0x52 &&
+		buffer[1] === 0x49 &&
+		buffer[2] === 0x46 &&
+		buffer[3] === 0x46 &&
+		buffer.subarray(8, 12).toString() === "WEBP"
+	) {
+		const type = buffer.subarray(12, 16).toString();
+		if (type === "VP8 " && buffer.length >= 30) {
+			return {
+				width: buffer.readUInt16LE(26) & 0x3fff,
+				height: buffer.readUInt16LE(28) & 0x3fff,
+			};
+		}
+		if (type === "VP8L" && buffer.length >= 25) {
+			const b1 = buffer[21],
+				b2 = buffer[22],
+				b3 = buffer[23],
+				b4 = buffer[24];
+			return {
+				width: 1 + (((b2 & 0x3f) << 8) | b1),
+				height: 1 + (((b4 & 0xf) << 10) | (b3 << 2) | ((b2 & 0xc0) >> 6)),
+			};
+		}
+		if (type === "VP8X" && buffer.length >= 30) {
+			return {
+				width: 1 + buffer.readUIntLE(24, 3),
+				height: 1 + buffer.readUIntLE(27, 3),
+			};
+		}
+	}
+	// JPEG
+	if (buffer[0] === 0xff && buffer[1] === 0xd8) {
+		let offset = 2;
+		while (offset + 4 < buffer.length) {
+			if (buffer[offset] !== 0xff) break;
+			const marker = buffer[offset + 1];
+			if (
+				(marker >= 0xc0 && marker <= 0xc3) ||
+				(marker >= 0xc5 && marker <= 0xc7) ||
+				(marker >= 0xc9 && marker <= 0xcb) ||
+				(marker >= 0xcd && marker <= 0xcf)
+			) {
+				return {
+					height: buffer.readUInt16BE(offset + 5),
+					width: buffer.readUInt16BE(offset + 7),
+				};
+			}
+			const length = buffer.readUInt16BE(offset + 2);
+			offset += 2 + length;
+		}
+	}
+	// SVG
+	if (buffer.subarray(0, 100).toString().includes("<svg")) {
+		const str = buffer.toString("utf8", 0, Math.min(buffer.length, 2048));
+		const w = str.match(/width=["'](\d+(?:\.\d+)?)(?:px)?["']/);
+		const h = str.match(/height=["'](\d+(?:\.\d+)?)(?:px)?["']/);
+		if (w && h) {
+			return {
+				width: Math.round(parseFloat(w[1])),
+				height: Math.round(parseFloat(h[1])),
+			};
+		}
+		const vb = str.match(
+			/viewBox=["']\s*\d+\s+\d+\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*["']/,
+		);
+		if (vb) {
+			return {
+				width: Math.round(parseFloat(vb[1])),
+				height: Math.round(parseFloat(vb[2])),
+			};
+		}
+	}
+	return undefined;
+}
+
 async function readImageDimensions(src, filePath) {
 	if (!src || /^(?:https?:|data:|\/\/)/i.test(src)) return undefined;
 	const candidates = [];
@@ -156,10 +247,10 @@ async function readImageDimensions(src, filePath) {
 	}
 	for (const candidate of candidates) {
 		try {
-			await fs.access(candidate);
-			const metadata = await sharp(candidate).metadata();
-			if (metadata.width && metadata.height) {
-				return { width: metadata.width, height: metadata.height };
+			const buf = await fs.readFile(candidate);
+			const dimensions = getImageSize(buf);
+			if (dimensions) {
+				return dimensions;
 			}
 		} catch {
 			// Missing or unsupported files are left untouched for runtime handling.

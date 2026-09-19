@@ -1,6 +1,6 @@
 // biome-ignore lint/suspicious/noShadowRestrictedNames: <toString from mdast-util-to-string>
 import { toString } from "mdast-util-to-string";
-import getReadingTime from "reading-time";
+import getReadingTime from "reading-time/lib/reading-time.js";
 
 export function remarkReadingTime() {
 	return (tree, { data }) => {

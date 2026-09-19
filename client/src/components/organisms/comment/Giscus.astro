@@ -2,7 +2,6 @@
 import LoadingIndicator from "@components/atoms/feedback/LoadingIndicator.svelte";
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
-import stylus from "stylus";
 import type { CommentContext, GiscusConfig } from "@/types/commentConfig";
 
 interface Props {
@@ -69,52 +68,6 @@ function resolveGiscusLang(lang: string): string {
 }
 const resolvedLang =
 	config.lang === "auto" ? resolveGiscusLang(context.language) : config.lang;
-const giscusStylus = `/* ==========================================================================
-	   Giscus 最小化补丁（Minimal Patch）
-	   giscus 通过 iframe 自绘主题（data-theme），此处不做 iframe 内部样式接管，
-	   仅处理外壳：骨架屏状态感知、iframe 适配与容器语义令牌。
-	   ========================================================================== */
-
-	.shirine-giscus-wrapper
-		position: relative
-		min-height: 10rem
-
-	/* 骨架屏：CSS :has() 感知 giscus iframe 是否已挂载（L4：不引入 MutationObserver/轮询） */
-	.giscus-skeleton
-		display: flex
-		flex-direction: column
-		align-items: center
-		justify-content: center
-		gap: var(--m3e-space-3, 0.75rem)
-		width: 100%
-		min-height: 10rem
-		padding-block: var(--m3e-space-6, 1.5rem)
-		color: var(--on-surface-variant)
-		font-size: 0.875rem
-
-	.shirine-giscus-wrapper:has(.giscus)
-		.giscus-skeleton
-			display: none !important
-
-	/* iframe 外壳适配：宽度撑满、去边框；iframe 内部主题由 giscus data-theme 负责 */
-	.giscus
-		width: 100%
-
-	.giscus-frame
-		width: 100%
-		border: none
-		color-scheme: normal
-
-	/* 挂载容器收缩到实际内容高度，避免 giscus 挂载后残留多余空白 */
-	.giscus
-		line-height: 0`;
-
-const giscusStyles = await new Promise<string>((resolve, reject) => {
-	stylus.render(giscusStylus, (error, css) => {
-		if (error) reject(error);
-		else resolve(css);
-	});
-});
 ---
 
 <div
@@ -152,7 +105,36 @@ const giscusStyles = await new Promise<string>((resolve, reject) => {
 	</noscript>
 </div>
 
-<style is:inline set:html={giscusStyles}></style>
+<style lang="stylus" is:global>
+.shirine-giscus-wrapper
+	position: relative
+	min-height: 10rem
+
+.giscus-skeleton
+	display: flex
+	flex-direction: column
+	align-items: center
+	justify-content: center
+	gap: var(--m3e-space-3, 0.75rem)
+	width: 100%
+	min-height: 10rem
+	padding-block: var(--m3e-space-6, 1.5rem)
+	color: var(--on-surface-variant)
+	font-size: 0.875rem
+
+.shirine-giscus-wrapper:has(.giscus)
+	.giscus-skeleton
+		display: none !important
+
+.giscus
+	width: 100%
+	line-height: 0
+
+.giscus-frame
+	width: 100%
+	border: none
+	color-scheme: normal
+</style>
 
 <script>
 	// Giscus 挂载说明：client.js 是一次性 IIFE，挂载逻辑绑定 document.currentScript.dataset，

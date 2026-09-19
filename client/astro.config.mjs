@@ -1,5 +1,5 @@
-import { existsSync } from "node:fs";
-import { basename, extname } from "node:path";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import cloudflare from "@astrojs/cloudflare";
 import mdx from "@astrojs/mdx";
@@ -97,6 +97,28 @@ const shikiVirtualPlugin = {
 	},
 };
 
+const cloudflareWorkerManifestIntegration = {
+	name: "astro-cloudflare-worker-manifest-fix",
+	hooks: {
+		"astro:build:ssr": ({ manifest }) => {
+			cloudflareWorkerManifestIntegration._manifest = manifest;
+		},
+		"astro:build:done": ({ dir, logger }) => {
+			const ssrManifest = cloudflareWorkerManifestIntegration._manifest;
+			if (!ssrManifest) return;
+			const workerFile = join(fileURLToPath(dir), "_worker.js", "index.js");
+			if (!existsSync(workerFile)) return;
+			let content = readFileSync(workerFile, "utf-8");
+			if (content.includes("@@ASTRO_MANIFEST_REPLACE@@")) {
+				const replaceExp = /['"`]@@ASTRO_MANIFEST_REPLACE@@['"`]/g;
+				content = content.replace(replaceExp, () => JSON.stringify(ssrManifest));
+				writeFileSync(workerFile, content, "utf-8");
+				logger.info("Injected serialized SSR manifest into Cloudflare worker bundle.");
+			}
+		},
+	},
+};
+
 // https://astro.build/config
 export default defineConfig({
 	site: siteConfig.site,
@@ -106,7 +128,7 @@ export default defineConfig({
 		platformProxy: {
 			enabled: true,
 		},
-		imageService: "compile",
+		imageService: "passthrough",
 	}),
 	trailingSlash: "always",
 	fonts: configuredFonts,
@@ -185,6 +207,7 @@ export default defineConfig({
 			syntaxHighlight: false,
 			optimize: true,
 		}),
+		cloudflareWorkerManifestIntegration,
 	],
 	markdown: {
 		syntaxHighlight: false,
