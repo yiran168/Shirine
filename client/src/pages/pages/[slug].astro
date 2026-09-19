@@ -38,9 +38,9 @@ if (!pageData) {
 
 const htmlContent = pageData.content ? renderDynamicMarkdown(pageData.content) : "";
 const formattedDate = pageData.updatedAt
-	? formatDateToYYYYMMDD(pageData.updatedAt)
+	? formatDateToYYYYMMDD(new Date(pageData.updatedAt))
 	: pageData.createdAt
-	? formatDateToYYYYMMDD(pageData.createdAt)
+	? formatDateToYYYYMMDD(new Date(pageData.createdAt))
 	: "";
 ---
 

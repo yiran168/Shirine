@@ -149,7 +149,7 @@ if (resolvedAlbum.password) {
 				</div>
 				{resolvedAlbum.tags.length > 0 && (
 					<div class="album-detail__tags" aria-label={i18n(I18nKey.tags)}>
-						{resolvedAlbum.tags.map((tag) => <span>#{tag}</span>)}
+						{resolvedAlbum.tags.map((tag: string) => <span>#{tag}</span>)}
 					</div>
 				)}
 			</div>

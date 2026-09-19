@@ -20,8 +20,18 @@
           menuOpen = false;
         }
       };
+      const onLangChange = (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        if (detail?.lang) {
+          currentLang = detail.lang;
+        }
+      };
       document.addEventListener("click", onDocClick);
-      return () => document.removeEventListener("click", onDocClick);
+      window.addEventListener("shirine-lang-change", onLangChange);
+      return () => {
+        document.removeEventListener("click", onDocClick);
+        window.removeEventListener("shirine-lang-change", onLangChange);
+      };
     }
   });
 

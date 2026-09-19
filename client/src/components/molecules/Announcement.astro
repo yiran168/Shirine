@@ -15,20 +15,22 @@ interface Props {
 }
 const className = Astro.props.class;
 const style = Astro.props.style;
-const contentText = config.content || config.text || "";
+const contentText = config.content || (config as any).text || "";
 const link = config.link;
 const isDangerousProtocol = Boolean(link?.url && /^(javascript|vbscript|data):/i.test(link.url.trim()));
-const hasLink = Boolean(link && link.enable !== false && link.text && link.url && !isDangerousProtocol);
-const safeUrl = hasLink ? url(link.url) : "#";
-const isExternal =
+const hasLink = Boolean(link && (link as any).enable !== false && link.text && link.url && !isDangerousProtocol);
+const safeUrl = hasLink && link ? url(link.url) : "#";
+const isExternal = Boolean(
 	hasLink &&
-	(link.external === true ||
-		(/^https?:\/\//i.test(link.url) && link.external !== false));
-const closeDuration = Number(config.closeDuration ?? 86400);
+	link &&
+	((link as any).external === true ||
+		(/^https?:\/\//i.test(link.url) && (link as any).external !== false))
+);
+const closeDuration = Number((config as any).closeDuration ?? 86400);
 ---
 
 <!-- 组件显示由 config.enable 与内容共同控制 -->
-{config.enable !== false && contentText && (
+{(config as any).enable !== false && contentText && (
 	<WidgetLayout
 		name={config.title || i18n(I18nKey.announcement)}
 		id="announcement"
@@ -42,10 +44,10 @@ const closeDuration = Number(config.closeDuration ?? 86400);
 			</div>
 
 			<!-- 可选链接和关闭按钮 -->
-			{(hasLink || config.closable) && (
+			{(hasLink || (config as any).closable) && (
 				<div class="flex items-center justify-between gap-3">
 					<div>
-						{hasLink && (
+						{hasLink && link && (
 							<a
 								href={safeUrl}
 								target={isExternal ? "_blank" : "_self"}

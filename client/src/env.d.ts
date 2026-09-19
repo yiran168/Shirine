@@ -23,3 +23,31 @@ declare module "*scripts/anime/providers/bilibili.mjs" {
 		rawItems: unknown[];
 	}>;
 }
+
+declare module "hast" {
+	export type Element = any;
+	export type Root = any;
+	export type Node = any;
+}
+
+declare module "mdast" {
+	export type Root = any;
+	export type Node = any;
+}
+
+declare module "markdown-it" {
+	const MarkdownIt: any;
+	export default MarkdownIt;
+}
+
+declare module "sanitize-html" {
+	const sanitizeHtml: any;
+	export default sanitizeHtml;
+}
+
+declare module "qrcode" {
+	export function toDataURL(text: string, options?: any): Promise<string>;
+	export function toString(text: string, options?: any): Promise<string>;
+	export function toCanvas(canvas: any, text: string, options?: any): Promise<void>;
+}
+

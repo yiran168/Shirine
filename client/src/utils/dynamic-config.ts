@@ -29,7 +29,7 @@ function deepMerge<T extends Record<string, any>>(target: T, source: any): T {
 export interface DynamicSiteConfigResult {
   site: typeof siteConfig;
   profile: typeof profileConfig;
-  music: typeof musicConfig & { tracks?: TrackDescriptor[] };
+  music: typeof musicConfig & { tracks?: readonly TrackDescriptor[] | TrackDescriptor[] };
   announcement: typeof announcementConfig;
 }
 
@@ -44,7 +44,7 @@ export async function getDynamicSiteConfig(): Promise<DynamicSiteConfigResult> {
   }
 
   cachedTime = now;
-  cachedPromise = (async () => {
+  const promise = (async (): Promise<DynamicSiteConfigResult> => {
     const rawBase = (import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api").replace(/\/$/, "");
     const apiBase = rawBase.endsWith("/api") ? rawBase : `${rawBase}/api`;
     try {
@@ -73,5 +73,6 @@ export async function getDynamicSiteConfig(): Promise<DynamicSiteConfigResult> {
     };
   })();
 
-  return cachedPromise;
+  cachedPromise = promise;
+  return promise;
 }

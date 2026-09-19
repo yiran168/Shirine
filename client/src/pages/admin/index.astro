@@ -4,10 +4,13 @@ export const prerender = false;
 import AdminDashboard from "@components/admin/AdminDashboard.svelte";
 import Live2DControl from "@components/features/pio/Live2DControl.svelte";
 import "@/styles/main.css";
+
+const cookieLang = Astro.cookies.get("shirine_admin_lang")?.value || Astro.cookies.get("shirine_lang")?.value || "zh_CN";
+const htmlLang = cookieLang.replace("_", "-");
 ---
 
 <!doctype html>
-<html lang="zh_CN" class="h-full">
+<html lang={htmlLang} class="h-full">
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
