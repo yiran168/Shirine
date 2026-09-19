@@ -896,7 +896,7 @@ describe("Adversarial: Security & API Stress Verification", () => {
       expect(res.data.error).toContain("Turnstile");
 
       env.close();
-    });
+    }, 10000);
 
     it("Adv 6.3: Missing secret key fails closed rather than allowing bypass", async () => {
       const env = createTestEnv({

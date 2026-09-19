@@ -583,6 +583,7 @@ configRouter.get("/system", async (c) => {
       turnstileSiteKey: sys.turnstile.siteKey,
       defaultLang: sys.i18n.defaultLang,
       live2dGuestEnabled: sys.live2d.guestEnabled,
+      live2dModel: sys.live2d?.model || defaultSystemConfig.live2d.model,
     };
 
     return c.json({

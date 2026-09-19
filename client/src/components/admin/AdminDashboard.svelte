@@ -156,6 +156,17 @@
   let momentMood = $state("✨");
   let momentLocation = $state("");
   let momentPhotos = $state<string[]>([]);
+  let momentModalOpen = $state(false);
+  let editingMoment = $state<any>(null);
+  let editMomentForm = $state({
+    id: 0,
+    content: "",
+    mood: "✨",
+    location: "",
+    photos: [] as string[],
+    pinned: false,
+    draft: false,
+  });
 
   // Pages State
   let pages = $state<any[]>([]);
@@ -227,7 +238,7 @@
     turnstileSecretKey: "",
     live2dGuestEnable: true,
     live2dAdminEnable: true,
-    live2dModel: "pio",
+    live2dModel: "/pio/models/NOIR/noir.model3.json",
   });
 
   function showMessage(msg: string, isError = false) {
@@ -617,6 +628,56 @@
     }
   }
 
+  function openEditMomentModal(moment: any) {
+    editingMoment = moment;
+    let photos: string[] = [];
+    if (Array.isArray(moment.images)) {
+      photos = moment.images.map((img: any) => (typeof img === "string" ? img : img?.src || "")).filter(Boolean);
+    } else if (Array.isArray(moment.photos)) {
+      photos = moment.photos.filter(Boolean);
+    }
+    editMomentForm = {
+      id: moment.id,
+      content: moment.content || "",
+      mood: moment.mood || "✨",
+      location: moment.location || "",
+      photos,
+      pinned: Boolean(moment.pinned),
+      draft: Boolean(moment.draft),
+    };
+    momentModalOpen = true;
+  }
+
+  function removeEditMomentPhoto(index: number) {
+    editMomentForm.photos = editMomentForm.photos.filter((_, i) => i !== index);
+  }
+
+  async function saveMomentEdit() {
+    if (!editMomentForm.content.trim()) return showMessage("请输入动态内容", true);
+    try {
+      const payload = {
+        content: editMomentForm.content.trim(),
+        mood: editMomentForm.mood.trim(),
+        location: editMomentForm.location.trim(),
+        photos: editMomentForm.photos,
+        images: editMomentForm.photos.map((url) => ({ src: url, alt: "" })),
+        pinned: editMomentForm.pinned ? 1 : 0,
+        draft: editMomentForm.draft ? 1 : 0,
+      };
+      const res = await momentsApi.update(editMomentForm.id, payload);
+      if (res.success) {
+        showMessage("动态日记更新成功！");
+        momentModalOpen = false;
+        editingMoment = null;
+        loadTabData("moments");
+      } else {
+        showMessage(res.error || "更新失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message || "请求异常", true);
+    }
+  }
+
   // --- Pages Operations ---
   function openNewPageModal() {
     editingPage = null;
@@ -921,7 +982,7 @@
   }
 
   // --- Image Upload Helper ---
-  async function handleFileUpload(e: Event, targetField: "postCover" | "albumCover" | "momentPhoto") {
+  async function handleFileUpload(e: Event, targetField: "postCover" | "albumCover" | "momentPhoto" | "editMomentPhoto") {
     const input = e.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
     const file = input.files[0];
@@ -933,6 +994,7 @@
       if (targetField === "postCover") postForm.image = res.url;
       else if (targetField === "albumCover") albumForm.cover = res.url;
       else if (targetField === "momentPhoto") momentPhotos = [...momentPhotos, res.url];
+      else if (targetField === "editMomentPhoto") editMomentForm.photos = [...editMomentForm.photos, res.url];
     } else {
       showMessage(res.error || "上传失败", true);
     }
@@ -1491,17 +1553,34 @@
           <div class="space-y-4 max-w-2xl">
             {#each moments as moment}
               <div class="p-5 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 flex items-start justify-between">
-                <div>
-                  <div class="flex items-center gap-2 mb-2 text-xs">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-2 text-xs flex-wrap">
                     <span class="text-base">{moment.mood || "✨"}</span>
                     <span class="font-semibold text-[var(--on-surface)]">{new Date(moment.createdAt).toLocaleString()}</span>
                     {#if moment.location}<span class="text-[var(--on-surface-variant)]">· {moment.location}</span>{/if}
+                    {#if moment.pinned}<span class="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold">置顶</span>{/if}
+                    {#if moment.draft}<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 font-bold">草稿</span>{/if}
                   </div>
                   <p class="text-sm leading-relaxed whitespace-pre-wrap">{moment.content}</p>
+                  {#if (moment.images && moment.images.length > 0) || (moment.photos && moment.photos.length > 0)}
+                    <div class="flex gap-2 mt-3 overflow-x-auto">
+                      {#each (moment.images || moment.photos) as img}
+                        <img src={typeof img === 'string' ? img : (img.src || img.url)} alt="" class="w-12 h-12 rounded-xl object-cover ring-1 ring-primary/20" />
+                      {/each}
+                    </div>
+                  {/if}
                 </div>
-                <button onclick={() => deleteMoment(moment.id)} class="text-xs text-error hover:underline shrink-0 ml-4">删除</button>
+                <div class="space-x-2 shrink-0 ml-4">
+                  <button onclick={() => openEditMomentModal(moment)} class="text-xs text-primary hover:underline font-medium">编辑</button>
+                  <button onclick={() => deleteMoment(moment.id)} class="text-xs text-error hover:underline font-medium">删除</button>
+                </div>
               </div>
             {/each}
+            {#if moments.length === 0}
+              <div class="p-8 text-center text-xs text-[var(--on-surface-variant)] rounded-2xl border border-[var(--outline-variant)]/20 bg-[var(--surface)]">
+                暂无动态日记，在上方发布第一条日常随笔吧
+              </div>
+            {/if}
           </div>
 
         {:else if currentTab === "pages"}
@@ -1798,7 +1877,7 @@
               <p class="text-xs text-[var(--on-surface-variant)] mb-4">
                 独立控制访客端与管理员后台看板娘的显示与沙箱挂载。
               </p>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <label class="flex items-center gap-3 p-3 rounded-2xl border border-[var(--outline-variant)]/20 cursor-pointer">
                   <input type="checkbox" bind:checked={systemConfigState.live2dGuestEnable} class="w-4 h-4 text-primary rounded" />
                   <span class="text-sm font-medium">前台博客页面展示看板娘</span>
@@ -1807,6 +1886,19 @@
                   <input type="checkbox" bind:checked={systemConfigState.live2dAdminEnable} class="w-4 h-4 text-primary rounded" />
                   <span class="text-sm font-medium">后台管理页面展示看板娘</span>
                 </label>
+              </div>
+
+              <div>
+                <label class="text-xs font-semibold block mb-1.5">Live2D 模型配置文件路径 (Model JSON URL / Path)</label>
+                <input
+                  type="text"
+                  bind:value={systemConfigState.live2dModel}
+                  placeholder="/pio/models/NOIR/noir.model3.json"
+                  class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono"
+                />
+                <p class="text-[11px] text-[var(--on-surface-variant)] mt-1.5">
+                  默认内置看板娘模型路径为 <code>/pio/models/NOIR/noir.model3.json</code>，亦支持配置其他自建静态路径或合法外部 CDN 链接。
+                </p>
               </div>
             </div>
 
@@ -2396,6 +2488,96 @@
         <div class="pt-4 border-t border-[var(--outline-variant)]/20 flex items-center justify-end gap-3">
           <button onclick={() => (albumModalOpen = false)} class="px-5 py-2 rounded-full border border-[var(--outline-variant)]/40 text-xs font-medium hover:bg-[var(--surface-container)]">取消</button>
           <button onclick={saveAlbum} class="px-6 py-2 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105">保存相册</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Moment Edit Modal -->
+  {#if momentModalOpen}
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl">
+        <div class="flex items-center justify-between pb-4 border-b border-[var(--outline-variant)]/20">
+          <h2 class="text-xl font-bold">编辑动态日记</h2>
+          <button onclick={() => (momentModalOpen = false)} class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto py-4 space-y-4 pr-2">
+          <div>
+            <label class="text-xs font-semibold block mb-1">动态正文内容 *</label>
+            <textarea
+              bind:value={editMomentForm.content}
+              rows="4"
+              class="w-full p-3.5 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none resize-none"
+            ></textarea>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="text-xs font-semibold block mb-1">心情状态 (Emoji 或文字)</label>
+              <input
+                type="text"
+                bind:value={editMomentForm.mood}
+                placeholder="✨"
+                class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+              />
+            </div>
+            <div>
+              <label class="text-xs font-semibold block mb-1">发布地点</label>
+              <input
+                type="text"
+                bind:value={editMomentForm.location}
+                placeholder="城市 / 坐标"
+                class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="text-xs font-semibold">附带图片列表 ({editMomentForm.photos.length} 张)</label>
+              <label class="text-xs px-3 py-1.5 rounded-xl bg-[var(--surface-container)] hover:bg-[var(--surface-container-high)] text-xs font-medium cursor-pointer flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <span>上传新图片</span>
+                <input type="file" accept="image/*" class="hidden" onchange={(e) => handleFileUpload(e, "editMomentPhoto")} />
+              </label>
+            </div>
+            {#if editMomentForm.photos.length > 0}
+              <div class="grid grid-cols-3 gap-2">
+                {#each editMomentForm.photos as photo, idx}
+                  <div class="relative group rounded-xl overflow-hidden border border-[var(--outline-variant)]/20">
+                    <img src={photo} alt="" class="w-full h-20 object-cover" />
+                    <button
+                      type="button"
+                      onclick={() => removeEditMomentPhoto(idx)}
+                      class="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-white hover:bg-error transition-colors"
+                      title="移除图片"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+
+          <div class="flex items-center gap-6 pt-2">
+            <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold">
+              <input type="checkbox" bind:checked={editMomentForm.pinned} class="w-4 h-4 text-primary rounded" />
+              <span>置顶此动态</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold">
+              <input type="checkbox" bind:checked={editMomentForm.draft} class="w-4 h-4 text-primary rounded" />
+              <span>存为草稿 (仅管理员可见)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-[var(--outline-variant)]/20 flex items-center justify-end gap-3">
+          <button onclick={() => (momentModalOpen = false)} class="px-5 py-2 rounded-full border border-[var(--outline-variant)]/40 text-xs font-medium hover:bg-[var(--surface-container)]">取消</button>
+          <button onclick={saveMomentEdit} class="px-6 py-2 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105">保存修改</button>
         </div>
       </div>
     </div>

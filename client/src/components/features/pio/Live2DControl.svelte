@@ -10,6 +10,7 @@
 
   let enabledByBackend = $state(true);
   let userVisible = $state(true);
+  let modelPath = $state("/pio/models/NOIR/noir.model3.json");
   let iframeEl: HTMLIFrameElement | null = $state(null);
   let isLoaded = $state(false);
   let iframeHeight = $state(500);
@@ -31,10 +32,16 @@
         const res = await configApi.getAdminSystem();
         const conf = res.data || res.config;
         enabledByBackend = Boolean(conf?.live2dAdminEnable ?? conf?.live2dAdminEnabled ?? conf?.live2d?.adminEnabled ?? true);
+        if (conf?.live2dModel || conf?.live2d?.model) {
+          modelPath = conf.live2dModel || conf.live2d?.model;
+        }
       } else {
         const res = await configApi.getSystem();
         const conf = res.data || res.config;
         enabledByBackend = Boolean(conf?.live2dGuestEnable ?? conf?.live2dGuestEnabled ?? conf?.live2d?.guestEnabled ?? true);
+        if (conf?.live2dModel || conf?.live2d?.model) {
+          modelPath = conf.live2dModel || conf.live2d?.model;
+        }
       }
     } catch {
       enabledByBackend = true;
@@ -79,7 +86,7 @@
   function initWidget() {
     if (!iframeEl || !iframeEl.contentWindow) return;
     const widgetConfig = {
-      model: { path: "/pio/models/NOIR/noir.model3.json" },
+      model: { path: modelPath },
       position: "bottom-left",
       size: WIDGET_WIDTH,
       transitionDuration: 1500,

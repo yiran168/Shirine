@@ -96,6 +96,139 @@ describe("Tier 4 - Scenario: Admin Editorial & Site Management Workflow", () => 
     expect(siteConfigRes.data.data.title).toBe("Shirine - The Dynamic Anime Blog");
     expect(siteConfigRes.data.data.subtitle).toBe("Fast, Elegant, and Modern");
 
+    // 10. Admin Moments Lifecycle: create -> update (edit) -> verify -> delete
+    const createMomentRes = await env.requestJson("/api/moments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${admin.token}`,
+      },
+      body: JSON.stringify({
+        content: "Working on Shirine blog engine today! ✨",
+        mood: "💻",
+        location: "Tokyo, Japan",
+        photos: ["/assets/images/moment1.webp"],
+        pinned: false,
+      }),
+    });
+    expect(createMomentRes.status).toBe(200);
+    expect(createMomentRes.data.success).toBe(true);
+    const momentId = createMomentRes.data.data.id;
+
+    // Admin edits/updates the moment content and pins it
+    const updateMomentRes = await env.requestJson(`/api/moments/${momentId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${admin.token}`,
+      },
+      body: JSON.stringify({
+        content: "Shirine blog engine dynamic moments updated! 🌸",
+        mood: "🎉",
+        location: "Kyoto, Japan",
+        photos: ["/assets/images/moment1.webp", "/assets/images/moment2.webp"],
+        pinned: true,
+      }),
+    });
+    expect(updateMomentRes.status).toBe(200);
+    expect(updateMomentRes.data.success).toBe(true);
+    expect(updateMomentRes.data.data.content).toBe("Shirine blog engine dynamic moments updated! 🌸");
+    expect(updateMomentRes.data.data.mood).toBe("🎉");
+    expect(updateMomentRes.data.data.location).toBe("Kyoto, Japan");
+    expect(updateMomentRes.data.data.pinned).toBe(1);
+
+    // Verify in public moments list
+    const momentsListRes = await env.requestJson("/api/moments");
+    expect(momentsListRes.status).toBe(200);
+    const updatedMoment = momentsListRes.data.data.find((m: any) => m.id === momentId);
+    expect(updatedMoment).toBeDefined();
+    expect(updatedMoment.content).toBe("Shirine blog engine dynamic moments updated! 🌸");
+    expect(updatedMoment.pinned).toBe(true);
+
+    // Admin deletes the moment
+    const deleteMomentRes = await env.requestJson(`/api/moments/${momentId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${admin.token}`,
+      },
+    });
+    expect(deleteMomentRes.status).toBe(200);
+    expect(deleteMomentRes.data.success).toBe(true);
+
+    // Confirm deleted from moments list
+    const afterDeleteRes = await env.requestJson("/api/moments");
+    const foundDeleted = afterDeleteRes.data.data.find((m: any) => m.id === momentId);
+    expect(foundDeleted).toBeUndefined();
+
+    // 11. Admin Banner & Music Configuration Persistence in D1
+    const bannerMusicUpdateRes = await env.requestJson("/api/config/site", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${admin.token}`,
+      },
+      body: JSON.stringify({
+        bannerDesktop: ["/assets/images/banner/custom-desktop.webp"],
+        bannerMobile: ["/assets/images/banner/custom-mobile.webp"],
+        bannerSubtitles: ["Shirine dynamic subtitle line 1", "Shirine dynamic subtitle line 2"],
+        musicEnable: true,
+        musicProvider: "mixed",
+        musicVolume: 0.85,
+        musicTracks: [
+          {
+            id: "track-test-1",
+            title: "Shirine Theme Song",
+            artist: "Shirine Ensemble",
+            cover: "/assets/images/music/shirine.webp",
+            source: "/assets/music/shirine.mp3",
+            duration: 250,
+          },
+        ],
+      }),
+    });
+    expect(bannerMusicUpdateRes.status).toBe(200);
+    expect(bannerMusicUpdateRes.data.success).toBe(true);
+
+    // Visitors see updated banners and music
+    const updatedSiteRes = await env.requestJson("/api/config/site");
+    expect(updatedSiteRes.status).toBe(200);
+    const siteData = updatedSiteRes.data.data;
+    expect(siteData.banner?.src?.desktop).toContain("/assets/images/banner/custom-desktop.webp");
+    expect(siteData.banner?.src?.mobile).toContain("/assets/images/banner/custom-mobile.webp");
+    expect(siteData.music?.enable).toBe(true);
+    expect(siteData.music?.tracks?.[0]?.title).toBe("Shirine Theme Song");
+
+    // 12. Admin Live2D Widget & Model Configuration Persistence & Public Propagation
+    const live2dUpdateRes = await env.requestJson("/api/config/system", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${admin.token}`,
+      },
+      body: JSON.stringify({
+        live2dGuestEnable: true,
+        live2dAdminEnable: true,
+        live2dModel: "/pio/models/CUSTOM/custom.model3.json",
+      }),
+    });
+    expect(live2dUpdateRes.status).toBe(200);
+    expect(live2dUpdateRes.data.success).toBe(true);
+
+    // Public system config reflects updated Live2D model and guest enable state
+    const publicSysRes = await env.requestJson("/api/config/system");
+    expect(publicSysRes.status).toBe(200);
+    expect(publicSysRes.data.data.live2dGuestEnabled).toBe(true);
+    expect(publicSysRes.data.data.live2dModel).toBe("/pio/models/CUSTOM/custom.model3.json");
+
+    // Admin system config reflects full Live2D settings
+    const adminSysRes = await env.requestJson("/api/config/system/admin", {
+      headers: { Authorization: `Bearer ${admin.token}` },
+    });
+    expect(adminSysRes.status).toBe(200);
+    expect(adminSysRes.data.data.live2dGuestEnable).toBe(true);
+    expect(adminSysRes.data.data.live2dAdminEnable).toBe(true);
+    expect(adminSysRes.data.data.live2dModel).toBe("/pio/models/CUSTOM/custom.model3.json");
+
     env.close();
   });
 });
