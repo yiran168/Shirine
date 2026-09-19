@@ -4,6 +4,7 @@
   import { authApi, configApi, setToken } from "../../services/api";
 
   let username = $state("");
+  let email = $state("");
   let password = $state("");
   let nickname = $state("");
   let loading = $state(false);
@@ -100,9 +101,10 @@
         }
       } else {
         const res = await authApi.register({
-          username,
+          username: username.trim(),
+          email: email.trim(),
           password,
-          nickname,
+          nickname: nickname.trim() || undefined,
           turnstileToken: turnstileEnabled ? turnstileToken : undefined,
         });
 
@@ -126,6 +128,7 @@
 
   function resetForm() {
     username = "";
+    email = "";
     password = "";
     nickname = "";
     errorMsg = "";
@@ -183,39 +186,72 @@
 
       <!-- Form -->
       <form onsubmit={handleSubmit} class="space-y-4">
-        <div>
-          <label class="block text-xs font-bold text-[var(--on-surface)] mb-1.5">用户名</label>
-          <input
-            type="text"
-            required
-            bind:value={username}
-            placeholder="请输入您的账号用户名"
-            class="w-full px-4 py-2.5 rounded-xl border border-black/15 dark:border-white/15 bg-black/5 dark:bg-white/5 text-[var(--on-surface)] text-sm focus:outline-none focus:border-[var(--primary)] focus:bg-white dark:focus:bg-zinc-800 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-[var(--on-surface-variant)]/60"
-          />
-        </div>
+        {#if authStore.authModalTab === "login"}
+          <div>
+            <label class="block text-xs font-bold text-[var(--on-surface)] mb-1.5">用户名或邮箱</label>
+            <input
+              type="text"
+              required
+              bind:value={username}
+              placeholder="请输入用户名或邮箱"
+              class="w-full px-4 py-2.5 rounded-xl border border-black/15 dark:border-white/15 bg-black/5 dark:bg-white/5 text-[var(--on-surface)] text-sm focus:outline-none focus:border-[var(--primary)] focus:bg-white dark:focus:bg-zinc-800 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-[var(--on-surface-variant)]/60"
+            />
+          </div>
 
-        {#if authStore.authModalTab === "register"}
+          <div>
+            <label class="block text-xs font-bold text-[var(--on-surface)] mb-1.5">密码</label>
+            <input
+              type="password"
+              required
+              bind:value={password}
+              placeholder="请输入密码"
+              class="w-full px-4 py-2.5 rounded-xl border border-black/15 dark:border-white/15 bg-black/5 dark:bg-white/5 text-[var(--on-surface)] text-sm focus:outline-none focus:border-[var(--primary)] focus:bg-white dark:focus:bg-zinc-800 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-[var(--on-surface-variant)]/60"
+            />
+          </div>
+        {:else}
+          <div>
+            <label class="block text-xs font-bold text-[var(--on-surface)] mb-1.5">用户名</label>
+            <input
+              type="text"
+              required
+              bind:value={username}
+              placeholder="请输入用户名（3-32位字符）"
+              class="w-full px-4 py-2.5 rounded-xl border border-black/15 dark:border-white/15 bg-black/5 dark:bg-white/5 text-[var(--on-surface)] text-sm focus:outline-none focus:border-[var(--primary)] focus:bg-white dark:focus:bg-zinc-800 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-[var(--on-surface-variant)]/60"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-[var(--on-surface)] mb-1.5">邮箱</label>
+            <input
+              type="email"
+              required
+              bind:value={email}
+              placeholder="请输入电子邮箱"
+              class="w-full px-4 py-2.5 rounded-xl border border-black/15 dark:border-white/15 bg-black/5 dark:bg-white/5 text-[var(--on-surface)] text-sm focus:outline-none focus:border-[var(--primary)] focus:bg-white dark:focus:bg-zinc-800 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-[var(--on-surface-variant)]/60"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-[var(--on-surface)] mb-1.5">密码</label>
+            <input
+              type="password"
+              required
+              bind:value={password}
+              placeholder="请输入密码（不少于 6 位）"
+              class="w-full px-4 py-2.5 rounded-xl border border-black/15 dark:border-white/15 bg-black/5 dark:bg-white/5 text-[var(--on-surface)] text-sm focus:outline-none focus:border-[var(--primary)] focus:bg-white dark:focus:bg-zinc-800 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-[var(--on-surface-variant)]/60"
+            />
+          </div>
+
           <div>
             <label class="block text-xs font-bold text-[var(--on-surface)] mb-1.5">用户昵称（可选）</label>
             <input
               type="text"
               bind:value={nickname}
-              placeholder="请输入您的昵称"
+              placeholder="请输入昵称（可选）"
               class="w-full px-4 py-2.5 rounded-xl border border-black/15 dark:border-white/15 bg-black/5 dark:bg-white/5 text-[var(--on-surface)] text-sm focus:outline-none focus:border-[var(--primary)] focus:bg-white dark:focus:bg-zinc-800 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-[var(--on-surface-variant)]/60"
             />
           </div>
         {/if}
-
-        <div>
-          <label class="block text-xs font-bold text-[var(--on-surface)] mb-1.5">密码</label>
-          <input
-            type="password"
-            required
-            bind:value={password}
-            placeholder="请输入密码（不少于 6 位）"
-            class="w-full px-4 py-2.5 rounded-xl border border-black/15 dark:border-white/15 bg-black/5 dark:bg-white/5 text-[var(--on-surface)] text-sm focus:outline-none focus:border-[var(--primary)] focus:bg-white dark:focus:bg-zinc-800 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-[var(--on-surface-variant)]/60"
-          />
-        </div>
 
         <!-- Turnstile container if enabled -->
         {#if turnstileEnabled}

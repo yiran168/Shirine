@@ -205,4 +205,118 @@ describe("Tier 2 - Boundary: Authentication & Session Gateways", () => {
 
     env.close();
   });
+
+  it("B2.9: Register with valid email stores email, rejects invalid email format", async () => {
+    const env = createTestEnv();
+
+    // 1. Invalid email format rejected
+    const invalidEmailRes = await env.requestJson("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "email_tester_1",
+        email: "not-an-email",
+        password: "password123",
+      }),
+    });
+    expect(invalidEmailRes.status).toBe(400);
+    expect(invalidEmailRes.data.success).toBe(false);
+    expect(invalidEmailRes.data.error).toContain("Invalid email address format");
+
+    // 2. Valid email succeeds and returns email in user object
+    const validRes = await env.requestJson("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "email_tester_1",
+        email: "user1@example.com",
+        password: "password123",
+      }),
+    });
+    expect(validRes.status).toBe(201);
+    expect(validRes.data.success).toBe(true);
+    expect(validRes.data.user.email).toBe("user1@example.com");
+
+    // 3. User profile (/auth/me) reflects email
+    const meRes = await env.requestJson("/api/auth/me", {
+      headers: { Authorization: `Bearer ${validRes.data.token}` },
+    });
+    expect(meRes.status).toBe(200);
+    expect(meRes.data.user.email).toBe("user1@example.com");
+
+    env.close();
+  });
+
+  it("B2.10: Register with duplicate email is rejected with 400 Bad Request", async () => {
+    const env = createTestEnv();
+
+    const firstRes = await env.requestJson("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "first_user",
+        email: "shared@example.com",
+        password: "password123",
+      }),
+    });
+    expect(firstRes.status).toBe(201);
+
+    const dupRes = await env.requestJson("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "second_user",
+        email: "SHARED@example.com", // case-insensitive check
+        password: "password123",
+      }),
+    });
+    expect(dupRes.status).toBe(400);
+    expect(dupRes.data.success).toBe(false);
+    expect(dupRes.data.error).toContain("Email is already registered");
+
+    env.close();
+  });
+
+  it("B2.11: Login using email address instead of username succeeds (case-insensitive)", async () => {
+    const env = createTestEnv();
+
+    await env.requestJson("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "login_email_user",
+        email: "Member@Example.com",
+        password: "mySecretPassword123",
+      }),
+    });
+
+    // 1. Login with uppercase email
+    const loginUpperRes = await env.requestJson("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "MEMBER@EXAMPLE.COM",
+        password: "mySecretPassword123",
+      }),
+    });
+    expect(loginUpperRes.status).toBe(200);
+    expect(loginUpperRes.data.success).toBe(true);
+    expect(loginUpperRes.data.user.username).toBe("login_email_user");
+    expect(loginUpperRes.data.user.email).toBe("member@example.com");
+
+    // 2. Login with lowercase email
+    const loginLowerRes = await env.requestJson("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "member@example.com",
+        password: "mySecretPassword123",
+      }),
+    });
+    expect(loginLowerRes.status).toBe(200);
+    expect(loginLowerRes.data.success).toBe(true);
+    expect(loginLowerRes.data.user.username).toBe("login_email_user");
+
+    env.close();
+  });
 });

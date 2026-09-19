@@ -13,6 +13,7 @@ const updatedAt = integer("updated_at", { mode: "timestamp" })
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   username: text("username").notNull().unique(),
+  email: text("email").default(""),
   passwordHash: text("password_hash").notNull(),
   salt: text("salt").notNull(),
   role: text("role", { enum: ["superadmin", "admin", "user"] }).default("user").notNull(),
@@ -27,6 +28,7 @@ export const users = sqliteTable("users", {
   updatedAt,
 }, (table) => ({
   usernameIdx: index("users_username_idx").on(table.username),
+  emailIdx: index("users_email_idx").on(table.email),
   pointsCheck: check("users_points_check", sql`${table.points} >= 0`),
 }));
 

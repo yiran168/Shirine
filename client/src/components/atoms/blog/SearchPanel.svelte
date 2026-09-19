@@ -63,15 +63,18 @@ let {
 	min-width: 0
 	max-width: calc(100vw - 1.5rem)
 	box-sizing: border-box
-	padding: 0.5rem
+	padding: 0.625rem
 	border-radius: var(--shape-corner-l)
-	background: var(--float-panel-bg)
+	background: var(--surface-container-high)
 	color: var(--on-surface)
-	box-shadow: var(--m3e-elevation-3)
+	box-shadow: var(--m3e-elevation-4)
+	border: 1px solid unquote("color-mix(in srgb, var(--outline-variant) 40%, transparent)")
+	backdrop-filter: blur(24px)
 	max-height: unquote("min(36rem, calc(100dvh - 5.5rem))")
 	overflow-y: auto
 	overflow-x: hidden
 	overscroll-behavior: contain
+	z-index: 100
 
 	/* 面板内搜索条（M3 胶囊填充式） */
 	&__input

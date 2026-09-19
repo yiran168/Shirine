@@ -50,11 +50,40 @@ async function request<T = any>(
       credentials: "include",
     });
 
-    const data = await res.json();
+    const text = await res.text();
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      let userFriendlyError = "服务器返回了非预期响应";
+      if (res.status === 404) {
+        userFriendlyError = "后端 API 端点不存在 (404)，请检查 Worker 部署或 PUBLIC_API_URL 配置";
+      } else if (res.status === 502 || res.status === 503) {
+        userFriendlyError = `无法连接到后端服务 (${res.status})，请检查后端 Worker 状态及 PUBLIC_API_URL 环境变量`;
+      } else if (text.includes("Worker exceeded resource limits") || res.status === 1102) {
+        userFriendlyError = "Cloudflare Worker 资源超限 (Error 1102)，请稍后重试";
+      } else if (!res.ok) {
+        userFriendlyError = `服务器响应异常 (${res.status} ${res.statusText || ""})`.trim();
+      }
+      return {
+        success: false,
+        error: userFriendlyError,
+        raw: text.slice(0, 300),
+      };
+    }
+
+    if (!res.ok && data && typeof data === "object") {
+      return {
+        success: false,
+        error: data.error || data.message || `请求失败 (${res.status})`,
+        ...data,
+      };
+    }
+
     return data;
   } catch (err: any) {
     console.error(`API Error [${endpoint}]:`, err);
-    return { success: false, error: err.message || "Network error" };
+    return { success: false, error: err.message || "网络请求失败，请检查网络连接" };
   }
 }
 
@@ -70,7 +99,7 @@ export const authApi = {
     }
     return res;
   },
-  register: async (body: { username: string; password: string; nickname?: string; turnstileToken?: string }) => {
+  register: async (body: { username: string; password: string; email?: string; nickname?: string; turnstileToken?: string }) => {
     const res = await request("/auth/register", { method: "POST", body: JSON.stringify(body) });
     if (res.success && res.token) {
       setToken(res.token);
@@ -238,7 +267,13 @@ export async function uploadFile(file: File): Promise<{ success: boolean; url?: 
       body: formData,
       credentials: "include",
     });
-    return await res.json();
+
+    const text = await res.text();
+    try {
+      return text ? JSON.parse(text) : { success: false, error: "Empty response" };
+    } catch {
+      return { success: false, error: `上传失败 (HTTP ${res.status})` };
+    }
   } catch (err: any) {
     return { success: false, error: err.message || "Upload failed" };
   }

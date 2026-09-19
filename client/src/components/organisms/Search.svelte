@@ -200,7 +200,7 @@ $: if (initialized && keywordMobile) {
 <!-- search panel（blog/SearchPanel 原子；开合由调用方 classList 控制，与 DisplaySettings 同款） -->
 <SearchPanel
     id="search-panel"
-    class="float-panel float-panel-closed absolute md:w-[30rem] top-20 left-4 md:left-[unset] right-4"
+    class="float-panel float-panel-closed absolute md:w-[30rem] top-20 left-4 md:left-[unset] right-4 z-[100] shadow-2xl backdrop-blur-2xl"
     bind:query={keywordMobile}
     results={panelResults}
     placeholder={i18n(I18nKey.search)}

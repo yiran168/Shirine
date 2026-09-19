@@ -100,10 +100,10 @@
 
   {#if open}
     <div
-      class="absolute right-0 mt-2 w-36 rounded-2xl bg-[var(--surface-container)] border border-[var(--outline-variant)]/30 shadow-xl py-1.5 z-50 animate-fade-in backdrop-blur-lg"
+      class="shirine-dropdown absolute right-0 mt-2 w-40 rounded-2xl bg-[var(--surface-container-high)] dark:bg-[var(--surface-container)] border border-[var(--outline-variant)]/30 shadow-2xl p-1.5 z-[100] animate-fade-in backdrop-blur-2xl text-[var(--on-surface)]"
       role="menu"
     >
-      <div class="px-3 py-1 text-[11px] font-semibold text-[var(--outline)] border-b border-[var(--outline-variant)]/20 mb-1">
+      <div class="px-3 py-1.5 text-[11px] font-bold text-[var(--on-surface-variant)] uppercase tracking-wider border-b border-[var(--outline-variant)]/15 mb-1">
         Language / 语言
       </div>
       {#each SUPPORTED_LANGUAGES as lang}
@@ -111,11 +111,11 @@
           type="button"
           role="menuitem"
           onclick={() => selectLanguage(lang)}
-          class="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-left transition-colors {currentLang === lang.code ? 'bg-primary/10 text-primary font-bold' : 'text-[var(--on-surface)] hover:bg-[var(--surface-container-high)]'}"
+          class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-left transition-all !border-0 !shadow-none {currentLang === lang.code ? 'bg-primary/15 text-primary font-bold' : 'text-[var(--on-surface)] hover:bg-black/5 dark:hover:bg-white/10'}"
         >
           <span>{lang.name}</span>
           {#if currentLang === lang.code}
-            <svg class="w-3.5 h-3.5 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="w-4 h-4 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
             </svg>
           {/if}

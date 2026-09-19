@@ -50,7 +50,7 @@ const handleFocus = (): void => {
 </script>
 
 <div
-    class="hidden lg:flex items-center h-10 rounded-full transition-all duration-300 top-app-bar__search-shell overflow-hidden
+    class="hidden lg:flex items-center h-10 rounded-full transition-all duration-300 top-app-bar__search-shell overflow-hidden relative z-20
            {expanded ? 'top-app-bar__search-shell--expanded w-48 bg-[var(--surface-container-high)] border border-[var(--outline-variant)]/40 shadow-sm' : 'w-10 bg-transparent hover:bg-[var(--surface-container)]'}"
     onclick={() => {
         if (!expanded) expand();

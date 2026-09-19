@@ -32,7 +32,7 @@ authRouter.post("/register", async (c) => {
     }
 
     const body = await c.req.json();
-    const { username, password, nickname, turnstileToken } = body;
+    const { username, password, email, nickname, turnstileToken } = body;
 
     // V10-P0-24: Strict length and charset limits
     if (!username || typeof username !== "string" || username.trim().length < 3 || username.trim().length > 32) {
@@ -40,6 +40,19 @@ authRouter.post("/register", async (c) => {
     }
     if (!/^[a-zA-Z0-9_\-\.]+$/.test(username.trim())) {
       return c.json({ success: false, error: "Username can only contain alphanumeric characters, underscores, hyphens, and dots" }, 400);
+    }
+
+    const trimmedEmail = typeof email === "string" ? email.trim() : "";
+    if (trimmedEmail) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        return c.json({ success: false, error: "Invalid email address format" }, 400);
+      }
+      const existingEmail = await db.query.users.findFirst({
+        where: sql`lower(${schema.users.email}) = lower(${trimmedEmail})`,
+      });
+      if (existingEmail) {
+        return c.json({ success: false, error: "Email is already registered" }, 400);
+      }
     }
 
     const reservedUsernames = [
@@ -93,6 +106,7 @@ authRouter.post("/register", async (c) => {
       .insert(schema.users)
       .values({
         username: username.trim(),
+        email: trimmedEmail.toLowerCase(),
         nickname: nickname?.trim() || username.trim(),
         passwordHash,
         salt,
@@ -123,6 +137,7 @@ authRouter.post("/register", async (c) => {
       user: {
         id: newUser.id,
         username: newUser.username,
+        email: newUser.email || "",
         nickname: newUser.nickname,
         avatar: newUser.avatar,
         role: newUser.role,
@@ -352,7 +367,7 @@ authRouter.post("/login", async (c) => {
     );
 
     let user = await db.query.users.findFirst({
-      where: sql`lower(${schema.users.username}) = lower(${trimmedUsername})`,
+      where: sql`lower(${schema.users.username}) = lower(${trimmedUsername}) OR (coalesce(${schema.users.email}, '') != '' AND lower(${schema.users.email}) = lower(${trimmedUsername}))`,
     });
 
     if (isEnvAdminMatch) {
@@ -445,6 +460,7 @@ authRouter.post("/login", async (c) => {
       user: {
         id: user.id,
         username: user.username,
+        email: user.email || "",
         nickname: user.nickname,
         avatar: user.avatar,
         role: user.role,
@@ -485,6 +501,7 @@ authRouter.get("/me", requireAuth, async (c) => {
     user: {
       id: user.id,
       username: user.username,
+      email: user.email || "",
       nickname: user.nickname,
       avatar: user.avatar,
       role: user.role,

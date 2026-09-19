@@ -3,6 +3,7 @@
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   username TEXT NOT NULL UNIQUE,
+  email TEXT DEFAULT '',
   password_hash TEXT NOT NULL,
   salt TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('superadmin', 'admin', 'user')),
@@ -17,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 CREATE INDEX IF NOT EXISTS users_username_idx ON users(username);
+CREATE INDEX IF NOT EXISTS users_email_idx ON users(email);
 
 CREATE TABLE IF NOT EXISTS checkin_records (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

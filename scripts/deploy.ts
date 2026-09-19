@@ -320,7 +320,14 @@ export async function migrateDatabase(): Promise<void> {
       console.warn(`⚠️ Continuing deployment (schema may already be up to date or partly initialized).`);
     }
   }
+
+  // Ensure users table has email column in existing deployments
+  try {
+    runWrangler(["d1", "execute", DB_NAME, "--remote", "--command=ALTER TABLE users ADD COLUMN email TEXT DEFAULT '';", "-y"], serverDir);
+  } catch {}
 }
+
+let detectedWorkerApiUrl = "";
 
 // 3. Deploy Backend Worker
 export async function deployServer(): Promise<void> {
@@ -356,6 +363,11 @@ export async function deployServer(): Promise<void> {
   console.log(`✅ Backend Worker deployed successfully!`);
   if (deployRes.stdout) {
     console.log(deployRes.stdout.trim());
+    const match = deployRes.stdout.match(/https:\/\/[a-zA-Z0-9_\-\.]+\.workers\.dev/);
+    if (match) {
+      detectedWorkerApiUrl = `${match[0]}/api`;
+      console.log(`📡 Auto-detected backend Worker API endpoint: ${detectedWorkerApiUrl}`);
+    }
   }
 
   // Bulk synchronize production secrets with Rin parity
@@ -364,9 +376,10 @@ export async function deployServer(): Promise<void> {
 
 // 4. Deploy Frontend Client (Cloudflare Pages)
 export async function deployClient(): Promise<void> {
+  const effectiveApiUrl = PUBLIC_API_URL || detectedWorkerApiUrl;
   console.log(`\n🌐 [4/4] Building and Deploying Frontend to Cloudflare Pages...`);
   console.log(`   • Project Name:   ${PAGES_NAME}`);
-  console.log(`   • PUBLIC_API_URL: ${PUBLIC_API_URL || "(relative /api fallback)"}`);
+  console.log(`   • PUBLIC_API_URL: ${effectiveApiUrl || "(relative /api fallback)"}`);
 
   checkCredentials(false);
 
@@ -378,7 +391,7 @@ export async function deployClient(): Promise<void> {
       ...process.env,
       NODE_ENV: "production",
       ASTRO_TELEMETRY_DISABLED: "1",
-      PUBLIC_API_URL: PUBLIC_API_URL,
+      PUBLIC_API_URL: effectiveApiUrl,
     },
     stdout: "inherit",
     stderr: "inherit",

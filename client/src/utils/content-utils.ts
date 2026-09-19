@@ -13,23 +13,24 @@ import { getCategoryUrl, getPostUrl, url } from "@utils/url-utils";
 // Retrieve posts dynamically from backend API and sort them by publication date
 async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"posts">[]> {
 	const apiBase =
-		import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
+		import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
 
 	let apiPosts: CollectionEntry<"posts">[] = [];
 	let apiConnected = false;
-	try {
-		const headers: Record<string, string> = {};
-		if (request) {
-			const cookie = request.headers.get("cookie");
-			if (cookie) headers["cookie"] = cookie;
-			const auth = request.headers.get("authorization");
-			if (auth) headers["authorization"] = auth;
-		}
+	if (apiBase) {
+		try {
+			const headers: Record<string, string> = {};
+			if (request) {
+				const cookie = request.headers.get("cookie");
+				if (cookie) headers["cookie"] = cookie;
+				const auth = request.headers.get("authorization");
+				if (auth) headers["authorization"] = auth;
+			}
 
-		const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts?pageSize=500`, {
-			headers,
-			signal: AbortSignal.timeout(3000),
-		});
+			const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts?pageSize=500`, {
+				headers,
+				signal: AbortSignal.timeout(3000),
+			});
 		if (res.ok) {
 			const json = await res.json();
 			if (json.success && Array.isArray(json.data)) {
@@ -72,6 +73,7 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 			}
 		}
 	} catch {}
+	}
 
 	let postsToUse: CollectionEntry<"posts">[] = [];
 	if (apiConnected) {
@@ -253,31 +255,33 @@ function withMomentThumbnails(image: MomentImage): MomentImage {
 
 export async function getSortedMoments(): Promise<MomentItem[]> {
 	const apiBase =
-		import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
+		import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
 
 	let apiMoments: MomentItem[] = [];
 	let apiConnected = false;
-	try {
-		const res = await fetch(`${apiBase.replace(/\/$/, "")}/moments`, {
-			signal: AbortSignal.timeout(3000),
-		});
-		if (res.ok) {
-			const json = await res.json();
-			if (json.success && Array.isArray(json.data)) {
-				apiConnected = true;
-				apiMoments = json.data.map((m: any) => ({
-					id: String(m.id),
-					published: new Date(m.createdAt).toISOString(),
-					html: renderDynamicMarkdown(m.content || ""),
-					pinned: Boolean(m.pinned),
-					location: m.location || "",
-					mood: m.mood || "",
-					tags: Array.isArray(m.tags) ? m.tags : [],
-					images: Array.isArray(m.images) ? m.images.map(withMomentThumbnails) : [],
-				}));
+	if (apiBase) {
+		try {
+			const res = await fetch(`${apiBase.replace(/\/$/, "")}/moments`, {
+				signal: AbortSignal.timeout(3000),
+			});
+			if (res.ok) {
+				const json = await res.json();
+				if (json.success && Array.isArray(json.data)) {
+					apiConnected = true;
+					apiMoments = json.data.map((m: any) => ({
+						id: String(m.id),
+						published: new Date(m.createdAt).toISOString(),
+						html: renderDynamicMarkdown(m.content || ""),
+						pinned: Boolean(m.pinned),
+						location: m.location || "",
+						mood: m.mood || "",
+						tags: Array.isArray(m.tags) ? m.tags : [],
+						images: Array.isArray(m.images) ? m.images.map(withMomentThumbnails) : [],
+					}));
+				}
 			}
-		}
-	} catch {}
+		} catch {}
+	}
 
 	let momentsToUse: MomentItem[] = [];
 	if (apiConnected) {

@@ -63,31 +63,33 @@ if (!slug) {
 	return Astro.redirect("/404");
 }
 
-const apiBase = import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
+const apiBase = import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api");
 const cookieHeader = Astro.request.headers.get("cookie") || "";
 const authHeader = Astro.request.headers.get("authorization") || "";
 
 // Fetch authoritative post detail from backend API first (O(1))
 let dynamicDetail: any = null;
 let apiPostNotFound = false;
-try {
-	const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts/${encodeURIComponent(slug)}`, {
-		headers: {
-			...(cookieHeader ? { cookie: cookieHeader } : {}),
-			...(authHeader ? { authorization: authHeader } : {}),
-		},
-		signal: AbortSignal.timeout(3000),
-	});
-	if (res.ok) {
-		const json = await res.json();
-		if (json.success && (json.data || json.post)) {
-			dynamicDetail = json.data || json.post;
+if (apiBase) {
+	try {
+		const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts/${encodeURIComponent(slug)}`, {
+			headers: {
+				...(cookieHeader ? { cookie: cookieHeader } : {}),
+				...(authHeader ? { authorization: authHeader } : {}),
+			},
+			signal: AbortSignal.timeout(3000),
+		});
+		if (res.ok) {
+			const json = await res.json();
+			if (json.success && (json.data || json.post)) {
+				dynamicDetail = json.data || json.post;
+			}
+		} else if (res.status === 404) {
+			apiPostNotFound = true;
 		}
-	} else if (res.status === 404) {
-		apiPostNotFound = true;
+	} catch (e) {
+		console.error("Failed to fetch post detail from API:", e);
 	}
-} catch (e) {
-	console.error("Failed to fetch post detail from API:", e);
 }
 
 const isDynamicProd = Boolean(import.meta.env.PROD && import.meta.env.PUBLIC_API_URL);

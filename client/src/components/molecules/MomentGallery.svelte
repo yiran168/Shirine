@@ -257,11 +257,6 @@ $effect(() => {
 				aria-label={tileLabel(i)}
 				onclick={() => (images.length === 1 ? openLightbox(0) : openViewer(i))}
 			>
-				{#if startedTiles.has(image.src) && !loadedTiles.has(image.src)}
-					<span class="moment-card__tile-loading" aria-hidden="true">
-						<LoadingIndicator contained size={28} />
-					</span>
-				{/if}
 				<img
 					src={thumbnailSrc(image)}
 					srcset={image.thumbnailSrcset}
@@ -269,8 +264,7 @@ $effect(() => {
 					alt={image.alt}
 					loading="lazy"
 					decoding="async"
-					class:moment-card__tile-img--loaded={loadedTiles.has(image.src)}
-					onloadstart={() => (startedTiles = new Set(startedTiles).add(image.src))}
+					class="w-full h-full object-cover"
 					onload={() => (loadedTiles = new Set(loadedTiles).add(image.src))}
 				/>
 				{#if remainder > 0 && i === MAX_TILES - 1}
@@ -321,12 +315,8 @@ $effect(() => {
 		width: 100%
 		height: 100%
 		object-fit: cover
-		/* 加载前隐藏（指示器占位），加载完成后淡入 */
-		opacity: 0
+		opacity: 1
 		transition: opacity var(--m3e-duration-medium) var(--m3e-easing-standard)
-
-		&.moment-card__tile-img--loaded
-			opacity: 1
 
 	/* 单图：固定 4:3 比例盒（限宽 30rem）。
 	   不用自然尺寸：lazy 图片加载前无内在尺寸，fit-content 会塌成 0×0，
@@ -425,11 +415,8 @@ $effect(() => {
 			width: 100%
 			height: 100%
 			object-fit: contain
-			opacity: 0
-			transition: opacity var(--m3e-duration-short) var(--m3e-easing-standard)
-
-		> img.moment-viewer__stage-img--loaded
 			opacity: 1
+			transition: opacity var(--m3e-duration-short) var(--m3e-easing-standard)
 
 	&__stage-loading
 		position: absolute

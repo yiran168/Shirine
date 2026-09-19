@@ -38,7 +38,7 @@ export interface DynamicSiteConfigResult {
 
 let cachedPromise: Promise<DynamicSiteConfigResult> | null = null;
 let cachedTime = 0;
-const CACHE_TTL_MS = 2000;
+const CACHE_TTL_MS = 60_000;
 
 export async function getDynamicSiteConfig(): Promise<DynamicSiteConfigResult> {
   const now = Date.now();
@@ -48,7 +48,21 @@ export async function getDynamicSiteConfig(): Promise<DynamicSiteConfigResult> {
 
   cachedTime = now;
   const promise = (async (): Promise<DynamicSiteConfigResult> => {
-    const rawBase = (import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api").replace(/\/$/, "");
+    const rawBase = (
+      import.meta.env.PUBLIC_API_URL ||
+      (import.meta.env.PROD ? "" : "http://localhost:11498/api")
+    ).replace(/\/$/, "");
+
+    if (!rawBase) {
+      return {
+        site: siteConfig,
+        profile: profileConfig,
+        music: musicConfig,
+        announcement: announcementConfig,
+        footer: footerConfig,
+      };
+    }
+
     const apiBase = rawBase.endsWith("/api") ? rawBase : `${rawBase}/api`;
     try {
       const res = await fetch(`${apiBase}/config/site`, {
