@@ -97,6 +97,14 @@ function isTodayCell(cell: DayCell): boolean {
 
 const currentMonthKey = $derived(`${year}-${pad(month + 1)}`);
 
+const emptyMessage = $derived.by(() => {
+	if (!selectedDate) return "";
+	if (locale.startsWith("en")) return `${selectedDate}: No posts published`;
+	if (locale.startsWith("ja")) return `${selectedDate} 投稿はありません`;
+	if (locale.includes("TW") || locale.includes("HK") || locale.includes("Hant")) return `${selectedDate} 暫無文章發布`;
+	return `${selectedDate} 暂无文章发布`;
+});
+
 // 自由月度导航：支持任意月份浏览与日期查看
 const canPrev = $derived(year > 1970);
 const canNext = $derived(year < 2100);
@@ -189,7 +197,7 @@ function toggleDay(cell: DayCell) {
 			</ul>
 		{:else if selectedDate}
 			<div class="m3-calendar__empty text-xs text-center py-2 text-[var(--on-surface-variant)] opacity-70">
-				{selectedDate} 无文章发布
+				{emptyMessage}
 			</div>
 		{/if}
 	</div>

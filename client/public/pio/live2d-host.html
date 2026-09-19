@@ -6,18 +6,21 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
 
-  /* Speech bubble sitting nicely just above NOIR's head instead of far away */
+  /* Speech bubble sitting neatly right above the Live2D character's head */
   div[style*="calc(100%"] {
-    bottom: calc(100% - 130px) !important;
+    bottom: calc(100% - 50px) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
     max-width: 220px !important;
     pointer-events: none !important;
+    z-index: 99999 !important;
   }
   div[style*="calc(100%"] > div {
-    background: rgba(26, 26, 36, 0.88) !important;
+    background: rgba(26, 26, 36, 0.92) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.22) !important;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
     border-radius: 12px !important;
     color: #ffffff !important;
     font-size: 12px !important;
@@ -27,7 +30,7 @@
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6) !important;
   }
   div[style*="calc(100%"] > div > div[style*="border-top"] {
-    border-top-color: rgba(26, 26, 36, 0.88) !important;
+    border-top-color: rgba(26, 26, 36, 0.92) !important;
   }
 
   /* Right-side menu buttons strictly within bounds */
@@ -196,33 +199,43 @@
     cancelAnimationFrame(layoutFrame);
   }
 
-  // Dragging support inside iframe
-  var isMouseDown = false;
-  var startX = 0;
-  var startY = 0;
+  // Dragging support inside iframe using screen coordinates (invariant to container motion)
+  var isDragging = false;
+  var startScreenX = 0;
+  var startScreenY = 0;
 
-  window.addEventListener('mousedown', function(e) {
-    // Only drag on canvas or container, not on action buttons
+  function onDragStart(e) {
     if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
-    isMouseDown = true;
-    startX = e.clientX;
-    startY = e.clientY;
-  });
+    isDragging = true;
+    var pt = e.touches ? e.touches[0] : e;
+    startScreenX = pt.screenX;
+    startScreenY = pt.screenY;
+  }
 
-  window.addEventListener('mousemove', function(e) {
-    if (!isMouseDown) return;
-    var dx = e.clientX - startX;
-    var dy = e.clientY - startY;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+  function onDragMove(e) {
+    if (!isDragging) return;
+    var pt = e.touches ? e.touches[0] : e;
+    var dx = pt.screenX - startScreenX;
+    var dy = pt.screenY - startScreenY;
+    if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1) {
       parent.postMessage({ type: 'l2d-drag', dx: dx, dy: dy }, '*');
-      startX = e.clientX;
-      startY = e.clientY;
+      startScreenX = pt.screenX;
+      startScreenY = pt.screenY;
     }
-  });
+  }
 
-  window.addEventListener('mouseup', function() {
-    isMouseDown = false;
-  });
+  function onDragEnd() {
+    isDragging = false;
+  }
+
+  window.addEventListener('mousedown', onDragStart);
+  window.addEventListener('mousemove', onDragMove);
+  window.addEventListener('mouseup', onDragEnd);
+  window.addEventListener('touchstart', onDragStart, { passive: true });
+  window.addEventListener('touchmove', onDragMove, { passive: true });
+  window.addEventListener('touchend', onDragEnd);
+  window.addEventListener('touchcancel', onDragEnd);
+  window.addEventListener('blur', onDragEnd);
 
   window.addEventListener('message', function(e) {
     if (e.data.type !== 'l2d-init') return;

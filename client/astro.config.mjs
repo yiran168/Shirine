@@ -113,6 +113,22 @@ const cloudflareWorkerManifestIntegration = {
 				writeFileSync(workerFile, content, "utf-8");
 				logger.info("Injected serialized SSR manifest into Cloudflare worker bundle.");
 			}
+
+			const routesFile = join(fileURLToPath(dir), "_routes.json");
+			const routesConfig = {
+				version: 1,
+				include: ["/*"],
+				exclude: [
+					"/_astro/*",
+					"/assets/*",
+					"/images/*",
+					"/favicon/*",
+					"/logo/*",
+					"/pio/*"
+				]
+			};
+			writeFileSync(routesFile, JSON.stringify(routesConfig, null, 2), "utf-8");
+			logger.info("Generated optimized wildcard _routes.json for Cloudflare Pages.");
 		},
 	},
 };

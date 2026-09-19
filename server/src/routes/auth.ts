@@ -15,7 +15,8 @@ authRouter.post("/register", async (c) => {
 
     // V10-P0-23: Require setup to be completed before allowing public user registration in production
     if (c.env.ENVIRONMENT === "production") {
-      const hasEnvAdmin = Boolean(c.env.ADMIN_USERNAME && c.env.ADMIN_PASSWORD);
+      const envAdminUsername = (c.env.ADMIN_USERNAME || (c.env.ADMIN_PASSWORD ? "admin" : "")).trim();
+      const hasEnvAdmin = Boolean(c.env.ADMIN_PASSWORD && envAdminUsername);
       if (!hasEnvAdmin) {
         const superadmin = await db.query.users.findFirst({
           where: eq(schema.users.role, "superadmin"),
@@ -53,9 +54,10 @@ authRouter.post("/register", async (c) => {
       "moderator",
       "mod",
     ];
+    const envAdminUser = (c.env.ADMIN_USERNAME || (c.env.ADMIN_PASSWORD ? "admin" : "")).trim();
     if (
       reservedUsernames.includes(username.trim().toLowerCase()) ||
-      (c.env.ADMIN_USERNAME && username.trim().toLowerCase() === c.env.ADMIN_USERNAME.trim().toLowerCase())
+      (envAdminUser && username.trim().toLowerCase() === envAdminUser.toLowerCase())
     ) {
       return c.json({ success: false, error: "This username is reserved by the system" }, 400);
     }
@@ -155,7 +157,8 @@ authRouter.get("/setup/status", async (c) => {
       where: eq(schema.setupState.id, 1),
     });
 
-    const hasEnvAdmin = Boolean(c.env.ADMIN_USERNAME && c.env.ADMIN_PASSWORD);
+    const envAdminUsername = (c.env.ADMIN_USERNAME || (c.env.ADMIN_PASSWORD ? "admin" : "")).trim();
+    const hasEnvAdmin = Boolean(c.env.ADMIN_PASSWORD && envAdminUsername);
     let state: "completed" | "uninitialized" | "broken" = "uninitialized";
     let needsSetup = true;
 
@@ -338,15 +341,18 @@ authRouter.post("/login", async (c) => {
     const db = getDb(c.env.DB);
     const trimmedUsername = username.trim();
 
+    const envAdminUsername = (c.env.ADMIN_USERNAME || (c.env.ADMIN_PASSWORD ? "admin" : "")).trim();
+    const envAdminPassword = c.env.ADMIN_PASSWORD ? c.env.ADMIN_PASSWORD.trim() : "";
+
     const isEnvAdminMatch = Boolean(
-      c.env.ADMIN_USERNAME &&
-      c.env.ADMIN_PASSWORD &&
-      trimmedUsername === c.env.ADMIN_USERNAME.trim() &&
-      password === c.env.ADMIN_PASSWORD
+      envAdminPassword &&
+      envAdminUsername &&
+      trimmedUsername.toLowerCase() === envAdminUsername.toLowerCase() &&
+      (password === c.env.ADMIN_PASSWORD || password === envAdminPassword)
     );
 
     let user = await db.query.users.findFirst({
-      where: eq(schema.users.username, trimmedUsername),
+      where: sql`lower(${schema.users.username}) = lower(${trimmedUsername})`,
     });
 
     if (isEnvAdminMatch) {
@@ -368,25 +374,6 @@ authRouter.post("/login", async (c) => {
           })
           .returning();
         user = inserted[0];
-
-        // Mark setup state as completed
-        try {
-          await db
-            .insert(schema.setupState)
-            .values({ id: 1, completed: 1 })
-            .onConflictDoUpdate({
-              target: schema.setupState.id,
-              set: { completed: 1 },
-            });
-        } catch {}
-
-        // Claim orphan records
-        try {
-          await db.update(schema.posts).set({ uid: user.id }).where(sql`${schema.posts.uid} IS NULL`);
-          await db.update(schema.albums).set({ uid: user.id }).where(sql`${schema.albums.uid} IS NULL`);
-          await db.update(schema.moments).set({ uid: user.id }).where(sql`${schema.moments.uid} IS NULL`);
-          await db.update(schema.friends).set({ uid: user.id }).where(sql`${schema.friends.uid} IS NULL`);
-        } catch {}
       } else {
         // User exists: ensure superadmin role, active status, and sync password hash if needed
         const salt = generateSalt();
@@ -404,6 +391,25 @@ authRouter.post("/login", async (c) => {
         user.role = "superadmin";
         user.status = "active";
       }
+
+      // Mark setup state as completed
+      try {
+        await db
+          .insert(schema.setupState)
+          .values({ id: 1, completed: 1 })
+          .onConflictDoUpdate({
+            target: schema.setupState.id,
+            set: { completed: 1 },
+          });
+      } catch {}
+
+      // Claim orphan records
+      try {
+        await db.update(schema.posts).set({ uid: user.id }).where(sql`${schema.posts.uid} IS NULL`);
+        await db.update(schema.albums).set({ uid: user.id }).where(sql`${schema.albums.uid} IS NULL`);
+        await db.update(schema.moments).set({ uid: user.id }).where(sql`${schema.moments.uid} IS NULL`);
+        await db.update(schema.friends).set({ uid: user.id }).where(sql`${schema.friends.uid} IS NULL`);
+      } catch {}
     } else {
       if (!user) {
         return c.json({ success: false, error: "Invalid username or password" }, 401);

@@ -31,6 +31,7 @@ jobs:
           R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME || 'shirine-storage' }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           CF_TURNSTILE_SECRET: ${{ secrets.CF_TURNSTILE_SECRET }}
+          ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME || vars.ADMIN_USERNAME }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
           PUBLIC_R2_URL: ${{ secrets.PUBLIC_R2_URL || vars.PUBLIC_R2_URL }}
