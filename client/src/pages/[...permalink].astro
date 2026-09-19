@@ -1,5 +1,5 @@
 ---
-import { type CollectionEntry, render } from "astro:content";
+import { render } from "astro:content";
 import path from "node:path";
 import IconButton from "@components/atoms/action/IconButton.svelte";
 import AccentBar from "@components/atoms/display/AccentBar.svelte";
@@ -24,7 +24,7 @@ import MainGridLayout from "@layouts/MainGridLayout.astro";
 import { discoverArticles } from "@utils/article-discovery";
 import { resolveAsset } from "@utils/asset-utils";
 import { getPublishedInstant, getUpdatedInstant } from "@utils/content-date";
-import { getSortedPosts, type PostForList } from "@utils/content-utils";
+import { getSortedPosts } from "@utils/content-utils";
 import { formatDateToYYYYMMDD } from "@utils/date-utils";
 import { getMarkdownStylesheetAssets } from "@utils/markdown-assets";
 import { getSourceMarkdownSyntaxSnapshot } from "@utils/markdown-source-syntaxes.mjs";
@@ -66,8 +66,7 @@ if (!permalink) {
 
 // Redirect legacy numeric pagination URLs /2/, /3/ to /page/2/, /page/3/
 if (/^\d+$/.test(permalink)) {
-	const pageNum = parseInt(permalink, 10);
-	return Astro.redirect(pageNum <= 1 ? "/" : `/page/${pageNum}/`);
+	return Astro.redirect(parseInt(permalink, 10) <= 1 ? "/" : `/page/${permalink}/`);
 }
 
 const apiBase = import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";

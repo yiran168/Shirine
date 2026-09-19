@@ -89,6 +89,7 @@ export default defineConfig({
 		platformProxy: {
 			enabled: true,
 		},
+		imageService: "compile",
 	}),
 	trailingSlash: "always",
 	fonts: configuredFonts,
