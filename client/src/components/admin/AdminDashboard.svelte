@@ -401,12 +401,24 @@
         const res = await pagesApi.list();
         if (res.success) pages = res.data || [];
       } else if (tab === "friends") {
-        const res = await friendsApi.list();
-        if (res.success) friends = res.data || [];
+        const [friendsRes, siteRes] = await Promise.all([
+          friendsApi.list(),
+          configApi.getSite(),
+        ]);
+        if (friendsRes.success) friends = friendsRes.data || [];
+        if (siteRes.success && siteRes.data?.friendApplyInfo) {
+          siteConfigState = {
+            ...siteConfigState,
+            friendApplyInfo: {
+              ...siteConfigState.friendApplyInfo,
+              ...siteRes.data.friendApplyInfo,
+            },
+          };
+        }
       } else if (tab === "users") {
         const res = await adminApi.getUsers({ pageSize: 100 });
         if (res.success) users = res.data || [];
-      } else if (tab === "settings" || tab === "compass" || tab === "anime" || tab === "projects" || tab === "devices" || tab === "skills" || tab === "friends") {
+      } else if (tab === "settings" || tab === "compass" || tab === "anime" || tab === "projects" || tab === "devices" || tab === "skills") {
         const [siteRes, sysRes] = await Promise.all([
           configApi.getSite(),
           configApi.getAdminSystem(),
@@ -1271,6 +1283,7 @@
         cover: "/assets/images/demo-avatar.webp",
         coverAlt: "项目封面预览",
         featured: false,
+        website: "",
         repository: "https://github.com",
         year: String(new Date().getFullYear()),
         enable: true,
@@ -2277,8 +2290,8 @@
                       {page.title}
                     </td>
                     <td class="px-4 py-4 text-xs font-mono text-primary">
-                      <a href={['about', 'projects', 'devices', 'skills'].includes(page.slug) ? `/${page.slug}/` : `/pages/${page.slug}`} target="_blank" class="hover:underline">
-                        {['about', 'projects', 'devices', 'skills'].includes(page.slug) ? `/${page.slug}/` : `/pages/${page.slug}`}
+                      <a href={page.slug === 'about' ? '/about/' : `/pages/${page.slug}/`} target="_blank" class="hover:underline">
+                        {page.slug === 'about' ? '/about/' : `/pages/${page.slug}/`}
                       </a>
                     </td>
                     <td class="px-4 py-4 text-xs">
@@ -2293,7 +2306,7 @@
                     </td>
                     <td class="px-6 py-4 text-right space-x-2">
                       <a
-                        href={['about', 'projects', 'devices', 'skills'].includes(page.slug) ? `/${page.slug}/` : `/pages/${page.slug}/`}
+                        href={page.slug === 'about' ? '/about/' : `/pages/${page.slug}/`}
                         target="_blank"
                         class="text-emerald-600 dark:text-emerald-400 font-medium text-xs hover:underline"
                       >
@@ -2308,7 +2321,7 @@
             </table>
             {#if pages.length === 0}
               <div class="p-8 text-center space-y-3">
-                <p class="text-sm text-[var(--on-surface-variant)]">暂无独立页面记录。预设的「关于」、「精选项目」、「我的设备」、「专业技能」可通过一键同步导入。</p>
+                <p class="text-sm text-[var(--on-surface-variant)]">暂无独立页面记录。预设的「关于」可通过一键同步导入。</p>
                 <button
                   type="button"
                   onclick={() => handleSeedPresets(false)}
@@ -2628,7 +2641,7 @@
                         </div>
                       </div>
 
-                      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
                         <div>
                           <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">封面图片 URL (Cover)</label>
                           <input
@@ -2639,7 +2652,16 @@
                           />
                         </div>
                         <div>
-                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">开源仓库或链接 (Repository / Link)</label>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">项目官网/访问链接 (Website)</label>
+                          <input
+                            type="text"
+                            bind:value={item.website}
+                            placeholder="https://..."
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">开源仓库或链接 (Repository)</label>
                           <input
                             type="text"
                             bind:value={item.repository}
@@ -2660,11 +2682,17 @@
 
                       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                         <div class="sm:col-span-2">
-                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">项目描述 (Summary)</label>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">技术栈标签 (Technologies，以英文逗号分隔)</label>
                           <input
                             type="text"
-                            bind:value={item.summary}
-                            placeholder="项目一句话介绍与亮点..."
+                            value={Array.isArray(item.technologies) ? item.technologies.join(", ") : (item.technologies || "")}
+                            oninput={(e) => {
+                              item.technologies = (e.target as HTMLInputElement).value
+                                .split(/[,，]/)
+                                .map((s) => s.trim())
+                                .filter(Boolean);
+                            }}
+                            placeholder="TypeScript, Astro, Svelte, Tailwind CSS"
                             class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
                           />
                         </div>
@@ -2674,6 +2702,18 @@
                             type="text"
                             bind:value={item.year}
                             placeholder="2026"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-1 gap-3 text-xs">
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">项目描述 (Summary)</label>
+                          <input
+                            type="text"
+                            bind:value={item.summary}
+                            placeholder="项目一句话介绍与亮点..."
                             class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
                           />
                         </div>
@@ -2881,7 +2921,16 @@
                         </div>
                       </div>
 
-                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">设备封面图片 URL (Image, 可选)</label>
+                          <input
+                            type="text"
+                            bind:value={item.image}
+                            placeholder="/assets/devices/..."
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
                         <div>
                           <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">使用感受与体验 (Description)</label>
                           <input
@@ -3177,7 +3226,25 @@
                             />
                           </div>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onclick={() => moveCompassShelf(shelfIdx, "up")}
+                            disabled={shelfIdx === 0}
+                            class="p-1.5 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] rounded-lg transition-colors disabled:opacity-30"
+                            title="上移分组"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                          </button>
+                          <button
+                            type="button"
+                            onclick={() => moveCompassShelf(shelfIdx, "down")}
+                            disabled={shelfIdx === siteConfigState.compass.length - 1}
+                            class="p-1.5 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] rounded-lg transition-colors disabled:opacity-30"
+                            title="下移分组"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                          </button>
                           <button
                             type="button"
                             onclick={() => addCompassEntry(shelfIdx)}
@@ -3238,14 +3305,34 @@
                                   class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface-container-low)] outline-none font-mono"
                                 />
                               </div>
-                              <button
-                                type="button"
-                                onclick={() => removeCompassEntry(shelfIdx, entryIdx)}
-                                class="mt-3 p-1 text-error hover:bg-error/10 rounded-md transition-colors"
-                                title="删除此站点"
-                              >
-                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                              </button>
+                              <div class="flex items-center gap-0.5 mt-3 shrink-0">
+                                <button
+                                  type="button"
+                                  onclick={() => moveCompassEntry(shelfIdx, entryIdx, "up")}
+                                  disabled={entryIdx === 0}
+                                  class="p-1 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] rounded-md transition-colors disabled:opacity-30"
+                                  title="上移站点"
+                                >
+                                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  onclick={() => moveCompassEntry(shelfIdx, entryIdx, "down")}
+                                  disabled={entryIdx === shelf.entries.length - 1}
+                                  class="p-1 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] rounded-md transition-colors disabled:opacity-30"
+                                  title="下移站点"
+                                >
+                                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  onclick={() => removeCompassEntry(shelfIdx, entryIdx)}
+                                  class="p-1 text-error hover:bg-error/10 rounded-md transition-colors"
+                                  title="删除此站点"
+                                >
+                                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                              </div>
                             </div>
                           {/each}
                         </div>
@@ -3372,14 +3459,34 @@
                             </div>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onclick={() => removeAnimeItem(idx)}
-                          class="p-2 text-error hover:bg-error/10 rounded-lg transition-colors shrink-0"
-                          title="删除此番剧条目"
-                        >
-                          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                        </button>
+                        <div class="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onclick={() => moveAnimeItem(idx, "up")}
+                            disabled={idx === 0}
+                            class="p-1.5 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] rounded-lg transition-colors disabled:opacity-30"
+                            title="上移"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                          </button>
+                          <button
+                            type="button"
+                            onclick={() => moveAnimeItem(idx, "down")}
+                            disabled={idx === siteConfigState.anime.length - 1}
+                            class="p-1.5 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] rounded-lg transition-colors disabled:opacity-30"
+                            title="下移"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                          </button>
+                          <button
+                            type="button"
+                            onclick={() => removeAnimeItem(idx)}
+                            class="p-1.5 text-error hover:bg-error/10 rounded-lg transition-colors"
+                            title="删除此番剧条目"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                          </button>
+                        </div>
                       </div>
 
                       <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-[var(--outline-variant)]/10 text-xs">

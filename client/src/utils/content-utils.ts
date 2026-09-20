@@ -280,9 +280,18 @@ let momentsRendererPromise: ReturnType<
 	typeof siteMarkdownProcessor.createRenderer
 > | null = null;
 
-function withMomentThumbnails(image: MomentImage): MomentImage {
-	const resolvedSrc = image.src.startsWith("/") ? url(image.src) : image.src;
-	const resolvedThumb = image.thumbnailSrc
+function withMomentThumbnails(image: any): MomentImage {
+	if (typeof image === "string") {
+		const resolved = image.startsWith("/") ? url(image) : image;
+		return {
+			src: resolved,
+			thumbnailSrc: resolved,
+			alt: "",
+		};
+	}
+	const src = image?.src || "";
+	const resolvedSrc = src.startsWith("/") ? url(src) : src;
+	const resolvedThumb = image?.thumbnailSrc
 		? image.thumbnailSrc.startsWith("/")
 			? url(image.thumbnailSrc)
 			: image.thumbnailSrc
@@ -590,7 +599,7 @@ export async function getDynamicCompass(request?: Request): Promise<any[]> {
 			if (res.ok) {
 				const json = await res.json();
 				const siteCfg = json.data || json.site;
-				if (siteCfg && Array.isArray(siteCfg.compass) && siteCfg.compass.length > 0) {
+				if (siteCfg && Array.isArray(siteCfg.compass)) {
 					return siteCfg.compass;
 				}
 			}
@@ -610,7 +619,7 @@ export async function getDynamicAnime(request?: Request): Promise<any[]> {
 			if (res.ok) {
 				const json = await res.json();
 				const siteCfg = json.data || json.site;
-				if (siteCfg && Array.isArray(siteCfg.anime) && siteCfg.anime.length > 0) {
+				if (siteCfg && Array.isArray(siteCfg.anime)) {
 					return siteCfg.anime;
 				}
 			}
@@ -630,7 +639,7 @@ export async function getDynamicProjects(request?: Request): Promise<any[]> {
 			if (res.ok) {
 				const json = await res.json();
 				const siteCfg = json.data || json.site;
-				if (siteCfg && Array.isArray(siteCfg.projects) && siteCfg.projects.length > 0) {
+				if (siteCfg && Array.isArray(siteCfg.projects)) {
 					return siteCfg.projects;
 				}
 			}
@@ -650,7 +659,7 @@ export async function getDynamicDevices(request?: Request): Promise<any[]> {
 			if (res.ok) {
 				const json = await res.json();
 				const siteCfg = json.data || json.site;
-				if (siteCfg && Array.isArray(siteCfg.devices) && siteCfg.devices.length > 0) {
+				if (siteCfg && Array.isArray(siteCfg.devices)) {
 					return siteCfg.devices;
 				}
 			}
@@ -670,7 +679,7 @@ export async function getDynamicSkills(request?: Request): Promise<any[]> {
 			if (res.ok) {
 				const json = await res.json();
 				const siteCfg = json.data || json.site;
-				if (siteCfg && Array.isArray(siteCfg.skills) && siteCfg.skills.length > 0) {
+				if (siteCfg && Array.isArray(siteCfg.skills)) {
 					return siteCfg.skills;
 				}
 			}

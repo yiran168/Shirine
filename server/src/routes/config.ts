@@ -936,10 +936,11 @@ configRouter.put("/site", requireAdmin, async (c) => {
           target: schema.siteConfigs.key,
           set: { value: JSON.stringify(mergedVal), updatedAt: new Date() },
         });
-    } else if (body.site || body.profile || body.music || body.announcement || body.sidebar || body.footer || body.compass || body.anime || body.projects || body.devices || body.skills || body.friendApplyInfo) {
+    } else if (body.site || body.profile || body.music || body.announcement || body.sidebar || body.footer) {
       // Domain-structured full object: V10-P0-03 read existing domain before merging to preserve custom fields
+      const standardDomainKeys = ["site", "profile", "music", "announcement", "sidebar", "footer"];
       for (const [key, val] of Object.entries(body)) {
-        if (!(key in defaultSiteConfig)) continue;
+        if (!standardDomainKeys.includes(key) || !(key in defaultSiteConfig)) continue;
         const defaultDomain = (defaultSiteConfig as any)[key] || {};
         const existingRow = await db.query.siteConfigs.findFirst({
           where: eq(schema.siteConfigs.key, key),
