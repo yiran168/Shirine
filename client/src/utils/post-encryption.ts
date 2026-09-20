@@ -1,18 +1,25 @@
 export type PostEncryptionData = {
 	encrypted?: boolean;
 	password?: string | number;
+	requiresPassword?: boolean;
+	permissionType?: string;
 };
 
 /**
- * Resolves the fail-closed encryption contract shared by every post surface.
- * An explicit encrypted flag without a usable password is a configuration error,
- * not permission to publish the post as plaintext.
+ * Resolves whether a post is encrypted / password protected.
+ * Returns true if the post is marked as encrypted, requires a password,
+ * has a password permission type, or has a password string configured.
+ * Never throws on valid encrypted post objects even if password is omitted
+ * by the public API for security.
  */
-export function isEncryptedPost(data: PostEncryptionData): boolean {
+export function isEncryptedPost(data?: PostEncryptionData | null): boolean {
+	if (!data) return false;
 	const hasPassword =
 		data.password !== undefined && String(data.password).trim().length > 0;
-	if (data.encrypted && !hasPassword) {
-		throw new Error("Encrypted posts require a non-empty password");
-	}
-	return hasPassword;
+	return Boolean(
+		data.encrypted ||
+		data.requiresPassword ||
+		data.permissionType === "password" ||
+		hasPassword
+	);
 }

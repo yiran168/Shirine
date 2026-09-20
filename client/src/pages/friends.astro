@@ -5,11 +5,12 @@ import FriendSection from "@components/organisms/FriendSection.svelte";
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import MainGridLayout from "@layouts/MainGridLayout.astro";
-import { getDynamicFriends } from "@utils/content-utils";
+import { getDynamicFriends, getDynamicFriendApplyInfo } from "@utils/content-utils";
 
 const allFriends = await getDynamicFriends(Astro.request);
+const friendApplyInfo = await getDynamicFriendApplyInfo(Astro.request);
 ---
 
 <MainGridLayout title={i18n(I18nKey.friends)} description={i18n(I18nKey.friendsBanner)} page="friends">
-    <FriendSection friends={allFriends} client:visible></FriendSection>
+    <FriendSection friends={allFriends} applyInfo={friendApplyInfo} client:visible></FriendSection>
 </MainGridLayout>

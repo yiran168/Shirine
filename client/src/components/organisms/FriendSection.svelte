@@ -12,7 +12,23 @@ import { onMount } from "svelte";
 import type { FriendItem } from "../../data/friends";
 import { friendsApi } from "@/services/api";
 
-let { friends = [] as FriendItem[] }: { friends?: FriendItem[] } = $props();
+let {
+	friends = [] as FriendItem[],
+	applyInfo = {
+		name: "Shirine",
+		url: "https://github.com/yiran168/Shirine",
+		avatar: "/assets/images/demo-avatar.webp",
+		desc: "The rain remembers what the sky forgot to say.",
+	},
+}: {
+	friends?: FriendItem[];
+	applyInfo?: {
+		name?: string;
+		url?: string;
+		avatar?: string;
+		desc?: string;
+	};
+} = $props();
 
 let query = $state("");
 let selectedTag = $state("");
@@ -253,8 +269,8 @@ onMount(() => {
 
 				<div class="p-3.5 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 text-xs text-[var(--on-surface-variant)] space-y-1">
 					<p class="font-semibold text-[var(--on-surface)]">✦ 本站信息（请在贵站先添加本站友链）：</p>
-					<p>名称：Shirine ｜ 网址：https://github.com/yiran168/Shirine</p>
-					<p>头像：/assets/images/demo-avatar.webp ｜ 描述：The rain remembers what the sky forgot to say.</p>
+					<p>名称：{applyInfo?.name || "Shirine"} ｜ 网址：{applyInfo?.url || "https://github.com/yiran168/Shirine"}</p>
+					<p>头像：{applyInfo?.avatar || "/assets/images/demo-avatar.webp"} ｜ 描述：{applyInfo?.desc || "The rain remembers what the sky forgot to say."}</p>
 				</div>
 
 				{#if applySuccessMsg}

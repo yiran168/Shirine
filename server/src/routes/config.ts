@@ -197,6 +197,61 @@ export const defaultSiteConfig = {
         },
       ],
     },
+    {
+      key: "design",
+      name: "Design",
+      icon: "material-symbols:palette-outline-rounded",
+      blurb: "Colors, icons and inspiration",
+      entries: [
+        {
+          label: "Iconify",
+          href: "https://icon-sets.iconify.design",
+          note: "Searchable open-source icon sets",
+        },
+        {
+          label: "Material Symbols",
+          href: "https://fonts.google.com/icons",
+          note: "Official M3 icon set",
+          icon: "material-symbols:star-rounded",
+        },
+        {
+          label: "Excalidraw",
+          href: "https://excalidraw.com",
+          note: "Hand-drawn whiteboard collaboration",
+        },
+      ],
+    },
+    {
+      key: "tools",
+      name: "Tools",
+      icon: "material-symbols:build-outline-rounded",
+      entries: [
+        {
+          label: "Squoosh",
+          href: "https://squoosh.app",
+          note: "Image compression & conversion",
+        },
+        {
+          label: "Regex101",
+          href: "https://regex101.com",
+          note: "Regex testing & debugging",
+        },
+      ],
+    },
+    {
+      key: "reads",
+      name: "Reading",
+      icon: "material-symbols:auto-stories-outline-rounded",
+      entries: [
+        { label: "Hacker News", href: "https://news.ycombinator.com" },
+        { label: "V2EX", href: "https://www.v2ex.com" },
+        {
+          label: "Solidot",
+          href: "https://www.solidot.org",
+          note: "Tech and culture news",
+        },
+      ],
+    },
   ],
   anime: [
     {
@@ -212,7 +267,189 @@ export const defaultSiteConfig = {
       genres: ["Action", "Slice of Life"],
       period: { start: "2022-07", end: "2022-09" },
     },
+    {
+      title: "Yowamushi Pedal",
+      cover: "/assets/anime/rynh.webp",
+      link: "https://www.bilibili.com/bangumi/media/md2590",
+      status: "watching",
+      rating: 9.5,
+      progress: { watched: 8, total: 12 },
+      description: "Girl's daily life, sweet and healing",
+      year: "2015",
+      studio: "Nexus",
+      genres: ["Daily life", "Healing"],
+      period: { start: "2015-07", end: "2015-09" },
+    },
+    {
+      title: "Asteroid in Love",
+      cover: "/assets/anime/laxxx.webp",
+      link: "https://www.bilibili.com/bangumi/media/md28224128",
+      status: "watching",
+      rating: 9.2,
+      progress: { watched: 5, total: 12 },
+      description: "Meeting girls among the stars, pure love and healing",
+      year: "2020",
+      studio: "Doga Kobo",
+      genres: ["Romance", "Healing"],
+      period: { start: "2020-01", end: "2020-03" },
+    },
+    {
+      title: "Is the Order a Rabbit?",
+      cover: "/assets/anime/tz1.webp",
+      link: "https://www.bilibili.com/bangumi/media/md2762",
+      status: "planned",
+      rating: 9.0,
+      progress: { watched: 12, total: 12 },
+      description: "A group of girls' warm daily life",
+      year: "2014",
+      studio: "White Fox",
+      genres: ["Daily life", "Healing"],
+      period: { start: "2014-04", end: "2014-06" },
+    },
+    {
+      title: "The Secret of the Magic Girl",
+      cover: "/assets/anime/cmmn.webp",
+      link: "https://www.bilibili.com/bangumi/media/md26625039",
+      status: "watching",
+      rating: 9.0,
+      progress: { watched: 8, total: 12 },
+      description: "Muli, Muli!",
+      year: "2024",
+      studio: "C2C",
+      genres: ["Daily life", "Healing", "Magic"],
+      period: { start: "2025-07", end: "2025-10" },
+    },
   ],
+  projects: [
+    {
+      key: "shirine",
+      title: "Shirine",
+      summary: "An Astro blog theme shaped around an M3E component system, expressive content, and resilient client navigation.",
+      category: "theme",
+      phase: "building",
+      technologies: ["Astro", "Svelte", "TypeScript", "Tailwind CSS"],
+      icon: "material-symbols:deployed-code-outline-rounded",
+      cover: "/assets/projects/shirine.webp",
+      coverAlt: "Shirine theme homepage preview",
+      featured: true,
+      repository: "https://github.com/yiran168/Shirine",
+      year: "2026",
+      enable: true,
+    },
+    {
+      key: "folkpatch",
+      title: "FolkPatch",
+      summary: "A kernel-level root solution for Android, built on APatch.",
+      category: "android",
+      phase: "building",
+      technologies: ["Kotlin", "APatch", "Android"],
+      icon: "material-symbols:terminal-rounded",
+      repository: "https://github.com/LyraVoid/FolkPatch",
+      year: "2025",
+      enable: true,
+    },
+    {
+      key: "kernelpatch",
+      title: "KernelPatch",
+      summary: "A kernel patch framework that powers APatch-style root on Android by loading code into the running kernel.",
+      category: "android",
+      phase: "shipped",
+      technologies: ["C", "Linux Kernel", "Android"],
+      icon: "material-symbols:extension-outline-rounded",
+      repository: "https://github.com/lyravoid/KernelPatch",
+      year: "2024",
+      enable: true,
+    },
+  ],
+  devices: [
+    {
+      id: "macbook-pro-16",
+      name: 'MacBook Pro 16"',
+      brand: "Apple",
+      category: "desk",
+      status: "active",
+      specs: "M3 Max / 64GB / 2TB",
+      description: "Primary workstation for development, design, and heavy rendering workloads.",
+      icon: "material-symbols:laptop-mac-rounded",
+      featured: true,
+      year: "2024",
+      link: "https://www.apple.com/macbook-pro/",
+      enable: true,
+    },
+    {
+      id: "iphone-16-pro",
+      name: "iPhone 16 Pro",
+      brand: "Apple",
+      category: "mobile",
+      status: "active",
+      specs: "Natural Titanium / 256GB",
+      description: "Daily driver smartphone with outstanding cameras and a smooth 120Hz ProMotion display.",
+      icon: "material-symbols:phone-iphone",
+      featured: true,
+      year: "2024",
+      enable: true,
+    },
+    {
+      id: "sony-wh1000xm5",
+      name: "Sony WH-1000XM5",
+      brand: "Sony",
+      category: "audio",
+      status: "active",
+      specs: "Silver / ANC / LDAC",
+      description: "Industry-leading noise-canceling headphones for immersive coding sessions and travels.",
+      icon: "material-symbols:headphones-rounded",
+      year: "2023",
+      enable: true,
+    },
+    {
+      id: "custom-keyboard-75",
+      name: "Custom 75% Mechanical Keyboard",
+      brand: "Custom",
+      category: "peripheral",
+      status: "active",
+      specs: "Anodized Aluminum / Linear Switches",
+      description: "Custom gasket-mounted keyboard tuned for deep, quiet typing acoustics.",
+      icon: "material-symbols:keyboard-outline-rounded",
+      year: "2025",
+      enable: true,
+    },
+    {
+      id: "ipad-pro-11",
+      name: 'iPad Pro 11"',
+      brand: "Apple",
+      category: "mobile",
+      status: "backup",
+      specs: "Space Gray / 128GB",
+      description: "Secondary mobile screen and digital notepad for sketching ideas and reading papers.",
+      icon: "material-symbols:tablet-mac-rounded",
+      year: "2021",
+      enable: true,
+    },
+  ],
+  skills: [
+    { name: "JavaScript", description: "ES2020+ syntax, async plumbing, and event-driven browser code.", icon: "simple-icons:javascript", category: "frontend", level: "advanced", enable: true },
+    { name: "TypeScript", description: "Typed application code and maintainable contracts.", icon: "simple-icons:typescript", category: "frontend", level: "expert", enable: true },
+    { name: "Astro", description: "Content-focused sites with fast server-rendered output.", icon: "simple-icons:astro", category: "frontend", level: "advanced", enable: true },
+    { name: "Svelte", description: "Focused interactive islands and component systems.", icon: "simple-icons:svelte", category: "frontend", level: "advanced", enable: true },
+    { name: "React", description: "Composable component trees with hooks and client state.", icon: "simple-icons:react", category: "frontend", level: "intermediate", enable: true },
+    { name: "Vue", description: "Progressive component authoring for rapid single-page apps.", icon: "simple-icons:vuedotjs", category: "frontend", level: "intermediate", enable: true },
+    { name: "Tailwind CSS", description: "Utility-first styling for rapidly composed interfaces.", icon: "simple-icons:tailwindcss", category: "frontend", level: "advanced", enable: true },
+    { name: "Sass", description: "Nesting, variables, and mixins for maintainable stylesheets.", icon: "simple-icons:sass", category: "frontend", level: "intermediate", enable: true },
+    { name: "Node.js", description: "Build tooling, services, and content pipelines.", icon: "simple-icons:nodedotjs", category: "backend", level: "advanced", enable: true },
+    { name: "Python", description: "Scripting, data wrangling, and service automation.", icon: "simple-icons:python", category: "backend", level: "intermediate", enable: true },
+    { name: "Java", description: "Typed OO code for larger service and tooling layers.", icon: "simple-icons:openjdk", category: "backend", level: "intermediate", enable: true },
+    { name: "Go", description: "Concurrent services and small high-performance tools.", icon: "simple-icons:go", category: "backend", level: "beginner", enable: true },
+    { name: "Rust", description: "Memory-safe systems code and performance-critical paths.", icon: "simple-icons:rust", category: "backend", level: "beginner", enable: true },
+    { name: "C++", description: "Native modules and performance-sensitive components.", icon: "simple-icons:cplusplus", category: "backend", level: "beginner", enable: true },
+    { name: "C", description: "Low-level systems work close to the runtime.", icon: "simple-icons:c", category: "backend", level: "beginner", enable: true },
+    { name: "Playwright", description: "User-facing regression and accessibility testing.", icon: "simple-icons:playwright", category: "tooling", level: "advanced", enable: true },
+  ],
+  friendApplyInfo: {
+    name: "Shirine",
+    url: "https://github.com/yiran168/Shirine",
+    avatar: "/assets/images/demo-avatar.webp",
+    desc: "The rain remembers what the sky forgot to say.",
+  },
 };
 
 // Default System Configs
@@ -239,7 +476,10 @@ export const defaultSystemConfig = {
 };
 
 export function deepMerge<T extends Record<string, any>>(target: T, source: any): T {
-  if (!source || typeof source !== "object") return target;
+  if (source === undefined || source === null) return target;
+  if (Array.isArray(source)) return source as unknown as T;
+  if (Array.isArray(target)) return (Array.isArray(source) ? source : target) as unknown as T;
+  if (typeof source !== "object" || typeof target !== "object") return source;
   const result = { ...target };
   for (const key of Object.keys(source)) {
     const sVal = source[key];
@@ -611,6 +851,66 @@ configRouter.put("/site", requireAdmin, async (c) => {
         });
     }
 
+    // 7. Projects updates
+    if ("projects" in body && Array.isArray(body.projects)) {
+      await db
+        .insert(schema.siteConfigs)
+        .values({
+          key: "projects",
+          value: JSON.stringify(body.projects),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.siteConfigs.key,
+          set: { value: JSON.stringify(body.projects), updatedAt: new Date() },
+        });
+    }
+
+    // 8. Devices updates
+    if ("devices" in body && Array.isArray(body.devices)) {
+      await db
+        .insert(schema.siteConfigs)
+        .values({
+          key: "devices",
+          value: JSON.stringify(body.devices),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.siteConfigs.key,
+          set: { value: JSON.stringify(body.devices), updatedAt: new Date() },
+        });
+    }
+
+    // 9. Skills updates
+    if ("skills" in body && Array.isArray(body.skills)) {
+      await db
+        .insert(schema.siteConfigs)
+        .values({
+          key: "skills",
+          value: JSON.stringify(body.skills),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.siteConfigs.key,
+          set: { value: JSON.stringify(body.skills), updatedAt: new Date() },
+        });
+    }
+
+    // 10. Friend Apply Info updates
+    if ("friendApplyInfo" in body && typeof body.friendApplyInfo === "object" && body.friendApplyInfo !== null) {
+      await db
+        .insert(schema.siteConfigs)
+        .values({
+          key: "friendApplyInfo",
+          value: JSON.stringify(body.friendApplyInfo),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.siteConfigs.key,
+          set: { value: JSON.stringify(body.friendApplyInfo), updatedAt: new Date() },
+        });
+    }
+
     // 5. Domain updates: { domain: "...", config: {...} }
     if (typeof body.domain === "string" && "config" in body) {
       const domainKey = body.domain;
@@ -636,7 +936,7 @@ configRouter.put("/site", requireAdmin, async (c) => {
           target: schema.siteConfigs.key,
           set: { value: JSON.stringify(mergedVal), updatedAt: new Date() },
         });
-    } else if (body.site || body.profile || body.music || body.announcement || body.sidebar || body.footer) {
+    } else if (body.site || body.profile || body.music || body.announcement || body.sidebar || body.footer || body.compass || body.anime || body.projects || body.devices || body.skills || body.friendApplyInfo) {
       // Domain-structured full object: V10-P0-03 read existing domain before merging to preserve custom fields
       for (const [key, val] of Object.entries(body)) {
         if (!(key in defaultSiteConfig)) continue;

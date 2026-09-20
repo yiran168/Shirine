@@ -55,9 +55,11 @@ const softCategory = !isHome && !isArchive && postCategory ? postCategory : "";
 				variant="tonal"
 				href={archiveUrl}
 				selected={isArchive}
-				class="shrink-0"
+				label={i18n(I18nKey.archive)}
+				class="shrink-0 flex items-center gap-1"
 			>
-				{i18n(I18nKey.archive)}
+				<Icon name="material-symbols:archive-outline-rounded" class="text-lg" aria-hidden="true" />
+				<span>{i18n(I18nKey.archive)}</span>
 			</Chip>
 
 			<!-- 分类区：横向滚动 -->

@@ -43,39 +43,6 @@ export const PRESET_PAGES = [
 3. 申请前请先添加本站友链；
 4. 申请入口：可直接前往 [友链页面](/friends/) 点击「申请友链」按钮提交，管理员审核后即可在前台展示。`,
   },
-  {
-    slug: "projects",
-    title: "精选项目",
-    content: `# 精选项目 (Featured Projects)
-
-这里展示了站长参与或独立维护的开源项目与实践作品。
-
-- **Shirine Blog Theme**: 基于 Material 3 Expressive 设计规范的唯美二次元博客主题。
-- **M3E Component Library**: 深度整合 Tailwind 与 Svelte 5 的设计系统组件库。
-- **Cloudflare D1/R2 Serverless Engine**: 极速低延迟的全栈无服务器后端架构。`,
-  },
-  {
-    slug: "devices",
-    title: "我的设备",
-    content: `# 我的设备与工作台 (My Devices & Setup)
-
-记录日常使用的数字装备、开发工作台与生产力工具：
-
-- **主力电脑**: MacBook Pro 16" (M-Series / 32GB RAM / 1TB SSD)
-- **显示外设**: 27" 4K IPS HDR 专业色彩显示器 + 机械键盘与无线人体工学鼠标
-- **移动设备**: iPhone 15 Pro Max & iPad Pro (Apple Pencil 随手记与草稿设计)
-- **影音娱乐**: Sony WH-1000XM5 无线降噪耳机 + Nintendo Switch OLED`,
-  },
-  {
-    slug: "skills",
-    title: "技能清单",
-    content: `# 技能清单与技术栈 (Skills & Technologies)
-
-- **前端技术**: TypeScript / Astro 7 / Svelte 5 (Runes) / Tailwind CSS 4 / Vue / React
-- **后端架构**: Cloudflare Workers / D1 (SQLite) / R2 Storage / Hono / Node.js
-- **设计工具**: Figma / Material Design 3 / Adobe Creative Cloud
-- **开发运维**: Git / GitHub Actions CI/CD / Docker / Linux`,
-  },
 ];
 
 export async function seedPresetData(
@@ -320,6 +287,9 @@ export async function seedPresetData(
   }
 
   // 6. Custom Pages
+  try {
+    await db.delete(schema.pages).where(sql`${schema.pages.slug} IN ('projects', 'devices', 'skills')`);
+  } catch {}
   for (const page of PRESET_PAGES) {
     const existing = await db.query.pages.findFirst({
       where: eq(schema.pages.slug, page.slug),

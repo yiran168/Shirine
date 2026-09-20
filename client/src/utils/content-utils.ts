@@ -620,6 +620,109 @@ export async function getDynamicAnime(request?: Request): Promise<any[]> {
 	return await getAnimeList();
 }
 
+export async function getDynamicProjects(request?: Request): Promise<any[]> {
+	const apiBase = resolveApiBase(request);
+	if (apiBase) {
+		try {
+			const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
+				signal: AbortSignal.timeout(2000),
+			});
+			if (res.ok) {
+				const json = await res.json();
+				const siteCfg = json.data || json.site;
+				if (siteCfg && Array.isArray(siteCfg.projects) && siteCfg.projects.length > 0) {
+					return siteCfg.projects;
+				}
+			}
+		} catch {}
+	}
+	const { projectsData } = await import("../data/projects");
+	return projectsData;
+}
+
+export async function getDynamicDevices(request?: Request): Promise<any[]> {
+	const apiBase = resolveApiBase(request);
+	if (apiBase) {
+		try {
+			const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
+				signal: AbortSignal.timeout(2000),
+			});
+			if (res.ok) {
+				const json = await res.json();
+				const siteCfg = json.data || json.site;
+				if (siteCfg && Array.isArray(siteCfg.devices) && siteCfg.devices.length > 0) {
+					return siteCfg.devices;
+				}
+			}
+		} catch {}
+	}
+	const { devicesData } = await import("../data/devices");
+	return devicesData;
+}
+
+export async function getDynamicSkills(request?: Request): Promise<any[]> {
+	const apiBase = resolveApiBase(request);
+	if (apiBase) {
+		try {
+			const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
+				signal: AbortSignal.timeout(2000),
+			});
+			if (res.ok) {
+				const json = await res.json();
+				const siteCfg = json.data || json.site;
+				if (siteCfg && Array.isArray(siteCfg.skills) && siteCfg.skills.length > 0) {
+					return siteCfg.skills;
+				}
+			}
+		} catch {}
+	}
+	const { skillsData } = await import("../data/skills");
+	return skillsData;
+}
+
+export async function getDynamicFriendApplyInfo(request?: Request): Promise<{
+	name: string;
+	url: string;
+	avatar: string;
+	desc: string;
+}> {
+	const defaultInfo = {
+		name: "Shirine",
+		url: "https://github.com/yiran168/Shirine",
+		avatar: "/assets/images/demo-avatar.webp",
+		desc: "The rain remembers what the sky forgot to say.",
+	};
+	const apiBase = resolveApiBase(request);
+	if (apiBase) {
+		try {
+			const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
+				signal: AbortSignal.timeout(2000),
+			});
+			if (res.ok) {
+				const json = await res.json();
+				const siteCfg = json.data || json.site;
+				if (siteCfg && siteCfg.friendApplyInfo && typeof siteCfg.friendApplyInfo === "object") {
+					return {
+						name: siteCfg.friendApplyInfo.name || defaultInfo.name,
+						url: siteCfg.friendApplyInfo.url || defaultInfo.url,
+						avatar: siteCfg.friendApplyInfo.avatar || defaultInfo.avatar,
+						desc: siteCfg.friendApplyInfo.desc || defaultInfo.desc,
+					};
+				}
+				if (siteCfg) {
+					return {
+						name: siteCfg.title || siteCfg.name || defaultInfo.name,
+						url: siteCfg.site || defaultInfo.url,
+						avatar: siteCfg.avatar || siteCfg.profile?.avatar || defaultInfo.avatar,
+						desc: siteCfg.bio || siteCfg.profile?.bio || siteCfg.subtitle || defaultInfo.desc,
+					};
+				}
+			}
+		} catch {}
+	}
+	return defaultInfo;
+}
+
 let cachedPages: { time: number; data: any[] } | null = null;
 let inFlightPagesPromise: Promise<any[]> | null = null;
 

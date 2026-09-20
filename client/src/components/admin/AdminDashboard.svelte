@@ -15,8 +15,13 @@
   } from "../../services/api";
   import { SUPPORTED_LANGUAGES, getAdminText, type AdminLang, type LanguageOption } from "../../i18n/adminI18n";
   import { renderDynamicMarkdown } from "../../utils/dynamic-markdown";
+  import { compassData } from "../../data/compass";
+  import { animeData } from "../../data/anime";
+  import { projectsData } from "../../data/projects";
+  import { devicesData } from "../../data/devices";
+  import { skillsData } from "../../data/skills";
 
-  type TabType = "overview" | "posts" | "albums" | "moments" | "pages" | "friends" | "compass" | "anime" | "users" | "settings";
+  type TabType = "overview" | "posts" | "albums" | "moments" | "pages" | "friends" | "projects" | "devices" | "skills" | "compass" | "anime" | "users" | "settings";
 
   let currentTab = $state<TabType>("overview");
   let loading = $state(true);
@@ -287,33 +292,17 @@
     musicMetingServer: "netease",
     musicMetingId: "14164869977",
     musicTracks: [] as any[],
-    compass: [
-      {
-        key: "dev",
-        name: "Development",
-        icon: "material-symbols:code-rounded",
-        blurb: "开发与技术导航",
-        entries: [
-          { label: "GitHub", href: "https://github.com", note: "代码托管与开源协作", icon: "fa6-brands:github" },
-          { label: "MDN", href: "https://developer.mozilla.org", note: "Web 开发者权威文档", icon: "material-symbols:menu-book-rounded" },
-          { label: "Stack Overflow", href: "https://stackoverflow.com", note: "问答与调试", icon: "fa6-brands:stack-overflow" },
-        ],
-      },
-    ] as any[],
-    anime: [
-      {
-        title: "Lycoris Recoil",
-        cover: "/assets/anime/lkls.webp",
-        link: "https://www.bilibili.com/bangumi/media/md28338623",
-        status: "completed",
-        rating: 9.8,
-        progress: { watched: 12, total: 12 },
-        description: "Girl's gunfight",
-        year: "2022",
-        studio: "A-1 Pictures",
-        genres: ["Action", "Slice of Life"],
-      },
-    ] as any[],
+    compass: JSON.parse(JSON.stringify(compassData)) as any[],
+    anime: JSON.parse(JSON.stringify(animeData)) as any[],
+    projects: JSON.parse(JSON.stringify(projectsData)) as any[],
+    devices: JSON.parse(JSON.stringify(devicesData)) as any[],
+    skills: JSON.parse(JSON.stringify(skillsData)) as any[],
+    friendApplyInfo: {
+      name: "Shirine",
+      url: "https://github.com/yiran168/Shirine",
+      avatar: "/assets/images/demo-avatar.webp",
+      desc: "The rain remembers what the sky forgot to say.",
+    },
   });
 
   let systemConfigState = $state({
@@ -417,7 +406,7 @@
       } else if (tab === "users") {
         const res = await adminApi.getUsers({ pageSize: 100 });
         if (res.success) users = res.data || [];
-      } else if (tab === "settings" || tab === "compass" || tab === "anime") {
+      } else if (tab === "settings" || tab === "compass" || tab === "anime" || tab === "projects" || tab === "devices" || tab === "skills" || tab === "friends") {
         const [siteRes, sysRes] = await Promise.all([
           configApi.getSite(),
           configApi.getAdminSystem(),
@@ -465,8 +454,12 @@
             musicMetingServer: m.meting?.server ?? siteConfigState.musicMetingServer,
             musicMetingId: m.meting?.id ?? siteConfigState.musicMetingId,
             musicTracks: Array.isArray(m.tracks) ? m.tracks : siteConfigState.musicTracks,
-            compass: Array.isArray(siteRes.data.compass) && siteRes.data.compass.length > 0 ? siteRes.data.compass : siteConfigState.compass,
-            anime: Array.isArray(siteRes.data.anime) && siteRes.data.anime.length > 0 ? siteRes.data.anime : siteConfigState.anime,
+            compass: Array.isArray(siteRes.data.compass) ? siteRes.data.compass : siteConfigState.compass,
+            anime: Array.isArray(siteRes.data.anime) ? siteRes.data.anime : siteConfigState.anime,
+            projects: Array.isArray(siteRes.data.projects) ? siteRes.data.projects : siteConfigState.projects,
+            devices: Array.isArray(siteRes.data.devices) ? siteRes.data.devices : siteConfigState.devices,
+            skills: Array.isArray(siteRes.data.skills) ? siteRes.data.skills : siteConfigState.skills,
+            friendApplyInfo: siteRes.data.friendApplyInfo ?? siteConfigState.friendApplyInfo,
           };
         }
         if (sysRes.success && sysRes.data) {
@@ -1230,6 +1223,215 @@
     siteConfigState.anime = siteConfigState.anime.filter((_, i) => i !== index);
   }
 
+  function moveAnimeItem(index: number, direction: "up" | "down") {
+    const list = [...siteConfigState.anime];
+    const targetIdx = direction === "up" ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+    const temp = list[index];
+    list[index] = list[targetIdx];
+    list[targetIdx] = temp;
+    siteConfigState.anime = list;
+  }
+
+  function moveCompassShelf(index: number, direction: "up" | "down") {
+    const list = [...siteConfigState.compass];
+    const targetIdx = direction === "up" ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+    const temp = list[index];
+    list[index] = list[targetIdx];
+    list[targetIdx] = temp;
+    siteConfigState.compass = list;
+  }
+
+  function moveCompassEntry(shelfIndex: number, entryIndex: number, direction: "up" | "down") {
+    const shelf = siteConfigState.compass[shelfIndex];
+    if (!shelf || !shelf.entries) return;
+    const list = [...shelf.entries];
+    const targetIdx = direction === "up" ? entryIndex - 1 : entryIndex + 1;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+    const temp = list[entryIndex];
+    list[entryIndex] = list[targetIdx];
+    list[targetIdx] = temp;
+    shelf.entries = list;
+    siteConfigState.compass = [...siteConfigState.compass];
+  }
+
+  // --- Projects Operations ---
+  function addProjectItem() {
+    siteConfigState.projects = [
+      ...siteConfigState.projects,
+      {
+        key: "proj_" + Date.now().toString(36),
+        title: "新项目",
+        summary: "项目简要描述...",
+        category: "theme",
+        phase: "building",
+        technologies: ["TypeScript", "Svelte"],
+        icon: "material-symbols:deployed-code-outline-rounded",
+        cover: "/assets/images/demo-avatar.webp",
+        coverAlt: "项目封面预览",
+        featured: false,
+        repository: "https://github.com",
+        year: String(new Date().getFullYear()),
+        enable: true,
+      },
+    ];
+  }
+
+  function removeProjectItem(index: number) {
+    siteConfigState.projects = siteConfigState.projects.filter((_, i) => i !== index);
+  }
+
+  function moveProjectItem(index: number, direction: "up" | "down") {
+    const list = [...siteConfigState.projects];
+    const targetIdx = direction === "up" ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+    const temp = list[index];
+    list[index] = list[targetIdx];
+    list[targetIdx] = temp;
+    siteConfigState.projects = list;
+  }
+
+  async function saveProjectsSettings() {
+    try {
+      const res = await configApi.updateSite({ projects: siteConfigState.projects });
+      if (res.success) {
+        showMessage("精选项目列表已保存成功！前台刷新即现");
+      } else {
+        showMessage(res.error || "保存项目列表失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  // --- Devices Operations ---
+  function addDeviceItem() {
+    siteConfigState.devices = [
+      ...siteConfigState.devices,
+      {
+        id: "dev_" + Date.now().toString(36),
+        name: "新设备",
+        brand: "Apple",
+        category: "desk",
+        status: "active",
+        specs: "配置说明",
+        description: "日常工作与使用体验描述...",
+        icon: "material-symbols:laptop-mac-rounded",
+        image: "",
+        featured: false,
+        year: String(new Date().getFullYear()),
+        link: "https://",
+        enable: true,
+      },
+    ];
+  }
+
+  function removeDeviceItem(index: number) {
+    siteConfigState.devices = siteConfigState.devices.filter((_, i) => i !== index);
+  }
+
+  function moveDeviceItem(index: number, direction: "up" | "down") {
+    const list = [...siteConfigState.devices];
+    const targetIdx = direction === "up" ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+    const temp = list[index];
+    list[index] = list[targetIdx];
+    list[targetIdx] = temp;
+    siteConfigState.devices = list;
+  }
+
+  async function saveDevicesSettings() {
+    try {
+      const res = await configApi.updateSite({ devices: siteConfigState.devices });
+      if (res.success) {
+        showMessage("设备清单已保存成功！前台刷新即现");
+      } else {
+        showMessage(res.error || "保存设备清单失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  // --- Skills Operations ---
+  function addSkillItem() {
+    siteConfigState.skills = [
+      ...siteConfigState.skills,
+      {
+        name: "新技能",
+        description: "技能描述与熟练度说明...",
+        icon: "simple-icons:typescript",
+        category: "frontend",
+        level: "advanced",
+        enable: true,
+      },
+    ];
+  }
+
+  function removeSkillItem(index: number) {
+    siteConfigState.skills = siteConfigState.skills.filter((_, i) => i !== index);
+  }
+
+  function moveSkillItem(index: number, direction: "up" | "down") {
+    const list = [...siteConfigState.skills];
+    const targetIdx = direction === "up" ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+    const temp = list[index];
+    list[index] = list[targetIdx];
+    list[targetIdx] = temp;
+    siteConfigState.skills = list;
+  }
+
+  async function saveSkillsSettings() {
+    try {
+      const res = await configApi.updateSite({ skills: siteConfigState.skills });
+      if (res.success) {
+        showMessage("技能清单已保存成功！前台刷新即现");
+      } else {
+        showMessage(res.error || "保存技能清单失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  // --- Friend Apply Info Operation ---
+  async function saveFriendApplyInfo() {
+    try {
+      const res = await configApi.updateSite({ friendApplyInfo: siteConfigState.friendApplyInfo });
+      if (res.success) {
+        showMessage("本站友链申请信息已保存成功！前台申请窗口即刻生效");
+      } else {
+        showMessage(res.error || "保存申请信息失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  // --- Moments Image URL Helper ---
+  let momentImageUrlInput = $state("");
+  let editMomentImageUrlInput = $state("");
+
+  function addMomentPhotoUrl() {
+    const u = momentImageUrlInput.trim();
+    if (!u) return;
+    momentPhotos = [...momentPhotos, u];
+    momentImageUrlInput = "";
+  }
+
+  function removeMomentPhoto(index: number) {
+    momentPhotos = momentPhotos.filter((_, i) => i !== index);
+  }
+
+  function addEditMomentPhotoUrl() {
+    const u = editMomentImageUrlInput.trim();
+    if (!u) return;
+    editMomentForm.photos = [...editMomentForm.photos, u];
+    editMomentImageUrlInput = "";
+  }
+
   // --- Seed Presets Operations ---
   async function handleSeedPresets(overwrite = false) {
     if (
@@ -1616,6 +1818,30 @@
         </button>
 
         <button
+          onclick={() => switchTab("projects")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'projects' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+          <span>🚀 项目管理</span>
+        </button>
+
+        <button
+          onclick={() => switchTab("devices")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'devices' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          <span>💻 设备管理</span>
+        </button>
+
+        <button
+          onclick={() => switchTab("skills")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'skills' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span>🛠️ 技能管理</span>
+        </button>
+
+        <button
           onclick={() => switchTab("compass")}
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'compass' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
         >
@@ -1721,6 +1947,27 @@
               >
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                 <span>管理番剧清单</span>
+              </button>
+              <button
+                onclick={() => switchTab("projects")}
+                class="px-5 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] font-medium text-sm transition-all flex items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                <span>管理精选项目</span>
+              </button>
+              <button
+                onclick={() => switchTab("devices")}
+                class="px-5 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] font-medium text-sm transition-all flex items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                <span>管理我的设备</span>
+              </button>
+              <button
+                onclick={() => switchTab("skills")}
+                class="px-5 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] font-medium text-sm transition-all flex items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                <span>管理技能清单</span>
               </button>
               <button
                 onclick={() => switchTab("settings")}
@@ -1916,9 +2163,25 @@
                 />
                 <label class="text-xs px-3 py-1.5 rounded-xl border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] cursor-pointer flex items-center gap-1.5">
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                  <span>添加图片</span>
+                  <span>上传图片</span>
                   <input type="file" accept="image/*" class="hidden" onchange={(e) => handleFileUpload(e, "momentPhoto")} />
                 </label>
+                <div class="flex items-center gap-1">
+                  <input
+                    type="text"
+                    bind:value={momentImageUrlInput}
+                    placeholder="输入图片 URL..."
+                    class="w-36 px-2.5 py-1.5 text-xs rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] outline-none"
+                    onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addMomentPhotoUrl(); } }}
+                  />
+                  <button
+                    type="button"
+                    onclick={addMomentPhotoUrl}
+                    class="text-xs px-2.5 py-1.5 rounded-xl bg-[var(--surface-container-high)] hover:bg-[var(--surface-container-highest)] border border-[var(--outline-variant)]/30 text-[var(--on-surface)] transition-colors"
+                  >
+                    添加
+                  </button>
+                </div>
               </div>
               <button
                 onclick={publishMoment}
@@ -1929,8 +2192,18 @@
             </div>
             {#if momentPhotos.length > 0}
               <div class="flex gap-2 mt-3 overflow-x-auto">
-                {#each momentPhotos as photo}
-                  <img src={photo} alt="Upload" class="w-14 h-14 rounded-xl object-cover ring-1 ring-primary/30" />
+                {#each momentPhotos as photo, pIdx}
+                  <div class="relative group w-14 h-14 shrink-0 rounded-xl overflow-hidden ring-1 ring-primary/30">
+                    <img src={photo} alt="Upload" class="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onclick={() => removeMomentPhoto(pIdx)}
+                      class="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/60 text-white hover:bg-error transition-colors"
+                      title="移除"
+                    >
+                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
                 {/each}
               </div>
             {/if}
@@ -2063,6 +2336,62 @@
             </button>
           </div>
 
+          <!-- Friend Apply Info Configuration -->
+          <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm mb-6">
+            <div class="flex items-center justify-between mb-2">
+              <h2 class="text-base font-bold flex items-center gap-2">
+                <span>✦ 本站友链申请信息配置 (My Site Info for Friends)</span>
+              </h2>
+              <button
+                type="button"
+                onclick={saveFriendApplyInfo}
+                class="px-4 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-semibold hover:brightness-105 transition-all flex items-center gap-1 shadow"
+              >
+                保存本站信息
+              </button>
+            </div>
+            <p class="text-xs text-[var(--on-surface-variant)] mb-4">访客在前台 /friends/ 申请友链时看到的本站信息，支持自定义站点名、地址、头像与描述，方便其他博主添加贵站</p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div>
+                <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">本站名称</label>
+                <input
+                  type="text"
+                  bind:value={siteConfigState.friendApplyInfo.name}
+                  placeholder="如 Shirine"
+                  class="w-full px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-xs font-bold outline-none"
+                />
+              </div>
+              <div>
+                <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">本站网址</label>
+                <input
+                  type="text"
+                  bind:value={siteConfigState.friendApplyInfo.url}
+                  placeholder="https://..."
+                  class="w-full px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-xs outline-none font-mono"
+                />
+              </div>
+              <div>
+                <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">站点头像 URL</label>
+                <input
+                  type="text"
+                  bind:value={siteConfigState.friendApplyInfo.avatar}
+                  placeholder="/assets/images/demo-avatar.webp"
+                  class="w-full px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-xs outline-none"
+                />
+              </div>
+              <div>
+                <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">站点描述</label>
+                <input
+                  type="text"
+                  bind:value={siteConfigState.friendApplyInfo.desc}
+                  placeholder="一句话站点描述..."
+                  class="w-full px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-xs outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
           <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/30 rounded-2xl overflow-hidden shadow-sm">
             <table class="w-full text-left text-sm">
               <thead class="bg-[var(--surface-container-low)] border-b border-[var(--outline-variant)]/20 text-xs text-[var(--on-surface-variant)]">
@@ -2172,6 +2501,607 @@
                 {/each}
               </tbody>
             </table>
+          </div>
+
+        {:else if currentTab === "projects"}
+          <!-- Projects Management Panel -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl font-bold">🚀 精选项目管理 (Projects)</h1>
+              <p class="text-xs text-[var(--on-surface-variant)] mt-1">管理前台 /projects/ 的卡片式精选项目，支持全字段编辑、上下排序与实时增删</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <a
+                href="/projects/"
+                target="_blank"
+                class="px-4 py-2 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] text-xs font-semibold transition-all"
+              >
+                预览前台项目 ↗
+              </a>
+              <button
+                type="button"
+                onclick={saveProjectsSettings}
+                class="px-6 py-2.5 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105 active:scale-98 transition-all flex items-center gap-1.5"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span>保存项目设置</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>项目列表 ({siteConfigState.projects.length} 个)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={addProjectItem}
+                  class="px-4 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-all flex items-center gap-1"
+                >
+                  + 新增项目
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">前台采用美观的卡片网格布局（带分类筛选、徽章、技术栈标签与外链）。条目修改后点击保存即可生效。</p>
+
+              {#if siteConfigState.projects && siteConfigState.projects.length > 0}
+                <div class="space-y-4">
+                  {#each siteConfigState.projects as item, idx}
+                    <div class="p-5 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3">
+                      <div class="flex items-center justify-between gap-3 pb-2 border-b border-[var(--outline-variant)]/10">
+                        <div class="flex items-center gap-2">
+                          <span class="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center">#{idx + 1}</span>
+                          <span class="font-bold text-sm text-[var(--on-surface)]">{item.title || "未命名项目"}</span>
+                          {#if item.featured}<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 font-semibold">推荐</span>{/if}
+                          {#if item.enable === false}<span class="text-[10px] px-2 py-0.5 rounded-full bg-error/15 text-error font-semibold">已禁用</span>{/if}
+                        </div>
+                        <div class="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onclick={() => moveProjectItem(idx, "up")}
+                            disabled={idx === 0}
+                            class="p-1.5 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] rounded-lg transition-colors disabled:opacity-30"
+                            title="上移"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                          </button>
+                          <button
+                            type="button"
+                            onclick={() => moveProjectItem(idx, "down")}
+                            disabled={idx === siteConfigState.projects.length - 1}
+                            class="p-1.5 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] rounded-lg transition-colors disabled:opacity-30"
+                            title="下移"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                          </button>
+                          <button
+                            type="button"
+                            onclick={() => removeProjectItem(idx)}
+                            class="p-1.5 text-error hover:bg-error/10 rounded-lg transition-colors"
+                            title="删除项目"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">项目唯一标识 (Key)</label>
+                          <input
+                            type="text"
+                            bind:value={item.key}
+                            placeholder="如 shirine"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] font-mono outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">项目名称 (Title)</label>
+                          <input
+                            type="text"
+                            bind:value={item.title}
+                            placeholder="项目名"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] font-bold outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">所属分类 (Category)</label>
+                          <input
+                            type="text"
+                            bind:value={item.category}
+                            placeholder="如 theme / android / web"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">研发阶段 (Phase)</label>
+                          <select
+                            bind:value={item.phase}
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          >
+                            <option value="building">建设中 (building)</option>
+                            <option value="shipped">已发布 (shipped)</option>
+                            <option value="planning">规划中 (planning)</option>
+                            <option value="archived">已归档 (archived)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">封面图片 URL (Cover)</label>
+                          <input
+                            type="text"
+                            bind:value={item.cover}
+                            placeholder="/assets/projects/..."
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">开源仓库或链接 (Repository / Link)</label>
+                          <input
+                            type="text"
+                            bind:value={item.repository}
+                            placeholder="https://github.com/..."
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">图标 (Iconify)</label>
+                          <input
+                            type="text"
+                            bind:value={item.icon}
+                            placeholder="material-symbols:deployed-code-outline-rounded"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                        <div class="sm:col-span-2">
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">项目描述 (Summary)</label>
+                          <input
+                            type="text"
+                            bind:value={item.summary}
+                            placeholder="项目一句话介绍与亮点..."
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">年份 (Year)</label>
+                          <input
+                            type="text"
+                            bind:value={item.year}
+                            placeholder="2026"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div class="flex items-center gap-6 pt-1 text-xs">
+                        <label class="flex items-center gap-2 cursor-pointer font-medium">
+                          <input type="checkbox" bind:checked={item.featured} class="w-4 h-4 text-primary rounded" />
+                          <span>设为精选推荐</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer font-medium">
+                          <input
+                            type="checkbox"
+                            checked={item.enable !== false}
+                            onchange={(e) => { item.enable = (e.target as HTMLInputElement).checked; }}
+                            class="w-4 h-4 text-primary rounded"
+                          />
+                          <span>在前台展示此项目</span>
+                        </label>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <p class="text-xs text-[var(--on-surface-variant)] italic py-2">暂无项目条目，请点击右上角「+ 新增项目」</p>
+              {/if}
+            </div>
+
+            <button
+              type="button"
+              onclick={saveProjectsSettings}
+              class="px-8 py-3 rounded-full bg-primary text-on-primary font-bold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span>保存项目设置</span>
+            </button>
+          </div>
+
+        {:else if currentTab === "devices"}
+          <!-- Devices Management Panel -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl font-bold">💻 我的设备管理 (Devices)</h1>
+              <p class="text-xs text-[var(--on-surface-variant)] mt-1">管理前台 /devices/ 的工作台数字设备，支持规格参数、状态与实时增删排序</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <a
+                href="/devices/"
+                target="_blank"
+                class="px-4 py-2 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] text-xs font-semibold transition-all"
+              >
+                预览前台设备 ↗
+              </a>
+              <button
+                type="button"
+                onclick={saveDevicesSettings}
+                class="px-6 py-2.5 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105 active:scale-98 transition-all flex items-center gap-1.5"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span>保存设备设置</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>设备列表 ({siteConfigState.devices.length} 台)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={addDeviceItem}
+                  class="px-4 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-all flex items-center gap-1"
+                >
+                  + 新增设备
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">前台采用卡片网格布局，清晰分类呈现桌面工作台、移动设备、音频设备及外设参数。</p>
+
+              {#if siteConfigState.devices && siteConfigState.devices.length > 0}
+                <div class="space-y-4">
+                  {#each siteConfigState.devices as item, idx}
+                    <div class="p-5 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3">
+                      <div class="flex items-center justify-between gap-3 pb-2 border-b border-[var(--outline-variant)]/10">
+                        <div class="flex items-center gap-2">
+                          <span class="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center">#{idx + 1}</span>
+                          <span class="font-bold text-sm text-[var(--on-surface)]">{item.name || "未命名设备"}</span>
+                          {#if item.brand}<span class="text-xs text-[var(--on-surface-variant)]">({item.brand})</span>{/if}
+                          {#if item.featured}<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 font-semibold">精选</span>{/if}
+                          {#if item.enable === false}<span class="text-[10px] px-2 py-0.5 rounded-full bg-error/15 text-error font-semibold">已禁用</span>{/if}
+                        </div>
+                        <div class="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onclick={() => moveDeviceItem(idx, "up")}
+                            disabled={idx === 0}
+                            class="p-1.5 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] rounded-lg transition-colors disabled:opacity-30"
+                            title="上移"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                          </button>
+                          <button
+                            type="button"
+                            onclick={() => moveDeviceItem(idx, "down")}
+                            disabled={idx === siteConfigState.devices.length - 1}
+                            class="p-1.5 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] rounded-lg transition-colors disabled:opacity-30"
+                            title="下移"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                          </button>
+                          <button
+                            type="button"
+                            onclick={() => removeDeviceItem(idx)}
+                            class="p-1.5 text-error hover:bg-error/10 rounded-lg transition-colors"
+                            title="删除设备"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">设备标识 (ID)</label>
+                          <input
+                            type="text"
+                            bind:value={item.id}
+                            placeholder="如 macbook-pro"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] font-mono outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">设备名称 (Name)</label>
+                          <input
+                            type="text"
+                            bind:value={item.name}
+                            placeholder="MacBook Pro 16寸"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] font-bold outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">品牌 (Brand)</label>
+                          <input
+                            type="text"
+                            bind:value={item.brand}
+                            placeholder="如 Apple / Sony"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">类别 (Category)</label>
+                          <select
+                            bind:value={item.category}
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          >
+                            <option value="desk">工作台/电脑 (desk)</option>
+                            <option value="mobile">移动设备 (mobile)</option>
+                            <option value="audio">影音娱乐 (audio)</option>
+                            <option value="peripheral">外设配件 (peripheral)</option>
+                            <option value="other">其它装备 (other)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">使用状态 (Status)</label>
+                          <select
+                            bind:value={item.status}
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          >
+                            <option value="active">主力在用 (active)</option>
+                            <option value="backup">备用闲置 (backup)</option>
+                            <option value="wishlist">心愿清单 (wishlist)</option>
+                            <option value="retired">已退役 (retired)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">配置参数 (Specs)</label>
+                          <input
+                            type="text"
+                            bind:value={item.specs}
+                            placeholder="如 M3 Max / 64GB / 2TB"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">图标 (Iconify)</label>
+                          <input
+                            type="text"
+                            bind:value={item.icon}
+                            placeholder="material-symbols:laptop-mac-rounded"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">购置年份 (Year)</label>
+                          <input
+                            type="text"
+                            bind:value={item.year}
+                            placeholder="2024"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">使用感受与体验 (Description)</label>
+                          <input
+                            type="text"
+                            bind:value={item.description}
+                            placeholder="日常使用体验与评价..."
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">外链或购买地址 (Link, 可选)</label>
+                          <input
+                            type="text"
+                            bind:value={item.link}
+                            placeholder="https://..."
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div class="flex items-center gap-6 pt-1 text-xs">
+                        <label class="flex items-center gap-2 cursor-pointer font-medium">
+                          <input type="checkbox" bind:checked={item.featured} class="w-4 h-4 text-primary rounded" />
+                          <span>设为主力精选</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer font-medium">
+                          <input
+                            type="checkbox"
+                            checked={item.enable !== false}
+                            onchange={(e) => { item.enable = (e.target as HTMLInputElement).checked; }}
+                            class="w-4 h-4 text-primary rounded"
+                          />
+                          <span>在前台展示此设备</span>
+                        </label>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <p class="text-xs text-[var(--on-surface-variant)] italic py-2">暂无设备条目，请点击右上角「+ 新增设备」</p>
+              {/if}
+            </div>
+
+            <button
+              type="button"
+              onclick={saveDevicesSettings}
+              class="px-8 py-3 rounded-full bg-primary text-on-primary font-bold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span>保存设备设置</span>
+            </button>
+          </div>
+
+        {:else if currentTab === "skills"}
+          <!-- Skills Management Panel -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl font-bold">🛠️ 技能清单管理 (Skills)</h1>
+              <p class="text-xs text-[var(--on-surface-variant)] mt-1">管理前台 /skills/ 的技术栈清单，支持分类熟练度、图标与实时增删排序</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <a
+                href="/skills/"
+                target="_blank"
+                class="px-4 py-2 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] text-xs font-semibold transition-all"
+              >
+                预览前台技能 ↗
+              </a>
+              <button
+                type="button"
+                onclick={saveSkillsSettings}
+                class="px-6 py-2.5 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105 active:scale-98 transition-all flex items-center gap-1.5"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span>保存技能设置</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>技能列表 ({siteConfigState.skills.length} 项)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={addSkillItem}
+                  class="px-4 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-all flex items-center gap-1"
+                >
+                  + 新增技能
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">前台采用卡片网格布局，带技术分类与熟练度色块标识。</p>
+
+              {#if siteConfigState.skills && siteConfigState.skills.length > 0}
+                <div class="space-y-3">
+                  {#each siteConfigState.skills as item, idx}
+                    <div class="p-4 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-2">
+                      <div class="flex items-center justify-between gap-3 pb-2 border-b border-[var(--outline-variant)]/10">
+                        <div class="flex items-center gap-2">
+                          <span class="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center">#{idx + 1}</span>
+                          <span class="font-bold text-sm text-[var(--on-surface)]">{item.name || "未命名技能"}</span>
+                          {#if item.level}<span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-semibold">{item.level}</span>{/if}
+                          {#if item.enable === false}<span class="text-[10px] px-2 py-0.5 rounded-full bg-error/15 text-error font-semibold">已禁用</span>{/if}
+                        </div>
+                        <div class="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onclick={() => moveSkillItem(idx, "up")}
+                            disabled={idx === 0}
+                            class="p-1.5 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] rounded-lg transition-colors disabled:opacity-30"
+                            title="上移"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                          </button>
+                          <button
+                            type="button"
+                            onclick={() => moveSkillItem(idx, "down")}
+                            disabled={idx === siteConfigState.skills.length - 1}
+                            class="p-1.5 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] rounded-lg transition-colors disabled:opacity-30"
+                            title="下移"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                          </button>
+                          <button
+                            type="button"
+                            onclick={() => removeSkillItem(idx)}
+                            class="p-1.5 text-error hover:bg-error/10 rounded-lg transition-colors"
+                            title="删除技能"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">技能名称 (Name)</label>
+                          <input
+                            type="text"
+                            bind:value={item.name}
+                            placeholder="如 TypeScript"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] font-bold outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">所属技术类别 (Category)</label>
+                          <select
+                            bind:value={item.category}
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          >
+                            <option value="frontend">前端技术 (frontend)</option>
+                            <option value="backend">后端架构 (backend)</option>
+                            <option value="tooling">工具与运维 (tooling)</option>
+                            <option value="design">设计与创意 (design)</option>
+                            <option value="other">其它能力 (other)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">熟练程度 (Level)</label>
+                          <select
+                            bind:value={item.level}
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none font-medium"
+                          >
+                            <option value="expert">精通 (expert)</option>
+                            <option value="advanced">熟练 (advanced)</option>
+                            <option value="intermediate">掌握 (intermediate)</option>
+                            <option value="beginner">入门 (beginner)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">图标 (Iconify)</label>
+                          <input
+                            type="text"
+                            bind:value={item.icon}
+                            placeholder="simple-icons:typescript"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs pt-1">
+                        <div class="sm:col-span-3">
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">技能描述 (Description)</label>
+                          <input
+                            type="text"
+                            bind:value={item.description}
+                            placeholder="简短描述应用场景与经验..."
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                        <div class="flex items-end pb-1.5">
+                          <label class="flex items-center gap-2 cursor-pointer font-medium">
+                            <input
+                              type="checkbox"
+                              checked={item.enable !== false}
+                              onchange={(e) => { item.enable = (e.target as HTMLInputElement).checked; }}
+                              class="w-4 h-4 text-primary rounded"
+                            />
+                            <span>在前台展示此项</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <p class="text-xs text-[var(--on-surface-variant)] italic py-2">暂无技能条目，请点击右上角「+ 新增技能」</p>
+              {/if}
+            </div>
+
+            <button
+              type="button"
+              onclick={saveSkillsSettings}
+              class="px-8 py-3 rounded-full bg-primary text-on-primary font-bold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span>保存技能设置</span>
+            </button>
           </div>
 
         {:else if currentTab === "compass"}
@@ -3161,264 +4091,7 @@
               {/if}
             </div>
 
-            <!-- Compass Settings -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
-              <div class="flex items-center justify-between mb-2">
-                <h2 class="text-lg font-bold flex items-center gap-2">
-                  <span>🧭 站点罗盘导航 (Compass)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={addCompassShelf}
-                  class="px-3.5 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-all flex items-center gap-1"
-                >
-                  + 新增导航分组
-                </button>
-              </div>
-              <p class="text-xs text-[var(--on-surface-variant)] mb-4">管理前台 /compass/ 站点罗盘导航的分组与网址磁贴，支持实时增删改查</p>
 
-              {#if siteConfigState.compass && siteConfigState.compass.length > 0}
-                <div class="space-y-4">
-                  {#each siteConfigState.compass as shelf, shelfIdx}
-                    <div class="p-4 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3">
-                      <div class="flex items-center justify-between gap-3 pb-2 border-b border-[var(--outline-variant)]/10">
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1">
-                          <div>
-                            <label class="text-[10px] text-[var(--on-surface-variant)] block">分组名称</label>
-                            <input
-                              type="text"
-                              bind:value={shelf.name}
-                              placeholder="如 Development"
-                              class="w-full px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs font-bold outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label class="text-[10px] text-[var(--on-surface-variant)] block">分组唯一 Key</label>
-                            <input
-                              type="text"
-                              bind:value={shelf.key}
-                              placeholder="如 dev"
-                              class="w-full px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs font-mono outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label class="text-[10px] text-[var(--on-surface-variant)] block">分组描述 (Blurb)</label>
-                            <input
-                              type="text"
-                              bind:value={shelf.blurb}
-                              placeholder="分组副说明"
-                              class="w-full px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs outline-none"
-                            />
-                          </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onclick={() => addCompassEntry(shelfIdx)}
-                            class="px-2.5 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-medium hover:brightness-105 transition-all"
-                            title="添加一条站点"
-                          >
-                            + 添站
-                          </button>
-                          <button
-                            type="button"
-                            onclick={() => removeCompassShelf(shelfIdx)}
-                            class="p-1.5 text-error hover:bg-error/10 rounded-lg transition-colors"
-                            title="删除整个分组"
-                          >
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                          </button>
-                        </div>
-                      </div>
-
-                      <!-- Entries -->
-                      {#if shelf.entries && shelf.entries.length > 0}
-                        <div class="space-y-2">
-                          {#each shelf.entries as entry, entryIdx}
-                            <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 p-2.5 rounded-xl bg-[var(--surface)] border border-[var(--outline-variant)]/20 text-xs">
-                              <div class="w-full sm:w-1/4">
-                                <label class="text-[9px] text-[var(--on-surface-variant)] block">网站名称</label>
-                                <input
-                                  type="text"
-                                  bind:value={entry.label}
-                                  placeholder="GitHub"
-                                  class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface-container-low)] outline-none"
-                                />
-                              </div>
-                              <div class="w-full sm:w-1/3">
-                                <label class="text-[9px] text-[var(--on-surface-variant)] block">网址 URL</label>
-                                <input
-                                  type="text"
-                                  bind:value={entry.href}
-                                  placeholder="https://..."
-                                  class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface-container-low)] outline-none font-mono"
-                                />
-                              </div>
-                              <div class="w-full sm:w-1/4">
-                                <label class="text-[9px] text-[var(--on-surface-variant)] block">简短说明</label>
-                                <input
-                                  type="text"
-                                  bind:value={entry.note}
-                                  placeholder="代码托管与开源协作"
-                                  class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface-container-low)] outline-none"
-                                />
-                              </div>
-                              <div class="w-full sm:w-1/6">
-                                <label class="text-[9px] text-[var(--on-surface-variant)] block">图标 (Iconify)</label>
-                                <input
-                                  type="text"
-                                  bind:value={entry.icon}
-                                  placeholder="fa6-brands:github"
-                                  class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface-container-low)] outline-none font-mono"
-                                />
-                              </div>
-                              <button
-                                type="button"
-                                onclick={() => removeCompassEntry(shelfIdx, entryIdx)}
-                                class="mt-3 p-1 text-error hover:bg-error/10 rounded-md transition-colors"
-                                title="删除此站点"
-                              >
-                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                              </button>
-                            </div>
-                          {/each}
-                        </div>
-                      {:else}
-                        <p class="text-xs text-[var(--on-surface-variant)] italic">该分组下暂无站点磁贴，请点击右上角「+ 添站」添加</p>
-                      {/if}
-                    </div>
-                  {/each}
-                </div>
-              {:else}
-                <p class="text-xs text-[var(--on-surface-variant)] italic py-2">暂无罗盘分组，请点击右上角「+ 新增导航分组」</p>
-              {/if}
-            </div>
-
-            <!-- Anime Settings -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
-              <div class="flex items-center justify-between mb-2">
-                <h2 class="text-lg font-bold flex items-center gap-2">
-                  <span>📺 番剧追番清单 (Anime)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={addAnimeItem}
-                  class="px-3.5 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-all flex items-center gap-1"
-                >
-                  + 新增追番条目
-                </button>
-              </div>
-              <p class="text-xs text-[var(--on-surface-variant)] mb-4">管理前台 /anime/ 番剧清单的追番状态、评分与播放进度，支持实时增删改查</p>
-
-              {#if siteConfigState.anime && siteConfigState.anime.length > 0}
-                <div class="space-y-3">
-                  {#each siteConfigState.anime as item, idx}
-                    <div class="p-4 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3">
-                      <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
-                        <div class="flex items-center gap-3 flex-1">
-                          <img
-                            src={item.cover || "/assets/images/demo-avatar.webp"}
-                            alt={item.title}
-                            class="w-12 h-16 rounded-lg object-cover bg-[var(--surface-container)] shrink-0"
-                          />
-                          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 flex-1">
-                            <div>
-                              <label class="text-[10px] text-[var(--on-surface-variant)] block">番剧名称</label>
-                              <input
-                                type="text"
-                                bind:value={item.title}
-                                placeholder="番剧中文/原名"
-                                class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs font-bold outline-none"
-                              />
-                            </div>
-                            <div>
-                              <label class="text-[10px] text-[var(--on-surface-variant)] block">追番状态</label>
-                              <select
-                                bind:value={item.status}
-                                class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs outline-none"
-                              >
-                                <option value="watching">在看 (watching)</option>
-                                <option value="completed">看过 (completed)</option>
-                                <option value="planned">想看 (planned)</option>
-                                <option value="onHold">搁置 (onHold)</option>
-                                <option value="dropped">抛弃 (dropped)</option>
-                              </select>
-                            </div>
-                            <div>
-                              <label class="text-[10px] text-[var(--on-surface-variant)] block">个人评分 (0-10)</label>
-                              <input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                max="10"
-                                bind:value={item.rating}
-                                class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs font-bold text-amber-500 outline-none"
-                              />
-                            </div>
-                            <div>
-                              <label class="text-[10px] text-[var(--on-surface-variant)] block">进度 (已看 / 总集数)</label>
-                              <div class="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  bind:value={item.progress.watched}
-                                  class="w-1/2 px-2 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs outline-none text-center"
-                                />
-                                <span class="text-xs text-[var(--on-surface-variant)]">/</span>
-                                <input
-                                  type="number"
-                                  bind:value={item.progress.total}
-                                  class="w-1/2 px-2 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs outline-none text-center"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onclick={() => removeAnimeItem(idx)}
-                          class="p-2 text-error hover:bg-error/10 rounded-lg transition-colors shrink-0"
-                          title="删除此番剧条目"
-                        >
-                          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                        </button>
-                      </div>
-
-                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-[var(--outline-variant)]/10 text-xs">
-                        <div>
-                          <label class="text-[9px] text-[var(--on-surface-variant)] block">封面图片 URL</label>
-                          <input
-                            type="text"
-                            bind:value={item.cover}
-                            placeholder="/assets/anime/..."
-                            class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface)] outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label class="text-[9px] text-[var(--on-surface-variant)] block">外链播放/Bangumi 地址</label>
-                          <input
-                            type="text"
-                            bind:value={item.link}
-                            placeholder="https://..."
-                            class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface)] outline-none font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label class="text-[9px] text-[var(--on-surface-variant)] block">一句话短评 / 描述</label>
-                          <input
-                            type="text"
-                            bind:value={item.description}
-                            placeholder="短评感想..."
-                            class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface)] outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  {/each}
-                </div>
-              {:else}
-                <p class="text-xs text-[var(--on-surface-variant)] italic py-2">暂无番剧条目，请点击右上角「+ 新增追番条目」</p>
-              {/if}
-            </div>
 
             <!-- Seed & Presets Sync Management -->
             <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
@@ -3822,13 +4495,31 @@
           </div>
 
           <div>
-            <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
               <label class="text-xs font-semibold">附带图片列表 ({editMomentForm.photos.length} 张)</label>
-              <label class="text-xs px-3 py-1.5 rounded-xl bg-[var(--surface-container)] hover:bg-[var(--surface-container-high)] text-xs font-medium cursor-pointer flex items-center gap-1.5">
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                <span>上传新图片</span>
-                <input type="file" accept="image/*" class="hidden" onchange={(e) => handleFileUpload(e, "editMomentPhoto")} />
-              </label>
+              <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1">
+                  <input
+                    type="text"
+                    bind:value={editMomentImageUrlInput}
+                    placeholder="输入图片 URL..."
+                    class="w-36 px-2.5 py-1 text-xs rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] outline-none"
+                    onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEditMomentPhotoUrl(); } }}
+                  />
+                  <button
+                    type="button"
+                    onclick={addEditMomentPhotoUrl}
+                    class="text-xs px-2 py-1 rounded-xl bg-[var(--surface-container)] hover:bg-[var(--surface-container-high)] text-[var(--on-surface)]"
+                  >
+                    添加
+                  </button>
+                </div>
+                <label class="text-xs px-3 py-1.5 rounded-xl bg-[var(--surface-container)] hover:bg-[var(--surface-container-high)] text-xs font-medium cursor-pointer flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  <span>上传新图片</span>
+                  <input type="file" accept="image/*" class="hidden" onchange={(e) => handleFileUpload(e, "editMomentPhoto")} />
+                </label>
+              </div>
             </div>
             {#if editMomentForm.photos.length > 0}
               <div class="grid grid-cols-3 gap-2">

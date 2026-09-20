@@ -60,8 +60,8 @@ import {
 export const prerender = false;
 
 const { permalink } = Astro.params;
-if (!permalink) {
-	return Astro.redirect("/404");
+if (!permalink || permalink.trim() === "") {
+	return Astro.redirect("/");
 }
 
 // Redirect legacy numeric pagination URLs /2/, /3/ to /page/2/, /page/3/
