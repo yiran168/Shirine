@@ -58,6 +58,8 @@ export interface MusicConfig {
 	readonly defaultVolume: number;
 	/** 初始播放模式 */
 	readonly defaultMode: PlaybackMode;
+	/** 是否在进入网页后自动播放 */
+	readonly autoplay?: boolean;
 }
 
 export interface MusicSnapshot {

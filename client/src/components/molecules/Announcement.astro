@@ -15,16 +15,14 @@ interface Props {
 const className = Astro.props.class;
 const style = Astro.props.style;
 const contentText = config.content || (config as any).text || "";
-const link = config.link;
-const isDangerousProtocol = Boolean(link?.url && /^(javascript|vbscript|data):/i.test(link.url.trim()));
-const hasLink = Boolean(link && (link as any).enable !== false && link.text && link.url && !isDangerousProtocol);
-const safeUrl = hasLink && link ? url(link.url) : "#";
-const isExternal = Boolean(
-	hasLink &&
-	link &&
-	((link as any).external === true ||
-		(/^https?:\/\//i.test(link.url) && (link as any).external !== false))
+const rawLinks: any[] = Array.isArray((config as any).links) && (config as any).links.length > 0
+	? (config as any).links
+	: config.link ? [config.link] : [];
+
+const validLinks = rawLinks.filter(
+	(l) => l && l.enable !== false && l.text && l.url && !/^(javascript|vbscript|data):/i.test(l.url.trim())
 );
+const hasLink = validLinks.length > 0;
 const closeDuration = Number((config as any).closeDuration ?? 86400);
 ---
 
@@ -45,23 +43,30 @@ const closeDuration = Number((config as any).closeDuration ?? 86400);
 			<!-- 可选链接和关闭按钮 -->
 			{(hasLink || (config as any).closable) && (
 				<div class="flex items-center justify-between gap-3">
-					<div>
-						{hasLink && link && (
-							<a
-								href={safeUrl}
-								target={isExternal ? "_blank" : "_self"}
-								rel={isExternal ? "noopener noreferrer" : undefined}
-								class="announcement-btn inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--btn-regular-bg)] text-[var(--primary)] hover:bg-[var(--btn-regular-bg-hover)] active:bg-[var(--btn-regular-bg-active)] active:scale-95 transition-all shadow-sm"
-							>
-								<span>{link.text}</span>
-								{isExternal && (
-									<Icon
-										name="material-symbols:arrow-outward-rounded"
-										class="text-sm opacity-80"
-									/>
-								)}
-							</a>
-						)}
+					<div class="flex flex-wrap items-center gap-2">
+						{validLinks.map((item) => {
+							const safeUrl = url(item.url);
+							const isExternal = Boolean(
+								item.external === true ||
+								(/^https?:\/\//i.test(item.url) && item.external !== false)
+							);
+							return (
+								<a
+									href={safeUrl}
+									target={isExternal ? "_blank" : "_self"}
+									rel={isExternal ? "noopener noreferrer" : undefined}
+									class="announcement-btn inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--btn-regular-bg)] text-[var(--primary)] hover:bg-[var(--btn-regular-bg-hover)] active:bg-[var(--btn-regular-bg-active)] active:scale-95 transition-all shadow-sm"
+								>
+									<span>{item.text}</span>
+									{isExternal && (
+										<Icon
+											name="material-symbols:arrow-outward-rounded"
+											class="text-sm opacity-80"
+										/>
+									)}
+								</a>
+							);
+						})}
 					</div>
 
 					{config.closable && (

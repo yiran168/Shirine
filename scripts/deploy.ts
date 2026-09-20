@@ -321,10 +321,25 @@ export async function migrateDatabase(): Promise<void> {
     }
   }
 
-  // Ensure users table has email column in existing deployments
-  try {
-    runWrangler(["d1", "execute", DB_NAME, "--remote", "--command=ALTER TABLE users ADD COLUMN email TEXT DEFAULT '';", "-y"], serverDir);
-  } catch {}
+  // Ensure existing deployments have all newly added columns
+  const migrationCommands = [
+    "ALTER TABLE users ADD COLUMN email TEXT DEFAULT '';",
+    "ALTER TABLE albums ADD COLUMN encrypted INTEGER NOT NULL DEFAULT 0;",
+    "ALTER TABLE albums ADD COLUMN password TEXT DEFAULT '';",
+    "ALTER TABLE albums ADD COLUMN password_hint TEXT DEFAULT '';",
+    "ALTER TABLE albums ADD COLUMN password_version INTEGER NOT NULL DEFAULT 1;",
+    "ALTER TABLE albums ADD COLUMN draft INTEGER NOT NULL DEFAULT 0;",
+    "ALTER TABLE posts ADD COLUMN encrypted INTEGER NOT NULL DEFAULT 0;",
+    "ALTER TABLE posts ADD COLUMN password TEXT DEFAULT '';",
+    "ALTER TABLE posts ADD COLUMN password_hint TEXT DEFAULT '';",
+    "ALTER TABLE posts ADD COLUMN password_version INTEGER NOT NULL DEFAULT 1;",
+    "ALTER TABLE pages ADD COLUMN draft INTEGER NOT NULL DEFAULT 0;",
+  ];
+  for (const cmd of migrationCommands) {
+    try {
+      runWrangler(["d1", "execute", DB_NAME, "--remote", `--command=${cmd}`, "-y"], serverDir);
+    } catch {}
+  }
 }
 
 let detectedWorkerApiUrl = "";

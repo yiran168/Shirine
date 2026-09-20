@@ -1,5 +1,4 @@
 ---
-
 import { getEntry, render } from "astro:content";
 import Card from "@components/atoms/display/Card.svelte";
 import Markdown from "@components/content/Markdown.astro";
@@ -7,25 +6,82 @@ import I18nKey from "../i18n/i18nKey";
 import { i18n } from "../i18n/translation";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import { getMarkdownStylesheetAssets } from "@utils/markdown-assets";
+import { getDynamicPages } from "@utils/content-utils";
+import { renderDynamicMarkdown } from "@utils/dynamic-markdown";
+
+let dynamicAboutContent: string | null = null;
+try {
+	const dynamicPages = await getDynamicPages(Astro.request);
+	const dbAbout = dynamicPages?.find((p: any) => p.slug === "about");
+	if (dbAbout && dbAbout.content) {
+		dynamicAboutContent = renderDynamicMarkdown(dbAbout.content);
+	}
+} catch {}
 
 const aboutPost = await getEntry("spec", "about");
-
-if (!aboutPost) {
-	throw new Error("About page content not found");
+let Content: any = null;
+let markdownStylesheetAssets: any[] = [];
+if (!dynamicAboutContent && aboutPost) {
+	const rendered = await render(aboutPost);
+	Content = rendered.Content;
+	markdownStylesheetAssets = await getMarkdownStylesheetAssets(
+		rendered.remarkPluginFrontmatter.markdownSyntaxes,
+	);
 }
-
-const { Content, remarkPluginFrontmatter } = await render(aboutPost);
-const markdownStylesheetAssets = await getMarkdownStylesheetAssets(
-	remarkPluginFrontmatter.markdownSyntaxes,
-);
 ---
 <MainGridLayout title={i18n(I18nKey.about)} description={i18n(I18nKey.about)} page="about">
     {markdownStylesheetAssets.map(({ pack, css }) => <style is:inline slot="head" data-swup-optional={pack} set:html={css}></style>)}
     <div class="flex w-full rounded-[var(--radius-large)] overflow-hidden relative min-h-32">
         <Card color="var(--card-bg)" radius="l" class="z-10 px-9 py-6 relative w-full">
-            <Markdown class="mt-2">
-                <Content />
-            </Markdown>
+            {dynamicAboutContent ? (
+                <div class="custom-md-content prose dark:prose-invert max-w-none text-[var(--on-surface)] leading-relaxed mt-2" set:html={dynamicAboutContent} />
+            ) : (
+                <Markdown class="mt-2">
+                    {Content && <Content />}
+                </Markdown>
+            )}
         </Card>
     </div>
 </MainGridLayout>
+
+<style is:global>
+	.custom-md-content {
+		font-size: 1rem;
+		line-height: 1.75;
+	}
+	.custom-md-content h1,
+	.custom-md-content h2,
+	.custom-md-content h3,
+	.custom-md-content h4 {
+		color: var(--on-surface);
+		font-weight: 700;
+		margin-top: 1.5rem;
+		margin-bottom: 0.75rem;
+	}
+	.custom-md-content p {
+		margin-bottom: 1.25rem;
+	}
+	.custom-md-content a {
+		color: var(--primary);
+		text-decoration: underline;
+	}
+	.custom-md-content img {
+		border-radius: 0.75rem;
+		max-width: 100%;
+		height: auto;
+		margin: 1rem 0;
+	}
+	.custom-md-content code {
+		background: var(--surface-container-high);
+		padding: 0.2rem 0.4rem;
+		border-radius: 0.375rem;
+		font-size: 0.875em;
+	}
+	.custom-md-content pre {
+		background: var(--surface-container-highest);
+		padding: 1rem;
+		border-radius: 0.75rem;
+		overflow-x: auto;
+		margin: 1.25rem 0;
+	}
+</style>

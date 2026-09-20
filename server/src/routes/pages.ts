@@ -5,6 +5,8 @@ import { getDb, schema } from "../db";
 import { requireAdmin } from "../core/middleware";
 import type { PageDto } from "../types/dto";
 
+import { PRESET_PAGES } from "../db/seed";
+
 export const pagesRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 const RESERVED_SLUGS = new Set([
@@ -22,12 +24,8 @@ const RESERVED_SLUGS = new Set([
   "pages",
   "page",
   "404",
-  "about",
-  "devices",
-  "skills",
   "timeline",
   "anime",
-  "projects",
   "compass",
 ]);
 
@@ -38,10 +36,35 @@ pagesRouter.get("/", async (c) => {
     const db = getDb(c.env.DB);
     const isAdmin = user && (user.role === "superadmin" || user.role === "admin");
 
-    const allPages = await db.query.pages.findMany({
+    let allPages = await db.query.pages.findMany({
       where: !isAdmin ? eq(schema.pages.draft, 0) : undefined,
       orderBy: [desc(schema.pages.createdAt)],
     });
+
+    if (allPages.length === 0) {
+      try {
+        const superadmin = await db.query.users.findFirst({
+          where: eq(schema.users.role, "superadmin"),
+        });
+        const uid = superadmin ? superadmin.id : null;
+        for (const page of PRESET_PAGES) {
+          await db
+            .insert(schema.pages)
+            .values({
+              slug: page.slug,
+              title: page.title,
+              content: page.content,
+              draft: 0,
+              uid,
+            })
+            .onConflictDoNothing();
+        }
+        allPages = await db.query.pages.findMany({
+          where: !isAdmin ? eq(schema.pages.draft, 0) : undefined,
+          orderBy: [desc(schema.pages.createdAt)],
+        });
+      } catch {}
+    }
 
     const formatted: (PageDto & { status?: string })[] = allPages.map((p) => ({
       id: p.id,

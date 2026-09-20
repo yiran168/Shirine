@@ -10,12 +10,68 @@ import { i18n } from "@i18n/translation";
 import Icon from "@iconify/svelte";
 import { onMount } from "svelte";
 import type { FriendItem } from "../../data/friends";
+import { friendsApi } from "@/services/api";
 
 let { friends = [] as FriendItem[] }: { friends?: FriendItem[] } = $props();
 
 let query = $state("");
 let selectedTag = $state("");
 let initialized = false;
+
+// 友链申请状态
+let applyModalOpen = $state(false);
+let applyName = $state("");
+let applyUrl = $state("");
+let applyAvatar = $state("");
+let applyDesc = $state("");
+let applyLoading = $state(false);
+let applySuccessMsg = $state("");
+let applyErrorMsg = $state("");
+
+async function handleApplyFriend() {
+	if (!applyName.trim()) {
+		applyErrorMsg = "请填写站点名称";
+		return;
+	}
+	if (!applyUrl.trim() || !/^https?:\/\//i.test(applyUrl.trim())) {
+		applyErrorMsg = "请填写以 http:// 或 https:// 开头的站点链接";
+		return;
+	}
+	if (!applyAvatar.trim() || !/^https?:\/\//i.test(applyAvatar.trim())) {
+		applyErrorMsg = "请填写以 http:// 或 https:// 开头的头像图片链接";
+		return;
+	}
+
+	applyLoading = true;
+	applyErrorMsg = "";
+	applySuccessMsg = "";
+
+	try {
+		const res = await friendsApi.apply({
+			name: applyName.trim(),
+			url: applyUrl.trim(),
+			avatar: applyAvatar.trim(),
+			desc: applyDesc.trim(),
+		});
+		if (res.success) {
+			applySuccessMsg = "友链申请已成功提交！待博主审核通过后将自动展示。";
+			applyName = "";
+			applyUrl = "";
+			applyAvatar = "";
+			applyDesc = "";
+			setTimeout(() => {
+				applyModalOpen = false;
+				applySuccessMsg = "";
+			}, 2500);
+		} else {
+			applyErrorMsg = res.error || "提交申请失败，请检查输入或稍后再试";
+		}
+	} catch (e: any) {
+		applyErrorMsg = e.message || "请求异常，请稍后再试";
+	} finally {
+		applyLoading = false;
+	}
+}
 /** 标签筛选过渡三段态：loading 展示指示器 → out 指示器淡出 → idle 列表揭幕（与动态页同语言） */
 type FilterPhase = "idle" | "loading" | "out";
 let phase = $state<FilterPhase>("idle");
@@ -92,11 +148,21 @@ onMount(() => {
 </script>
 
 <Card color="var(--card-bg)" radius="l" class="friend-section px-8 py-6">
-	<PageHeader
-		icon="material-symbols:handshake-outline-rounded"
-		title={i18n(I18nKey.friends)}
-		subtitle={i18n(I18nKey.friendsBanner)}
-	/>
+	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+		<PageHeader
+			icon="material-symbols:handshake-outline-rounded"
+			title={i18n(I18nKey.friends)}
+			subtitle={i18n(I18nKey.friendsBanner)}
+		/>
+		<button
+			type="button"
+			onclick={() => (applyModalOpen = true)}
+			class="self-start sm:self-center px-5 py-2.5 rounded-full bg-[var(--primary)] text-[var(--on-primary)] font-semibold text-xs shadow hover:brightness-105 active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+		>
+			<Icon icon="material-symbols:add-link-rounded" class="text-base" />
+			<span>申请友链</span>
+		</button>
+	</div>
 
 	{#if friends.length > 0}
 		<div class="friend-section__tools">
@@ -158,6 +224,110 @@ onMount(() => {
 		<div class="friend-section__empty">
 			<Icon icon="material-symbols:search-off-outline-rounded" aria-hidden="true" />
 			<span>{i18n(I18nKey.friendsNoResults)}</span>
+		</div>
+	{/if}
+
+	{#if applyModalOpen}
+		<div
+			class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+			onclick={(e) => { if (e.target === e.currentTarget) applyModalOpen = false; }}
+			role="dialog"
+		>
+			<div class="bg-[var(--card-bg)] text-[var(--on-surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-4">
+				<div class="flex items-center justify-between pb-3 border-b border-[var(--outline-variant)]/20">
+					<div class="flex items-center gap-2 font-bold text-lg">
+						<Icon icon="material-symbols:handshake-outline-rounded" class="text-primary text-xl" />
+						<span>申请友情链接</span>
+					</div>
+					<button
+						type="button"
+						onclick={() => (applyModalOpen = false)}
+						class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]"
+					>
+						<Icon icon="material-symbols:close-rounded" class="text-xl" />
+					</button>
+				</div>
+
+				<div class="p-3.5 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 text-xs text-[var(--on-surface-variant)] space-y-1">
+					<p class="font-semibold text-[var(--on-surface)]">✦ 本站信息（请在贵站先添加本站友链）：</p>
+					<p>名称：Shirine ｜ 网址：https://github.com/yiran168/Shirine</p>
+					<p>头像：/assets/images/demo-avatar.webp ｜ 描述：The rain remembers what the sky forgot to say.</p>
+				</div>
+
+				{#if applySuccessMsg}
+					<div class="p-3 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-xs font-semibold text-center">
+						{applySuccessMsg}
+					</div>
+				{/if}
+
+				{#if applyErrorMsg}
+					<div class="p-3 rounded-xl bg-red-500/10 text-red-500 border border-red-500/30 text-xs font-semibold">
+						{applyErrorMsg}
+					</div>
+				{/if}
+
+				<form onsubmit={(e) => { e.preventDefault(); handleApplyFriend(); }} class="space-y-3">
+					<div>
+						<label class="text-xs font-semibold block mb-1">站点名称 *</label>
+						<input
+							type="text"
+							bind:value={applyName}
+							placeholder="例如：Shirine Blog"
+							required
+							class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] text-sm outline-none focus:border-primary"
+						/>
+					</div>
+
+					<div>
+						<label class="text-xs font-semibold block mb-1">站点地址 URL *</label>
+						<input
+							type="url"
+							bind:value={applyUrl}
+							placeholder="https://example.com"
+							required
+							class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] text-sm outline-none focus:border-primary font-mono"
+						/>
+					</div>
+
+					<div>
+						<label class="text-xs font-semibold block mb-1">头像图片链接 URL *</label>
+						<input
+							type="url"
+							bind:value={applyAvatar}
+							placeholder="https://example.com/avatar.png"
+							required
+							class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] text-sm outline-none focus:border-primary font-mono"
+						/>
+					</div>
+
+					<div>
+						<label class="text-xs font-semibold block mb-1">站点一句话描述 (选填)</label>
+						<input
+							type="text"
+							bind:value={applyDesc}
+							placeholder="例如：记录技术与生活随笔的个人博客"
+							class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] text-sm outline-none focus:border-primary"
+						/>
+					</div>
+
+					<div class="flex items-center justify-end gap-3 pt-3 border-t border-[var(--outline-variant)]/20">
+						<button
+							type="button"
+							onclick={() => (applyModalOpen = false)}
+							class="px-5 py-2 rounded-full border border-[var(--outline-variant)]/40 text-xs font-semibold hover:bg-[var(--surface-container)]"
+						>
+							取消
+						</button>
+						<button
+							type="submit"
+							disabled={applyLoading}
+							class="px-6 py-2 rounded-full bg-[var(--primary)] text-[var(--on-primary)] text-xs font-semibold shadow hover:brightness-105 active:scale-95 disabled:opacity-50"
+						>
+							{applyLoading ? "提交中..." : "提交申请"}
+						</button>
+					</div>
+				</form>
+			</div>
 		</div>
 	{/if}
 </Card>

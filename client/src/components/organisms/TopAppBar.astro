@@ -30,7 +30,16 @@ const dynamicPages = await getDynamicPages(Astro.request);
 if (dynamicPages && dynamicPages.length > 0) {
 	const moreLink = links.find((l) => l.pageKey === "more" || (l.children && l.children.length > 0));
 	if (moreLink && moreLink.children) {
-		const customPageLinks = dynamicPages.map((p) => ({
+		const nonPresetPages: typeof dynamicPages = [];
+		for (const p of dynamicPages) {
+			const existingChild = moreLink.children.find((c) => c.pageKey === p.slug);
+			if (existingChild) {
+				if (p.title) existingChild.name = p.title;
+			} else {
+				nonPresetPages.push(p);
+			}
+		}
+		const customPageLinks = nonPresetPages.map((p) => ({
 			name: p.title,
 			url: `/pages/${p.slug}/`,
 			icon: "material-symbols:article-outline-rounded",

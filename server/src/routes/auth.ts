@@ -302,7 +302,7 @@ authRouter.post("/setup/admin", async (c) => {
       const anyPost = await db.query.posts.findFirst();
       if (!anyPost) {
         const { seedPresetData } = await import("../db/seed");
-        await seedPresetData(db, false);
+        await seedPresetData(db, false, c.env.DB);
       }
     } catch {}
 
@@ -311,6 +311,7 @@ authRouter.post("/setup/admin", async (c) => {
     await db.update(schema.albums).set({ uid: newUser.id }).where(sql`${schema.albums.uid} IS NULL`);
     await db.update(schema.moments).set({ uid: newUser.id }).where(sql`${schema.moments.uid} IS NULL`);
     await db.update(schema.friends).set({ uid: newUser.id }).where(sql`${schema.friends.uid} IS NULL`);
+    await db.update(schema.pages).set({ uid: newUser.id }).where(sql`${schema.pages.uid} IS NULL`);
 
     const token = await signToken(
       { id: newUser.id, username: newUser.username, role: newUser.role, sessionVersion: newUser.sessionVersion },
@@ -433,7 +434,7 @@ authRouter.post("/login", async (c) => {
         const anyPost = await db.query.posts.findFirst();
         if (!anyPost) {
           const { seedPresetData } = await import("../db/seed");
-          await seedPresetData(db, false);
+          await seedPresetData(db, false, c.env.DB);
         }
       } catch {}
 
@@ -443,6 +444,7 @@ authRouter.post("/login", async (c) => {
         await db.update(schema.albums).set({ uid: user.id }).where(sql`${schema.albums.uid} IS NULL`);
         await db.update(schema.moments).set({ uid: user.id }).where(sql`${schema.moments.uid} IS NULL`);
         await db.update(schema.friends).set({ uid: user.id }).where(sql`${schema.friends.uid} IS NULL`);
+        await db.update(schema.pages).set({ uid: user.id }).where(sql`${schema.pages.uid} IS NULL`);
       } catch {}
     } else {
       if (!user) {

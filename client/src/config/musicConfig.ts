@@ -66,6 +66,7 @@ export const musicConfig: MusicConfig = withUserConfig("music", {
 	},
 	defaultVolume: 0.7,
 	defaultMode: "sequence",
+	autoplay: true,
 });
 
 export interface ResolvedMusicOptions {
@@ -74,6 +75,7 @@ export interface ResolvedMusicOptions {
 	readonly meting?: MetingMusicConfig;
 	readonly defaultVolume: number;
 	readonly defaultMode: PlaybackMode;
+	readonly autoplay?: boolean;
 }
 
 const ABSOLUTE_MEDIA_SOURCE = /^(?:https?:)?\/\//i;
@@ -134,6 +136,7 @@ export function resolveMusicOptions(
 			meting: config.meting,
 			defaultVolume: clampMusicVolume(config.defaultVolume),
 			defaultMode: config.defaultMode,
+			autoplay: config.autoplay ?? true,
 		});
 	}
 
@@ -158,6 +161,7 @@ export function resolveMusicOptions(
 			meting: config.meting,
 			defaultVolume: clampMusicVolume(config.defaultVolume),
 			defaultMode: config.defaultMode,
+			autoplay: config.autoplay ?? true,
 		});
 	}
 
@@ -168,5 +172,6 @@ export function resolveMusicOptions(
 		playlist: Object.freeze(playlist),
 		defaultVolume: clampMusicVolume(config.defaultVolume),
 		defaultMode: config.defaultMode,
+		autoplay: config.autoplay ?? true,
 	});
 }

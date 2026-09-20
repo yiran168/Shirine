@@ -165,6 +165,49 @@ export const defaultSiteConfig = {
     enableHtmlInject: false,
     links: [],
   },
+  compass: [
+    {
+      key: "dev",
+      name: "Development",
+      icon: "material-symbols:code-rounded",
+      blurb: "Sites I keep open while writing code",
+      entries: [
+        {
+          label: "GitHub",
+          href: "https://github.com",
+          note: "Code hosting & collaboration",
+          icon: "fa6-brands:github",
+        },
+        {
+          label: "MDN",
+          href: "https://developer.mozilla.org",
+          note: "Authoritative web docs",
+          icon: "material-symbols:menu-book-rounded",
+        },
+        {
+          label: "Stack Overflow",
+          href: "https://stackoverflow.com",
+          note: "Q&A and debugging",
+          icon: "fa6-brands:stack-overflow",
+        },
+      ],
+    },
+  ],
+  anime: [
+    {
+      title: "Lycoris Recoil",
+      cover: "/assets/anime/lkls.webp",
+      link: "https://www.bilibili.com/bangumi/media/md28338623",
+      status: "completed",
+      rating: 9.8,
+      progress: { watched: 12, total: 12 },
+      description: "Girl's gunfight",
+      year: "2022",
+      studio: "A-1 Pictures",
+      genres: ["Action", "Slice of Life"],
+      period: { start: "2022-07", end: "2022-09" },
+    },
+  ],
 };
 
 // Default System Configs
@@ -468,11 +511,25 @@ configRouter.put("/site", requireAdmin, async (c) => {
     }
 
     // 4. Announcement updates
-    if ("announcementTitle" in body || "announcementContent" in body || "announcementLinkText" in body || "announcementLinkUrl" in body || "announcementEnable" in body) {
+    if (
+      "announcementTitle" in body ||
+      "announcementContent" in body ||
+      "announcementLinkText" in body ||
+      "announcementLinkUrl" in body ||
+      "announcementEnable" in body ||
+      "announcementLinks" in body
+    ) {
       const annUpdates: Record<string, any> = {};
       if (body.announcementEnable !== undefined) annUpdates.enable = Boolean(body.announcementEnable);
       if (body.announcementTitle !== undefined) annUpdates.title = body.announcementTitle;
       if (body.announcementContent !== undefined) annUpdates.content = body.announcementContent;
+      if (body.announcementLinks !== undefined && Array.isArray(body.announcementLinks)) {
+        annUpdates.links = body.announcementLinks.map((l: any) => ({
+          text: String(l.text || "").trim(),
+          url: sanitizeUrl(l.url),
+          external: true,
+        }));
+      }
       if (body.announcementLinkText !== undefined || body.announcementLinkUrl !== undefined) {
         const safeUrl = sanitizeUrl(body.announcementLinkUrl);
         annUpdates.link = {
@@ -502,6 +559,36 @@ configRouter.put("/site", requireAdmin, async (c) => {
         .onConflictDoUpdate({
           target: schema.siteConfigs.key,
           set: { value: JSON.stringify(updatedAnn), updatedAt: new Date() },
+        });
+    }
+
+    // 5. Compass updates
+    if ("compass" in body && Array.isArray(body.compass)) {
+      await db
+        .insert(schema.siteConfigs)
+        .values({
+          key: "compass",
+          value: JSON.stringify(body.compass),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.siteConfigs.key,
+          set: { value: JSON.stringify(body.compass), updatedAt: new Date() },
+        });
+    }
+
+    // 6. Anime updates
+    if ("anime" in body && Array.isArray(body.anime)) {
+      await db
+        .insert(schema.siteConfigs)
+        .values({
+          key: "anime",
+          value: JSON.stringify(body.anime),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.siteConfigs.key,
+          set: { value: JSON.stringify(body.anime), updatedAt: new Date() },
         });
     }
 

@@ -39,7 +39,17 @@ const primaryItems = $derived.by(() => {
 		}));
 
 		if (key === "more" && customPages.length > 0) {
-			const pageChildren = customPages.map((p) => ({
+			const baseChildren = children ? [...children] : [];
+			const nonPresetPages: typeof customPages = [];
+			for (const p of customPages) {
+				const existingChild = baseChildren.find((c) => c.pageKey === p.slug);
+				if (existingChild) {
+					if (p.title) existingChild.label = p.title;
+				} else {
+					nonPresetPages.push(p);
+				}
+			}
+			const pageChildren = nonPresetPages.map((p) => ({
 				value: `page-${p.slug}`,
 				label: p.title,
 				icon: "material-symbols:article-outline-rounded",
@@ -47,7 +57,6 @@ const primaryItems = $derived.by(() => {
 				external: false,
 				pageKey: `page-${p.slug}`,
 			}));
-			const baseChildren = children ? [...children] : [];
 			const aboutIdx = baseChildren.findIndex((c) => c.pageKey === "about" || c.pageKey === "github");
 			if (aboutIdx !== -1) {
 				baseChildren.splice(aboutIdx, 0, ...pageChildren);

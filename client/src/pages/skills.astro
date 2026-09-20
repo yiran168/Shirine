@@ -4,12 +4,24 @@ import SkillSection from "@components/organisms/SkillSection.svelte";
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import MainGridLayout from "@layouts/MainGridLayout.astro";
+import Card from "@components/atoms/display/Card.svelte";
 import { skillsConfig } from "@/config/skillsConfig";
 import { resolveSkillsData } from "@/utils/feature-data";
+import { getDynamicPages } from "@utils/content-utils";
+import { renderDynamicMarkdown } from "@utils/dynamic-markdown";
 
 if (!skillsConfig.enable) {
 	return Astro.redirect("/404/");
 }
+
+let dynamicSkillsContent: string | null = null;
+try {
+	const dynamicPages = await getDynamicPages(Astro.request);
+	const dbPage = dynamicPages?.find((p: any) => p.slug === "skills");
+	if (dbPage && dbPage.content) {
+		dynamicSkillsContent = renderDynamicMarkdown(dbPage.content);
+	}
+} catch {}
 
 const items = resolveSkillsData(skillsConfig);
 ---
@@ -19,9 +31,39 @@ const items = resolveSkillsData(skillsConfig);
 	description={i18n(I18nKey.skillsBanner)}
 	page="skills"
 >
+	{dynamicSkillsContent && (
+		<div class="flex w-full rounded-[var(--radius-large)] overflow-hidden relative mb-4">
+			<Card color="var(--card-bg)" radius="l" class="z-10 px-8 py-6 relative w-full">
+				<div class="custom-md-content prose dark:prose-invert max-w-none text-[var(--on-surface)] leading-relaxed" set:html={dynamicSkillsContent} />
+			</Card>
+		</div>
+	)}
 	<SkillSection
 		categories={skillsConfig.categories}
 		items={items}
 		client:visible
 	/>
 </MainGridLayout>
+
+<style is:global>
+	.custom-md-content {
+		font-size: 1rem;
+		line-height: 1.75;
+	}
+	.custom-md-content h1,
+	.custom-md-content h2,
+	.custom-md-content h3,
+	.custom-md-content h4 {
+		color: var(--on-surface);
+		font-weight: 700;
+		margin-top: 1.5rem;
+		margin-bottom: 0.75rem;
+	}
+	.custom-md-content p {
+		margin-bottom: 1.25rem;
+	}
+	.custom-md-content a {
+		color: var(--primary);
+		text-decoration: underline;
+	}
+</style>

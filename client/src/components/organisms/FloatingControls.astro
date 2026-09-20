@@ -7,6 +7,9 @@ import { resolveDeviceClasses } from "@utils/fab-responsive";
 import { isWidgetVisibleOnPage } from "@utils/sidebar-page";
 import type { MarkdownHeading } from "astro";
 import { Icon } from "astro-icon/components";
+import FloatingMusicWidget from "./FloatingMusicWidget.svelte";
+import { getDynamicSiteConfig } from "@utils/dynamic-config";
+import { musicConfig as staticMusicConfig, resolveMusicOptions } from "@/config/musicConfig";
 /**
  * FloatingControls.astro
  * 右下角悬浮控制流有机体：统领全站 FAB 导航项、响应式设备适配与 Swup 生命周期。
@@ -23,6 +26,10 @@ interface Props {
 }
 
 const { headings = [], page, hasComments } = Astro.props;
+
+const { music: dynamicMusic } = await getDynamicSiteConfig();
+const activeMusicConfig = dynamicMusic ?? staticMusicConfig;
+const musicOptions = activeMusicConfig?.enable ? resolveMusicOptions(activeMusicConfig) : null;
 
 if (!fabConfig.enable) {
 	return null;
@@ -116,7 +123,14 @@ const isHomeItemVisible = homeItem
 		</FloatingActionButton>
 	)}
 
-	<!-- 4. 返回顶部（默认带滚动阈值隐藏） -->
+	<!-- 4. 全局悬浮音乐控制按钮（停止/播放、音乐动效与切歌） -->
+	{musicOptions && (
+		<div data-fab-slot class="mb-2">
+			<FloatingMusicWidget client:load options={musicOptions} />
+		</div>
+	)}
+
+	<!-- 5. 返回顶部（默认带滚动阈值隐藏） -->
 	{topItem && (
 		<FloatingActionButton
 			id="fab-top-btn"

@@ -311,7 +311,7 @@ adminRouter.post("/seed", async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const overwrite = Boolean(body.overwrite);
     const { seedPresetData } = await import("../db/seed");
-    const summary = await seedPresetData(db, overwrite);
+    const summary = await seedPresetData(db, overwrite, c.env.DB);
     return c.json({
       success: true,
       message: "Preset demo data seeded successfully into D1 database",

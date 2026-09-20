@@ -7,18 +7,92 @@ import {
   PRESET_ALBUMS,
   PRESET_FRIENDS,
 } from "./seed-data";
+import { ensureD1Schema } from "./migrate";
 import { defaultSiteConfig } from "../routes/config";
+
+export const PRESET_PAGES = [
+  {
+    slug: "about",
+    title: "关于",
+    content: `# 关于 Shirine (About Shirine)
+
+欢迎来到 **Shirine**（白音）— 基于 Material 3 Expressive (M3E) 设计规范的唯美二次元个人博客。
+
+::github{repo="yiran168/Shirine"}
+
+## ✦ 设计理念 (Design & Philosophy)
+
+- **Dynamic Chromatic Spell**: 全动态色彩体系，完美自适应深浅色模式与个性色彩。
+- **Seamless Shell Navigation**: 全站持久化应用壳与平滑页面过渡，音乐持续播放不中断。
+- **Rich Story Grimoire**: 支持丰富 Markdown/MDX 扩展、KaTeX 公式与自适应图文混排。
+- **Zero Extra Burden**: 极致性能与零额外负担架构。
+
+## ✦ 友链申请 (Friend Links Application)
+
+本站欢迎符合条件的博主与开发者交换友情链接！申请前请先添加本站链接：
+
+### 本站信息：
+- **站点名称**：Shirine
+- **站点地址**：https://github.com/yiran168/Shirine
+- **站点头像**：/assets/images/demo-avatar.webp
+- **站点描述**：The rain remembers what the sky forgot to say.
+
+### 申请要求：
+1. 网站支持 HTTPS 访问，内容积极健康，无违法违规信息；
+2. 网站保持稳定更新（建议有原创技术、生活或二次元相关博文）；
+3. 申请前请先添加本站友链；
+4. 申请入口：可直接前往 [友链页面](/friends/) 点击「申请友链」按钮提交，管理员审核后即可在前台展示。`,
+  },
+  {
+    slug: "projects",
+    title: "精选项目",
+    content: `# 精选项目 (Featured Projects)
+
+这里展示了站长参与或独立维护的开源项目与实践作品。
+
+- **Shirine Blog Theme**: 基于 Material 3 Expressive 设计规范的唯美二次元博客主题。
+- **M3E Component Library**: 深度整合 Tailwind 与 Svelte 5 的设计系统组件库。
+- **Cloudflare D1/R2 Serverless Engine**: 极速低延迟的全栈无服务器后端架构。`,
+  },
+  {
+    slug: "devices",
+    title: "我的设备",
+    content: `# 我的设备与工作台 (My Devices & Setup)
+
+记录日常使用的数字装备、开发工作台与生产力工具：
+
+- **主力电脑**: MacBook Pro 16" (M-Series / 32GB RAM / 1TB SSD)
+- **显示外设**: 27" 4K IPS HDR 专业色彩显示器 + 机械键盘与无线人体工学鼠标
+- **移动设备**: iPhone 15 Pro Max & iPad Pro (Apple Pencil 随手记与草稿设计)
+- **影音娱乐**: Sony WH-1000XM5 无线降噪耳机 + Nintendo Switch OLED`,
+  },
+  {
+    slug: "skills",
+    title: "技能清单",
+    content: `# 技能清单与技术栈 (Skills & Technologies)
+
+- **前端技术**: TypeScript / Astro 7 / Svelte 5 (Runes) / Tailwind CSS 4 / Vue / React
+- **后端架构**: Cloudflare Workers / D1 (SQLite) / R2 Storage / Hono / Node.js
+- **设计工具**: Figma / Material Design 3 / Adobe Creative Cloud
+- **开发运维**: Git / GitHub Actions CI/CD / Docker / Linux`,
+  },
+];
 
 export async function seedPresetData(
   db: ReturnType<typeof getDb>,
-  overwrite = false
+  overwrite = false,
+  d1?: D1Database
 ) {
+  // 0. Ensure schema migrations and missing columns are created
+  await ensureD1Schema(d1, db);
+
   const summary = {
     posts: 0,
     moments: 0,
     albums: 0,
     photos: 0,
     friends: 0,
+    pages: 0,
   };
 
   // 1. Resolve SuperAdmin if already registered via /setup/admin
@@ -245,7 +319,38 @@ export async function seedPresetData(
     }
   }
 
-  // 6. Default Site Configs (if empty)
+  // 6. Custom Pages
+  for (const page of PRESET_PAGES) {
+    const existing = await db.query.pages.findFirst({
+      where: eq(schema.pages.slug, page.slug),
+    });
+    if (!existing) {
+      await db.insert(schema.pages).values({
+        slug: page.slug,
+        title: page.title,
+        content: page.content,
+        draft: 0,
+        uid: adminUid,
+      });
+      summary.pages++;
+    } else if (overwrite || (existing.uid === null && adminUid !== null)) {
+      await db
+        .update(schema.pages)
+        .set({
+          ...(overwrite ? {
+            title: page.title,
+            content: page.content,
+            draft: 0,
+          } : {}),
+          uid: existing.uid ?? adminUid,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.pages.id, existing.id));
+      summary.pages++;
+    }
+  }
+
+  // 7. Default Site Configs (if empty)
   for (const [key, value] of Object.entries(defaultSiteConfig)) {
     const existing = await db.query.siteConfigs.findFirst({
       where: eq(schema.siteConfigs.key, key),
@@ -260,3 +365,4 @@ export async function seedPresetData(
 
   return summary;
 }
+
