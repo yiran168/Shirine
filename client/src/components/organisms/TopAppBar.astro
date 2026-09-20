@@ -56,7 +56,7 @@ function isActive(link: (typeof links)[number]): boolean {
 			<span class="h-5 w-1 rounded-full bg-[var(--primary)] transition-all group-hover:h-7"></span>
 			<span class="text-lg font-bold group-hover:text-[var(--primary)]">{siteConfig.title}</span>
 		</a>
-		<nav class:list={["top-app-bar__nav hidden h-full items-center gap-1 lg:flex transition-opacity duration-200", siteConfig.topAppBar.contentAlign === "center" ? "lg:absolute lg:left-1/2 lg:-translate-x-1/2 lg:max-w-[calc(100%-28rem)] lg:overflow-x-auto hide-scrollbar" : "ml-4"]} aria-label="Main navigation">
+		<nav class:list={["top-app-bar__nav hidden h-full items-center gap-1 lg:flex transition-opacity duration-200 overflow-visible", siteConfig.topAppBar.contentAlign === "center" ? "lg:absolute lg:left-1/2 lg:-translate-x-1/2 lg:max-w-[calc(100%-28rem)]" : "ml-4"]} aria-label="Main navigation">
 			{links.map((link) => {
 				const href = link.external ? link.url : hrefFor(link.url);
 				const active = isActive(link);
@@ -324,9 +324,12 @@ document.addEventListener('swup:content:replace', bindSearchTriggers);
 		/* Explicitly isolate dropdown menus from transparent navbar styling */
 		:global(.shirine-dropdown),
 		:global(.top-app-bar--transparent .shirine-dropdown) {
-			background: var(--surface-container-highest) !important;
+			background: var(--surface-container-highest, #ffffff) !important;
 			backdrop-filter: blur(20px) !important;
-			color: var(--on-surface) !important;
+			color: var(--mc-on-surface, var(--on-surface, #18181b)) !important;
+			--on-surface: var(--mc-on-surface, var(--on-surface, #18181b)) !important;
+			--on-surface-variant: var(--mc-on-surface-variant, var(--on-surface-variant, #52525b)) !important;
+			--primary: var(--mc-primary, var(--primary, #e11d48)) !important;
 			border: 1px solid color-mix(in srgb, var(--outline-variant) 30%, transparent) !important;
 			box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
 			text-shadow: none !important;
@@ -338,11 +341,22 @@ document.addEventListener('swup:content:replace', bindSearchTriggers);
 		:global(.top-app-bar--transparent .shirine-dropdown a) {
 			border: none;
 			text-shadow: none !important;
+			color: var(--mc-on-surface, var(--on-surface, #18181b)) !important;
 		}
 
 		:global(.shirine-dropdown button:not(:hover):not([data-active="true"])),
 		:global(.shirine-dropdown a:not(:hover):not([data-active="true"])) {
 			background-color: transparent;
+			color: var(--mc-on-surface, var(--on-surface, #18181b)) !important;
+		}
+
+		:global(.dark .shirine-dropdown),
+		:global(.dark .top-app-bar--transparent .shirine-dropdown),
+		:global(.dark .shirine-dropdown button),
+		:global(.dark .shirine-dropdown a),
+		:global(.dark .top-app-bar--transparent .shirine-dropdown button),
+		:global(.dark .top-app-bar--transparent .shirine-dropdown a) {
+			color: var(--mc-on-surface, var(--on-surface, #f4f4f5)) !important;
 		}
 
 		/* Hide navigation completely when search bar is expanded so nav text never covers or overlaps the search box */
@@ -381,10 +395,19 @@ document.addEventListener('swup:content:replace', bindSearchTriggers);
 		 * the white chrome used by the transparent app bar. */
 		:global(.top-app-bar--transparent .float-panel),
 		:global(.top-app-bar--transparent .m3-menu),
-		:global(.top-app-bar--transparent .top-app-bar__submenu) {
-			--on-surface: var(--mc-on-surface);
-			--on-surface-variant: var(--mc-on-surface-variant);
-			--primary: var(--mc-primary);
+		:global(.top-app-bar--transparent .top-app-bar__submenu),
+		:global(.top-app-bar--transparent .shirine-dropdown) {
+			--on-surface: var(--mc-on-surface, var(--on-surface, #18181b));
+			--on-surface-variant: var(--mc-on-surface-variant, var(--on-surface-variant, #52525b));
+			--primary: var(--mc-primary, var(--primary, #e11d48));
+			color: var(--mc-on-surface, var(--on-surface, #18181b)) !important;
+		}
+
+		:global(.dark .top-app-bar--transparent .float-panel),
+		:global(.dark .top-app-bar--transparent .m3-menu),
+		:global(.dark .top-app-bar--transparent .top-app-bar__submenu),
+		:global(.dark .top-app-bar--transparent .shirine-dropdown) {
+			color: var(--mc-on-surface, var(--on-surface, #f4f4f5)) !important;
 		}
 
 		.top-app-bar--transparent .top-app-bar__nav-link--active::after {
@@ -423,6 +446,7 @@ document.addEventListener('swup:content:replace', bindSearchTriggers);
 		transform: translateY(-0.25rem) scale(0.98);
 		transform-origin: top left;
 		transition: opacity var(--m3e-duration-short), transform var(--m3e-duration-short), visibility var(--m3e-duration-short);
+		z-index: 50;
 	}
 
 	.top-app-bar__nav-group:hover > .top-app-bar__submenu,

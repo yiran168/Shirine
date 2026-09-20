@@ -297,6 +297,15 @@ authRouter.post("/setup/admin", async (c) => {
       throw createErr;
     }
 
+    // Auto-seed presets if database has no posts so admin can manage them immediately
+    try {
+      const anyPost = await db.query.posts.findFirst();
+      if (!anyPost) {
+        const { seedPresetData } = await import("../db/seed");
+        await seedPresetData(db, false);
+      }
+    } catch {}
+
     // Claim ownership of seeded orphan records where uid is NULL (V8-P0-23)
     await db.update(schema.posts).set({ uid: newUser.id }).where(sql`${schema.posts.uid} IS NULL`);
     await db.update(schema.albums).set({ uid: newUser.id }).where(sql`${schema.albums.uid} IS NULL`);
@@ -417,6 +426,15 @@ authRouter.post("/login", async (c) => {
             target: schema.setupState.id,
             set: { completed: 1 },
           });
+      } catch {}
+
+      // Auto-seed presets if database has no posts so admin can manage them immediately
+      try {
+        const anyPost = await db.query.posts.findFirst();
+        if (!anyPost) {
+          const { seedPresetData } = await import("../db/seed");
+          await seedPresetData(db, false);
+        }
       } catch {}
 
       // Claim orphan records

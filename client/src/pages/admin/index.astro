@@ -18,9 +18,24 @@ const htmlLang = currentAdminLang.replace("_", "-");
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Shirine 管理控制台</title>
 		<link rel="icon" href="/logo/icon.webp" />
+		<script is:inline>
+			const theme = localStorage.getItem('theme') || 'auto';
+			if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+				document.documentElement.classList.add('dark');
+			} else {
+				document.documentElement.classList.remove('dark');
+			}
+			const hue = localStorage.getItem('hue') || '260';
+			document.documentElement.style.setProperty('--hue', hue);
+		</script>
 	</head>
-	<body class="h-full antialiased bg-[var(--surface-container-lowest)] text-[var(--on-surface)]">
+	<body class="h-full antialiased bg-[var(--surface-container-lowest,#f8fafc)] text-[var(--on-surface,#0f172a)]">
 		<AdminDashboard client:only="svelte" />
 		<Live2DControl client:only="svelte" mode="admin" />
 	</body>
 </html>
+
+<style lang="stylus" is:global>
+@import "../../styles/variables.styl"
+</style>
+

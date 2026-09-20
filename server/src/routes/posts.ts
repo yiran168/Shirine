@@ -374,17 +374,18 @@ async function getPostDetailResponse(c: any, slugOrId: string) {
       requiredPoints: post.requiredPoints,
       content: isUnlocked ? post.content : null,
       isUnlocked,
+      isLocked: !isUnlocked,
       lockReason,
       requiresPassword: hasPassword,
+      passwordHint: post.passwordHint || undefined,
       hideHomeContent: post.hideHomeContent === 1,
       isPurchased,
       isAuthenticated: Boolean(user),
-      encrypted: post.encrypted === 1,
+      encrypted: post.encrypted === 1 || hasPassword,
       password: isAdmin ? (post.password || "") : undefined,
       prev: prevPost ? { id: prevPost.id, slug: prevPost.slug, title: prevPost.title } : null,
       next: nextPost ? { id: nextPost.id, slug: nextPost.slug, title: nextPost.title } : null,
       userPoints,
-      passwordHint: post.passwordHint || "",
       author: author
         ? {
             id: author.id,
@@ -422,12 +423,23 @@ postsRouter.post("/:id/password/verify", async (c) => {
   try {
     const user = c.get("user");
     const db = getDb(c.env.DB);
-    const id = parseInt(c.req.param("id") || "0", 10);
-    if (isNaN(id)) return c.json({ success: false, error: "Invalid post ID" }, 400);
-
-    const post = await db.query.posts.findFirst({
-      where: eq(schema.posts.id, id),
-    });
+    const idParam = c.req.param("id") || "";
+    let post = null;
+    const numericId = parseInt(idParam, 10);
+    if (!isNaN(numericId) && numericId.toString() === idParam) {
+      post = await db.query.posts.findFirst({
+        where: eq(schema.posts.id, numericId),
+      });
+    }
+    if (!post) {
+      post = await db.query.posts.findFirst({
+        where: or(
+          eq(schema.posts.slug, idParam),
+          eq(schema.posts.alias, idParam),
+          eq(schema.posts.permalink, idParam)
+        ),
+      });
+    }
     if (!post) return c.json({ success: false, error: "Post not found" }, 404);
 
     const isAdmin = user && (user.role === "superadmin" || user.role === "admin");
@@ -518,16 +530,23 @@ postsRouter.post("/:id/unlock", requireAuth, async (c) => {
   try {
     const user = c.get("user")!;
     const db = getDb(c.env.DB);
-    const id = parseInt(c.req.param("id") || "0", 10);
-
-    if (isNaN(id)) {
-      return c.json({ success: false, error: "Invalid post ID" }, 400);
+    const idParam = c.req.param("id") || "";
+    let post = null;
+    const numericId = parseInt(idParam, 10);
+    if (!isNaN(numericId) && numericId.toString() === idParam) {
+      post = await db.query.posts.findFirst({
+        where: eq(schema.posts.id, numericId),
+      });
     }
-
-    const post = await db.query.posts.findFirst({
-      where: eq(schema.posts.id, id),
-    });
-
+    if (!post) {
+      post = await db.query.posts.findFirst({
+        where: or(
+          eq(schema.posts.slug, idParam),
+          eq(schema.posts.alias, idParam),
+          eq(schema.posts.permalink, idParam)
+        ),
+      });
+    }
     if (!post) {
       return c.json({ success: false, error: "Post not found" }, 404);
     }

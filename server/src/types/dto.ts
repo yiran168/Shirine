@@ -37,7 +37,7 @@ export interface UserDto {
 }
 
 // Post DTOs
-export type PermissionType = "public" | "login_required" | "points_required";
+export type PermissionType = "public" | "login_required" | "points_required" | "password";
 
 export interface PostListDto {
   id: number;
@@ -54,39 +54,45 @@ export interface PostListDto {
   permissionType: PermissionType;
   requiredPoints: number;
   isUnlocked: boolean;
+  isLocked?: boolean;
   requiresPassword?: boolean;
   hideHomeContent?: boolean;
   isPurchased?: boolean;
   isAuthenticated?: boolean;
   lockReason?: string;
-  commentEnabled: boolean;
   createdAt: number | Date;
   updatedAt: number | Date;
 }
 
 export interface PostDetailDto extends PostListDto {
-  content: string | null; // null if locked
-  lockReason?: string;
-  userPoints?: number;
+  content: string | null;
+  commentEnabled: boolean;
+  encrypted: boolean;
+  password?: string;
   passwordHint?: string;
-  password?: string; // Only populated for privileged admin requests
-  encrypted?: boolean;
-  prev?: { id: number; slug: string; title: string } | null;
-  next?: { id: number; slug: string; title: string } | null;
+  userPoints?: number;
   author?: {
     id: number;
     username: string;
     nickname: string;
     avatar: string;
   } | null;
+  prev?: {
+    id: number;
+    slug: string;
+    title: string;
+  } | null;
+  next?: {
+    id: number;
+    slug: string;
+    title: string;
+  } | null;
 }
 
 // Album DTOs
 export interface AlbumPhotoDto {
-  id: number | string;
-  src: string;
-  url?: string;
-  thumbnail?: string;
+  id: number;
+  url: string;
   alt: string;
   title?: string;
   description?: string;
@@ -106,6 +112,8 @@ export interface AlbumIndexDto {
   requiredPoints: number;
   isUnlocked: boolean;
   protected?: boolean;
+  requiresPassword?: boolean;
+  passwordHint?: string;
   draft: boolean;
   layout?: "grid" | "masonry";
   columns?: number;

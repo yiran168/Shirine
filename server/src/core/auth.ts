@@ -158,3 +158,62 @@ export async function verifyPostGrant(
     return false;
   }
 }
+
+/**
+  * Signs a short-lived, purpose-bound password grant for accessing a password-protected album.
+  */
+export async function signAlbumGrant(
+  albumId: number,
+  passwordVersion: number,
+  userId: number | null,
+  secret: string
+): Promise<string> {
+  const secretKey = new TextEncoder().encode(secret);
+  return await new SignJWT({
+    type: "album_password_grant",
+    albumId,
+    pv: passwordVersion,
+    userId: userId ?? 0,
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuer("shirine-auth")
+    .setAudience("shirine-album-grant")
+    .setJti(crypto.randomUUID())
+    .setIssuedAt()
+    .setExpirationTime("2h")
+    .sign(secretKey);
+}
+
+/**
+  * Verifies an album password grant token against requested albumId and passwordVersion.
+  */
+export async function verifyAlbumGrant(
+  token: string,
+  albumId: number,
+  expectedPasswordVersion: number,
+  currentUserId: number | null,
+  secret: string
+): Promise<boolean> {
+  try {
+    const secretKey = new TextEncoder().encode(secret);
+    const { payload } = await jwtVerify(token, secretKey, {
+      issuer: "shirine-auth",
+      audience: "shirine-album-grant",
+    });
+
+    if (payload.type !== "album_password_grant") return false;
+    if (Number(payload.albumId) !== Number(albumId)) return false;
+    if (Number(payload.pv) !== Number(expectedPasswordVersion)) return false;
+
+    const grantUserId = Number(payload.userId || 0);
+    if (grantUserId > 0) {
+      if (!currentUserId || currentUserId !== grantUserId) {
+        return false;
+      }
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}

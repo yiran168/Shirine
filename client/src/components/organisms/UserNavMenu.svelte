@@ -144,7 +144,7 @@
   <!-- Dropdown Menu -->
   {#if menuOpen}
     <div
-      class="shirine-dropdown absolute right-0 top-full mt-2 w-52 rounded-2xl bg-[var(--surface-container-highest)] border border-[var(--outline-variant)]/30 shadow-2xl backdrop-blur-xl p-1.5 z-[100] transition-all duration-150 animate-fade-in text-sm font-medium text-[var(--on-surface)]"
+      class="shirine-dropdown absolute right-0 top-full mt-2 w-52 rounded-2xl bg-[var(--surface-container-highest)] border border-[var(--outline-variant)]/30 shadow-2xl backdrop-blur-xl p-1.5 z-[100] transition-all duration-150 animate-fade-in text-sm font-medium text-zinc-900 dark:text-zinc-100"
       role="menu"
     >
       <!-- STATE 1: GUEST / NOT LOGGED IN -->
@@ -152,10 +152,10 @@
         <button
           type="button"
           onclick={handleLogin}
-          class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:!bg-[var(--surface-container)] hover:!text-primary transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
+          class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-zinc-900 dark:text-zinc-100 hover:!bg-[var(--surface-container)] hover:!text-primary transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
           role="menuitem"
         >
-          <svg class="w-4 h-4 text-[var(--on-surface-variant)] group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-4 h-4 text-zinc-600 dark:text-zinc-400 group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
           </svg>
           <span class="font-bold text-xs">{t.signIn}</span>
@@ -164,10 +164,10 @@
         <button
           type="button"
           onclick={handleRegister}
-          class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:!bg-[var(--surface-container)] hover:!text-primary transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
+          class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-zinc-900 dark:text-zinc-100 hover:!bg-[var(--surface-container)] hover:!text-primary transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
           role="menuitem"
         >
-          <svg class="w-4 h-4 text-[var(--on-surface-variant)] group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-4 h-4 text-zinc-600 dark:text-zinc-400 group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
           </svg>
           <span class="font-bold text-xs">{t.signUp}</span>
@@ -178,7 +178,7 @@
       {#if isNormalUser}
         <!-- User summary header -->
         <div class="px-3.5 py-2 rounded-xl bg-[var(--surface-container)]/40 mb-1">
-          <div class="text-xs font-bold text-[var(--on-surface)] truncate">{authStore.user?.nickname || authStore.user?.username}</div>
+          <div class="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">{authStore.user?.nickname || authStore.user?.username}</div>
           <div class="text-[11px] text-purple-600 dark:text-purple-400 font-semibold">{authStore.user?.points ?? 0} Points</div>
         </div>
 
@@ -187,7 +187,7 @@
           type="button"
           disabled={authStore.user?.checkedInToday || checkinLoading}
           onclick={handleCheckin}
-          class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-left transition-colors !border-0 !shadow-none !bg-transparent group cursor-pointer {authStore.user?.checkedInToday ? 'opacity-50 text-[var(--on-surface-variant)] cursor-not-allowed' : 'text-[var(--on-surface)] hover:!bg-amber-500/10 hover:!text-amber-500'}"
+          class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-left transition-colors !border-0 !shadow-none !bg-transparent group cursor-pointer {authStore.user?.checkedInToday ? 'opacity-50 text-zinc-500 cursor-not-allowed' : 'text-zinc-900 dark:text-zinc-100 hover:!bg-amber-500/10 hover:!text-amber-500'}"
           role="menuitem"
         >
           <span class="flex items-center gap-2.5">
@@ -209,10 +209,10 @@
         <button
           type="button"
           onclick={handleChangeAvatar}
-          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:!bg-[var(--surface-container)] hover:!text-primary transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
+          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-zinc-900 dark:text-zinc-100 hover:!bg-[var(--surface-container)] hover:!text-primary transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
           role="menuitem"
         >
-          <svg class="w-4 h-4 text-[var(--on-surface-variant)] group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-4 h-4 text-zinc-600 dark:text-zinc-400 group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
           <span class="text-xs font-semibold">{t.changeAvatar}</span>
@@ -238,17 +238,17 @@
       {#if isAdmin}
         <!-- Admin summary header -->
         <div class="px-3.5 py-2 rounded-xl bg-[var(--surface-container)]/40 mb-1">
-          <div class="text-xs font-bold text-[var(--on-surface)] truncate">{authStore.user?.nickname || authStore.user?.username}</div>
+          <div class="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">{authStore.user?.nickname || authStore.user?.username}</div>
           <div class="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Super Admin</div>
         </div>
 
         <!-- ① Admin panel -->
         <a
           href="/admin"
-          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:!bg-purple-500/10 hover:!text-purple-600 dark:hover:!text-purple-400 transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
+          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-zinc-900 dark:text-zinc-100 hover:!bg-purple-500/10 hover:!text-purple-600 dark:hover:!text-purple-400 transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
           role="menuitem"
         >
-          <svg class="w-4 h-4 text-[var(--on-surface-variant)] group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-4 h-4 text-zinc-600 dark:text-zinc-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
@@ -259,10 +259,10 @@
         <button
           type="button"
           onclick={handleChangeAvatar}
-          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[var(--on-surface)] hover:!bg-[var(--surface-container)] hover:!text-primary transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
+          class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-zinc-900 dark:text-zinc-100 hover:!bg-[var(--surface-container)] hover:!text-primary transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
           role="menuitem"
         >
-          <svg class="w-4 h-4 text-[var(--on-surface-variant)] group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-4 h-4 text-zinc-600 dark:text-zinc-400 group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
           <span class="text-xs font-semibold">{t.changeAvatar}</span>

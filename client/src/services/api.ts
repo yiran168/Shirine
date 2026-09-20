@@ -211,6 +211,8 @@ export const postsApi = {
 export const albumsApi = {
   list: () => request("/albums"),
   get: (id: number) => request(`/albums/${id}`),
+  verifyPassword: (id: number, password: string) =>
+    request(`/albums/${id}/password/verify`, { method: "POST", body: JSON.stringify({ password }) }),
   unlock: (id: number) => request(`/albums/${id}/unlock`, { method: "POST" }),
   create: (body: any) => request("/albums", { method: "POST", body: JSON.stringify(body) }),
   update: (id: number, body: any) => request(`/albums/${id}`, { method: "PUT", body: JSON.stringify(body) }),

@@ -3,9 +3,31 @@ import { eq, desc, and, sql, inArray } from "drizzle-orm";
 import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
 import { requireAuth, requireAdmin } from "../core/middleware";
+import { signAlbumGrant, verifyAlbumGrant } from "../core/auth";
 import type { AlbumIndexDto, AlbumDetailDto, AlbumPhotoDto } from "../types/dto";
 
 export const albumsRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+function extractAlbumGrant(c: any, albumId: number): string | undefined {
+  const headerGrant = c.req.header("X-Album-Grant");
+  if (headerGrant) return headerGrant;
+
+  const cookieHeader = c.req.header("Cookie") || "";
+  const matchMap = cookieHeader.match(/shirine_album_grants=([^;]+)/);
+  if (matchMap) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(matchMap[1]));
+      if (parsed && typeof parsed === "object" && parsed[albumId.toString()]) {
+        return parsed[albumId.toString()];
+      }
+    } catch {}
+  }
+
+  const matchSingle = cookieHeader.match(new RegExp(`shirine_album_grant_${albumId}=([^;]+)`));
+  if (matchSingle) return matchSingle[1];
+
+  return undefined;
+}
 
 // List albums
 albumsRouter.get("/", async (c) => {
@@ -48,40 +70,62 @@ albumsRouter.get("/", async (c) => {
       countMap.set(row.albumId, row.count);
     }
 
-    const albumsWithPerms: AlbumIndexDto[] = allAlbums.map((album) => {
-      let isUnlocked = true;
-      if (album.permissionType === "login_required") {
-        isUnlocked = !!user;
-      } else if (album.permissionType === "points_required") {
-        isUnlocked = !!(
-          user &&
-          (isAdmin || user.id === album.uid || unlockedAlbumIds.has(album.id))
-        );
-      }
+    const albumsWithPerms: AlbumIndexDto[] = await Promise.all(
+      allAlbums.map(async (album) => {
+        const hasPassword =
+          album.permissionType === "password" ||
+          album.encrypted === 1 ||
+          Boolean(album.password && album.password.length > 0);
 
-      const photoCount = countMap.get(album.id) ?? 0;
+        let isUnlocked = true;
+        if (hasPassword) {
+          const grant = extractAlbumGrant(c, album.id);
+          let grantValid = false;
+          if (grant) {
+            grantValid = await verifyAlbumGrant(
+              grant,
+              album.id,
+              album.passwordVersion ?? 1,
+              user ? user.id : null,
+              c.env.JWT_SECRET
+            );
+          }
+          isUnlocked = Boolean(grantValid || isAdmin || (user && user.id === album.uid));
+        } else if (album.permissionType === "login_required") {
+          isUnlocked = !!user;
+        } else if (album.permissionType === "points_required") {
+          isUnlocked = !!(
+            user &&
+            (isAdmin || user.id === album.uid || unlockedAlbumIds.has(album.id))
+          );
+        }
 
-      return {
-        id: album.id,
-        slug: album.slug,
-        title: album.title,
-        description: album.description,
-        cover: album.cover,
-        photoCount,
-        count: photoCount, // legacy alias
-        permissionType: album.permissionType as any,
-        requiredPoints: album.requiredPoints,
-        isUnlocked,
-        protected: album.permissionType !== "public",
-        draft: album.draft === 1,
-        layout: (album.layout as "grid" | "masonry") || "masonry",
-        columns: album.columns || 3,
-        tags: [],
-        date: album.createdAt ? new Date(album.createdAt).toISOString().slice(0, 10) : "",
-        createdAt: album.createdAt,
-        updatedAt: album.updatedAt,
-      };
-    });
+        const photoCount = countMap.get(album.id) ?? 0;
+
+        return {
+          id: album.id,
+          slug: album.slug,
+          title: album.title,
+          description: album.description,
+          cover: album.cover,
+          photoCount,
+          count: photoCount, // legacy alias
+          permissionType: album.permissionType as any,
+          requiredPoints: album.requiredPoints,
+          isUnlocked,
+          protected: album.permissionType !== "public" || hasPassword,
+          requiresPassword: hasPassword,
+          passwordHint: album.passwordHint || undefined,
+          draft: album.draft === 1,
+          layout: (album.layout as "grid" | "masonry") || "masonry",
+          columns: album.columns || 3,
+          tags: [],
+          date: album.createdAt ? new Date(album.createdAt).toISOString().slice(0, 10) : "",
+          createdAt: album.createdAt,
+          updatedAt: album.updatedAt,
+        };
+      })
+    );
 
     return c.json({ success: true, data: albumsWithPerms });
   } catch (err: any) {
@@ -123,7 +167,28 @@ albumsRouter.get("/:id", async (c) => {
     let isUnlocked = true;
     let lockReason = "";
 
-    if (album.permissionType === "login_required") {
+    const hasPassword =
+      album.permissionType === "password" ||
+      album.encrypted === 1 ||
+      Boolean(album.password && album.password.length > 0);
+
+    if (hasPassword) {
+      const grant = extractAlbumGrant(c, album.id);
+      let grantValid = false;
+      if (grant) {
+        grantValid = await verifyAlbumGrant(
+          grant,
+          album.id,
+          album.passwordVersion ?? 1,
+          user ? user.id : null,
+          c.env.JWT_SECRET
+        );
+      }
+      if (!grantValid && !isAdmin && (!user || user.id !== album.uid)) {
+        isUnlocked = false;
+        lockReason = "password_required";
+      }
+    } else if (album.permissionType === "login_required") {
       if (!user) {
         isUnlocked = false;
         lockReason = "login_required";
@@ -206,7 +271,9 @@ albumsRouter.get("/:id", async (c) => {
       permissionType: album.permissionType as any,
       requiredPoints: album.requiredPoints,
       isUnlocked,
-      protected: album.permissionType !== "public",
+      protected: album.permissionType !== "public" || hasPassword,
+      requiresPassword: hasPassword,
+      passwordHint: album.passwordHint || undefined,
       draft: album.draft === 1,
       lockReason,
       userPoints,
@@ -232,16 +299,19 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
   try {
     const user = c.get("user")!;
     const db = getDb(c.env.DB);
-    const id = parseInt(c.req.param("id") || "0", 10);
-
-    if (isNaN(id)) {
-      return c.json({ success: false, error: "Invalid album ID" }, 400);
+    const idParam = c.req.param("id") || "";
+    let album = null;
+    const numericId = parseInt(idParam, 10);
+    if (!isNaN(numericId) && numericId.toString() === idParam) {
+      album = await db.query.albums.findFirst({
+        where: eq(schema.albums.id, numericId),
+      });
     }
-
-    const album = await db.query.albums.findFirst({
-      where: eq(schema.albums.id, id),
-    });
-
+    if (!album) {
+      album = await db.query.albums.findFirst({
+        where: eq(schema.albums.slug, idParam),
+      });
+    }
     if (!album) {
       return c.json({ success: false, error: "Album not found" }, 404);
     }
@@ -451,6 +521,108 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
   }
 });
 
+// Verify Album Password and issue short-lived password grant
+albumsRouter.post("/:id/password/verify", async (c) => {
+  try {
+    const user = c.get("user");
+    const db = getDb(c.env.DB);
+    const idParam = c.req.param("id") || "0";
+    let album = null;
+    const numericId = parseInt(idParam, 10);
+    if (!isNaN(numericId)) {
+      album = await db.query.albums.findFirst({ where: eq(schema.albums.id, numericId) });
+    }
+    if (!album) {
+      album = await db.query.albums.findFirst({ where: eq(schema.albums.slug, idParam) });
+    }
+    if (!album) return c.json({ success: false, error: "Album not found" }, 404);
+
+    const isAdmin = user && (user.role === "superadmin" || user.role === "admin");
+    if (album.draft === 1 && !isAdmin) {
+      return c.json({ success: false, error: "Album not published" }, 404);
+    }
+
+    const hasPassword =
+      album.permissionType === "password" ||
+      album.encrypted === 1 ||
+      Boolean(album.password && album.password.length > 0);
+
+    if (!hasPassword) {
+      const dbPhotos = await db.query.albumPhotos.findMany({
+        where: eq(schema.albumPhotos.albumId, album.id),
+        orderBy: [schema.albumPhotos.sortOrder],
+      });
+      return c.json({
+        success: true,
+        message: "This album does not require a password",
+        isUnlocked: true,
+        photos: dbPhotos.map((p) => ({
+          id: p.id,
+          src: p.url,
+          url: p.url,
+          alt: p.alt || p.title || album.title,
+          title: p.title || "",
+          description: p.description || "",
+          sortOrder: p.sortOrder,
+        })),
+      });
+    }
+
+    const body = await c.req.json();
+    const { password } = body;
+    if (!password || typeof password !== "string" || password.length > 128) {
+      return c.json({ success: false, error: "密码格式不正确" }, 400);
+    }
+    if (password !== album.password) {
+      return c.json({ success: false, error: "密码错误，请重新输入" }, 401);
+    }
+
+    const grant = await signAlbumGrant(
+      album.id,
+      album.passwordVersion ?? 1,
+      user ? user.id : null,
+      c.env.JWT_SECRET
+    );
+
+    let isLoopback = false;
+    try {
+      const url = new URL(c.req.url);
+      isLoopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+    } catch {}
+    const secureFlag = isLoopback ? "" : "; Secure";
+
+    c.header(
+      "Set-Cookie",
+      `shirine_album_grant_${album.id}=${grant}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200${secureFlag}`
+    );
+
+    const dbPhotos = await db.query.albumPhotos.findMany({
+      where: eq(schema.albumPhotos.albumId, album.id),
+      orderBy: [schema.albumPhotos.sortOrder],
+    });
+
+    const photos = dbPhotos.map((p) => ({
+      id: p.id,
+      src: p.url,
+      url: p.url,
+      alt: p.alt || p.title || album.title,
+      title: p.title || "",
+      description: p.description || "",
+      sortOrder: p.sortOrder,
+    }));
+
+    return c.json({
+      success: true,
+      message: "相册解锁成功",
+      isUnlocked: true,
+      grant,
+      photos,
+    });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || "Password verification failed" }, 500);
+  }
+});
+
 // Admin: Create Album (with transactional photos support #17)
 albumsRouter.post("/", requireAdmin, async (c) => {
   try {
@@ -466,6 +638,8 @@ albumsRouter.post("/", requireAdmin, async (c) => {
       columns = 3,
       permissionType = "public",
       requiredPoints = 0,
+      password = "",
+      passwordHint = "",
       draft = false,
       photos = [],
     } = body;
@@ -473,6 +647,10 @@ albumsRouter.post("/", requireAdmin, async (c) => {
     if (!title || typeof title !== "string" || !title.trim()) {
       return c.json({ success: false, error: "Title is required" }, 400);
     }
+
+    const hasPassword = Boolean(
+      permissionType === "password" || (password && password.trim().length > 0)
+    );
 
     const inserted = await db
       .insert(schema.albums)
@@ -484,10 +662,18 @@ albumsRouter.post("/", requireAdmin, async (c) => {
         layout: layout === "grid" ? "grid" : "masonry",
         columns: Math.max(2, Math.min(4, Number(columns) || 3)),
         permissionType:
-          permissionType === "login_required" || permissionType === "points_required"
+          permissionType === "login_required" ||
+          permissionType === "points_required" ||
+          permissionType === "password"
             ? permissionType
+            : hasPassword
+            ? "password"
             : "public",
         requiredPoints: Math.max(0, parseInt(requiredPoints) || 0),
+        encrypted: hasPassword ? 1 : 0,
+        password: password ? password.trim() : "",
+        passwordHint: passwordHint ? passwordHint.trim() : "",
+        passwordVersion: 1,
         draft: draft ? 1 : 0,
         uid: user.id,
       })
@@ -552,9 +738,25 @@ albumsRouter.put("/:id", requireAdmin, async (c) => {
     if (body.columns !== undefined) updates.columns = Math.max(2, Math.min(4, Number(body.columns) || 3));
     if (body.permissionType !== undefined) {
       updates.permissionType =
-        body.permissionType === "login_required" || body.permissionType === "points_required"
+        body.permissionType === "login_required" ||
+        body.permissionType === "points_required" ||
+        body.permissionType === "password"
           ? body.permissionType
           : "public";
+    }
+    if (body.password !== undefined) {
+      const trimmedPass = body.password.trim();
+      if (trimmedPass !== existing.password) {
+        updates.password = trimmedPass;
+        updates.passwordVersion = (existing.passwordVersion || 1) + 1;
+      }
+      updates.encrypted = trimmedPass.length > 0 ? 1 : 0;
+      if (trimmedPass.length > 0 && updates.permissionType === undefined) {
+        updates.permissionType = "password";
+      }
+    }
+    if (body.passwordHint !== undefined) {
+      updates.passwordHint = body.passwordHint.trim();
     }
     if (body.requiredPoints !== undefined) {
       updates.requiredPoints = Math.max(0, parseInt(body.requiredPoints) || 0);

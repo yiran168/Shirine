@@ -102,10 +102,14 @@ export const albums = sqliteTable("albums", {
   columns: integer("columns").default(3).notNull(),
   tags: text("tags").default("[]"),
   hidden: integer("hidden").default(0).notNull(),
-  permissionType: text("permission_type", { enum: ["public", "login_required", "points_required"] })
+  permissionType: text("permission_type", { enum: ["public", "login_required", "points_required", "password"] })
     .default("public")
     .notNull(),
   requiredPoints: integer("required_points").default(0).notNull(),
+  encrypted: integer("encrypted").default(0).notNull(),
+  password: text("password").default(""),
+  passwordHint: text("password_hint").default(""),
+  passwordVersion: integer("password_version").default(1).notNull(),
   draft: integer("draft").default(0).notNull(),
   uid: integer("uid").references(() => users.id, { onDelete: "set null" }),
   createdAt,

@@ -14,6 +14,7 @@
     setToken,
   } from "../../services/api";
   import { SUPPORTED_LANGUAGES, getAdminText, type AdminLang, type LanguageOption } from "../../i18n/adminI18n";
+  import { renderDynamicMarkdown } from "../../utils/dynamic-markdown";
 
   type TabType = "overview" | "posts" | "albums" | "moments" | "pages" | "friends" | "users" | "settings";
 
@@ -147,8 +148,57 @@
     columns: 3,
     permissionType: "public",
     requiredPoints: 0,
+    password: "",
+    passwordHint: "",
     photosText: "", // JSON or newline separated URLs
   });
+
+  // Derived Categories and Tags for posts
+  const DEFAULT_CATEGORIES = ["随笔", "生活", "技术", "设计"];
+  const existingCategories = $derived.by(() => {
+    const set = new Set<string>(DEFAULT_CATEGORIES);
+    for (const p of posts) {
+      if (p.category && String(p.category).trim()) {
+        set.add(String(p.category).trim());
+      }
+    }
+    return Array.from(set).sort();
+  });
+
+  let customTags = $state<string[]>([]);
+  let newTagName = $state("");
+
+  const existingTagsWithCount = $derived.by(() => {
+    const map: Record<string, number> = {};
+    for (const ct of customTags) {
+      map[ct] = 0;
+    }
+    for (const p of posts) {
+      let tList: string[] = [];
+      if (Array.isArray(p.tags)) tList = p.tags;
+      else if (typeof p.tags === "string") tList = p.tags.split(/[,，]/);
+      for (const t of tList) {
+        const trimmed = String(t).trim();
+        if (trimmed) map[trimmed] = (map[trimmed] || 0) + 1;
+      }
+    }
+    return Object.entries(map).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+  });
+
+  // Markdown live preview states
+  let postEditorTab = $state<"edit" | "preview">("edit");
+  let postPreviewHtml = $derived(postEditorTab === "preview" ? renderDynamicMarkdown(postForm.content) : "");
+
+  let momentEditorTab = $state<"edit" | "preview">("edit");
+  let momentPreviewHtml = $derived(momentEditorTab === "preview" ? renderDynamicMarkdown(momentContent) : "");
+
+  let editMomentEditorTab = $state<"edit" | "preview">("edit");
+  let editMomentPreviewHtml = $derived(editMomentEditorTab === "preview" ? renderDynamicMarkdown(editMomentForm.content) : "");
+
+  // Tag Manager State
+  let tagManagerModalOpen = $state(false);
+  let renamingOldTag = $state("");
+  let renamingNewTag = $state("");
 
   // Moments State
   let moments = $state<any[]>([]);
@@ -510,6 +560,8 @@
       columns: 3,
       permissionType: "public",
       requiredPoints: 0,
+      password: "",
+      passwordHint: "",
       photosText: "",
     };
     albumModalOpen = true;
@@ -530,6 +582,8 @@
         columns: a.columns || 3,
         permissionType: a.permissionType || "public",
         requiredPoints: a.requiredPoints || 0,
+        password: a.password || "",
+        passwordHint: a.passwordHint || "",
         photosText: Array.isArray(a.photos)
           ? a.photos.map((p: any) => p.src || p.url || p).join("\n")
           : "",
@@ -552,6 +606,8 @@
       ...albumForm,
       photos,
       requiredPoints: Number(albumForm.requiredPoints) || 0,
+      password: albumForm.password ? albumForm.password.trim() : undefined,
+      passwordHint: albumForm.passwordHint ? albumForm.passwordHint.trim() : undefined,
     };
 
     try {
@@ -570,6 +626,72 @@
       }
     } catch (err: any) {
       showMessage(err.message, true);
+    }
+  }
+
+  // --- Tags Management Operations ---
+  function handleAddNewTag() {
+    const trimmed = newTagName.trim();
+    if (!trimmed) return;
+    const existsInPosts = existingTagsWithCount.some((t) => t.name === trimmed);
+    if (existsInPosts || customTags.includes(trimmed)) {
+      showMessage(`标签 "${trimmed}" 已存在`, true);
+      return;
+    }
+    customTags = [...customTags, trimmed];
+    newTagName = "";
+    showMessage(`成功添加标签 "${trimmed}"`);
+  }
+
+  async function handleRenameTag(oldName: string) {
+    if (!renamingNewTag.trim() || renamingNewTag.trim() === oldName) {
+      renamingOldTag = "";
+      return;
+    }
+    const newName = renamingNewTag.trim();
+    loading = true;
+    try {
+      let updatedCount = 0;
+      for (const p of posts) {
+        let tList: string[] = Array.isArray(p.tags) ? [...p.tags] : (typeof p.tags === "string" ? p.tags.split(/[,，]/).map((s: string) => s.trim()).filter(Boolean) : []);
+        if (tList.includes(oldName)) {
+          const newTags = tList.map((t: string) => (t === oldName ? newName : t));
+          await postsApi.update(p.id, { ...p, tags: newTags });
+          updatedCount++;
+        }
+      }
+      customTags = customTags.map((t) => (t === oldName ? newName : t));
+      showMessage(`成功将标签 "${oldName}" 重命名为 "${newName}"，已同步 ${updatedCount} 篇文章`);
+      renamingOldTag = "";
+      renamingNewTag = "";
+      await loadTabData("posts");
+    } catch (err: any) {
+      showMessage(err.message, true);
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function handleDeleteTag(tagName: string) {
+    if (!confirm(`确定要删除标签 "${tagName}" 吗？该操作将从所有关联文章中移除此标签。`)) return;
+    loading = true;
+    try {
+      let updatedCount = 0;
+      for (const p of posts) {
+        let tList: string[] = Array.isArray(p.tags) ? [...p.tags] : (typeof p.tags === "string" ? p.tags.split(/[,，]/).map((s: string) => s.trim()).filter(Boolean) : []);
+        if (tList.includes(tagName)) {
+          const newTags = tList.filter((t: string) => t !== tagName);
+          await postsApi.update(p.id, { ...p, tags: newTags });
+          updatedCount++;
+        }
+      }
+      customTags = customTags.filter((t) => t !== tagName);
+      showMessage(`已删除标签 "${tagName}"，已从 ${updatedCount} 篇文章中移除`);
+      await loadTabData("posts");
+    } catch (err: any) {
+      showMessage(err.message, true);
+    } finally {
+      loading = false;
     }
   }
 
@@ -1038,14 +1160,14 @@
 <div class="min-h-screen bg-[var(--surface-container-lowest)] text-[var(--on-surface)] flex flex-col font-sans transition-colors duration-200">
   <!-- Toast Messages -->
   {#if errorMsg}
-    <div class="fixed top-4 right-4 z-50 px-5 py-3 rounded-2xl bg-error text-on-error shadow-2xl flex items-center gap-3 animate-fade-in">
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div class="fixed top-5 right-5 z-[100] px-5 py-3 rounded-2xl bg-rose-600 text-white shadow-2xl flex items-center gap-3 animate-fade-in border border-white/20">
+      <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       <span class="text-sm font-medium">{errorMsg}</span>
     </div>
   {/if}
   {#if successMsg}
-    <div class="fixed top-4 right-4 z-50 px-5 py-3 rounded-2xl bg-emerald-600 text-white shadow-2xl flex items-center gap-3 animate-fade-in">
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+    <div class="fixed top-5 right-5 z-[100] px-5 py-3 rounded-2xl bg-emerald-600 text-white shadow-2xl flex items-center gap-3 animate-fade-in border border-white/20">
+      <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
       <span class="text-sm font-medium">{successMsg}</span>
     </div>
   {/if}
@@ -1374,6 +1496,14 @@
                 <span>新建相册</span>
               </button>
               <button
+                onclick={() => handleSeedPresets(false)}
+                class="px-5 py-2.5 rounded-xl border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 font-medium text-sm transition-all flex items-center gap-2"
+                title="将系统所有预设文章、相册、动态和友链导入至 D1 数据库"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                <span>同步预设示例到数据库</span>
+              </button>
+              <button
                 onclick={() => switchTab("settings")}
                 class="px-5 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] font-medium text-sm transition-all flex items-center gap-2"
               >
@@ -1388,15 +1518,24 @@
           <div class="flex items-center justify-between mb-6">
             <div>
               <h1 class="text-2xl font-bold">博文管理</h1>
-              <p class="text-xs text-[var(--on-surface-variant)] mt-1">支持实时 Markdown 编辑、置顶、及 3 级权限限制（公开 / 需登录 / 积分解锁）</p>
+              <p class="text-xs text-[var(--on-surface-variant)] mt-1">支持实时 Markdown 编辑与预览、分类标签管理、及 3 级权限限制</p>
             </div>
-            <button
-              onclick={openNewPostModal}
-              class="px-5 py-2.5 rounded-full bg-primary text-on-primary text-sm font-semibold shadow hover:brightness-105 flex items-center gap-2"
-            >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-              <span>撰写新文章</span>
-            </button>
+            <div class="flex items-center gap-3">
+              <button
+                onclick={() => (tagManagerModalOpen = true)}
+                class="px-4 py-2.5 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] text-xs font-semibold flex items-center gap-1.5 transition-all"
+              >
+                <svg class="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                <span>标签管理 ({existingTagsWithCount.length})</span>
+              </button>
+              <button
+                onclick={openNewPostModal}
+                class="px-5 py-2.5 rounded-full bg-primary text-on-primary text-sm font-semibold shadow hover:brightness-105 flex items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                <span>撰写新文章</span>
+              </button>
+            </div>
           </div>
 
           <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/30 rounded-2xl overflow-hidden shadow-sm">
@@ -1507,12 +1646,41 @@
 
           <!-- Quick Moment Publisher -->
           <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm mb-8 max-w-2xl">
-            <textarea
-              bind:value={momentContent}
-              rows="3"
-              placeholder="分享今天的灵感与日常..."
-              class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none resize-none"
-            ></textarea>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-[var(--on-surface)]">撰写动态日记</span>
+              <div class="flex items-center rounded-xl bg-[var(--surface-container)] p-0.5 text-xs font-medium border border-[var(--outline-variant)]/20">
+                <button
+                  type="button"
+                  onclick={() => (momentEditorTab = "edit")}
+                  class="px-2.5 py-0.5 rounded-lg transition-colors {momentEditorTab === 'edit' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                >
+                  编辑源码
+                </button>
+                <button
+                  type="button"
+                  onclick={() => (momentEditorTab = "preview")}
+                  class="px-2.5 py-0.5 rounded-lg transition-colors {momentEditorTab === 'preview' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                >
+                  实时预览
+                </button>
+              </div>
+            </div>
+            {#if momentEditorTab === "edit"}
+              <textarea
+                bind:value={momentContent}
+                rows="3"
+                placeholder="分享今天的灵感与日常..."
+                class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none resize-none"
+              ></textarea>
+            {:else}
+              <div class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] min-h-[90px] text-sm prose dark:prose-invert max-w-none">
+                {#if momentPreviewHtml}
+                  {@html momentPreviewHtml}
+                {:else}
+                  <span class="text-xs text-[var(--on-surface-variant)] italic">暂无内容，请在编辑栏输入文字</span>
+                {/if}
+              </div>
+            {/if}
             <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
               <div class="flex items-center gap-3">
                 <input
@@ -2304,8 +2472,12 @@
 
   <!-- Post Editor Modal -->
   {#if postModalOpen}
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
+    <div
+      class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onclick={(e) => { if (e.target === e.currentTarget) postModalOpen = false; }}
+      role="dialog"
+    >
+      <div class="bg-white dark:bg-zinc-900 bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
         <div class="flex items-center justify-between pb-4 border-b border-[var(--outline-variant)]/20">
           <h2 class="text-xl font-bold">{editingPost ? "编辑博文" : "撰写新文章"}</h2>
           <button onclick={() => (postModalOpen = false)} class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]">
@@ -2327,12 +2499,47 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label class="text-xs font-semibold block mb-1">分类 Category</label>
-              <input type="text" bind:value={postForm.category} class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
+              <div class="flex items-center justify-between mb-1">
+                <label class="text-xs font-semibold">分类 Category</label>
+                {#if existingCategories.length > 0}
+                  <select
+                    class="text-[11px] px-2 py-0.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container)] text-[var(--on-surface-variant)] outline-none"
+                    onchange={(e) => {
+                      const val = (e.target as HTMLSelectElement).value;
+                      if (val) postForm.category = val;
+                    }}
+                  >
+                    <option value="">已有分类...</option>
+                    {#each existingCategories as cat}
+                      <option value={cat}>{cat}</option>
+                    {/each}
+                  </select>
+                {/if}
+              </div>
+              <input type="text" bind:value={postForm.category} placeholder="输入或从右上角选择" class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
             </div>
             <div>
               <label class="text-xs font-semibold block mb-1">标签 (逗号分隔)</label>
               <input type="text" bind:value={postForm.tags} placeholder="Shirine, Anime, Tech" class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
+              {#if existingTagsWithCount.length > 0}
+                <div class="flex flex-wrap gap-1 mt-1.5 max-h-16 overflow-y-auto">
+                  {#each existingTagsWithCount.slice(0, 8) as tag}
+                    <button
+                      type="button"
+                      onclick={() => {
+                        const current = postForm.tags.split(/[,，]/).map(t => t.trim()).filter(Boolean);
+                        if (!current.includes(tag.name)) {
+                          postForm.tags = current.length > 0 ? `${postForm.tags}, ${tag.name}` : tag.name;
+                        }
+                      }}
+                      class="text-[10px] px-2 py-0.5 rounded-full bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] hover:bg-primary/20 hover:text-primary transition-colors cursor-pointer"
+                      title="点击加入标签"
+                    >
+                      +{tag.name}
+                    </button>
+                  {/each}
+                </div>
+              {/if}
             </div>
             <div>
               <label class="text-xs font-semibold block mb-1">阅读权限级别</label>
@@ -2399,13 +2606,41 @@
           </div>
 
           <div>
-            <label class="text-xs font-semibold block mb-1">Markdown 正文内容 *</label>
-            <textarea
-              bind:value={postForm.content}
-              rows="12"
-              placeholder="# 欢迎来到 Shirine 博文..."
-              class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] font-mono text-sm focus:border-primary outline-none"
-            ></textarea>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-semibold">Markdown 正文内容 *</label>
+              <div class="flex items-center rounded-xl bg-[var(--surface-container)] p-0.5 text-xs font-medium border border-[var(--outline-variant)]/20">
+                <button
+                  type="button"
+                  onclick={() => (postEditorTab = "edit")}
+                  class="px-3 py-1 rounded-lg transition-colors {postEditorTab === 'edit' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                >
+                  编辑源码
+                </button>
+                <button
+                  type="button"
+                  onclick={() => (postEditorTab = "preview")}
+                  class="px-3 py-1 rounded-lg transition-colors {postEditorTab === 'preview' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                >
+                  实时预览
+                </button>
+              </div>
+            </div>
+            {#if postEditorTab === "edit"}
+              <textarea
+                bind:value={postForm.content}
+                rows="12"
+                placeholder="# 欢迎来到 Shirine 博文..."
+                class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] font-mono text-sm focus:border-primary outline-none"
+              ></textarea>
+            {:else}
+              <div class="w-full p-5 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] min-h-[280px] max-h-[450px] overflow-y-auto prose dark:prose-invert max-w-none text-sm leading-relaxed">
+                {#if postPreviewHtml}
+                  {@html postPreviewHtml}
+                {:else}
+                  <p class="text-xs text-[var(--on-surface-variant)] italic">暂无内容，请在左侧“编辑源码”中输入 Markdown 文本</p>
+                {/if}
+              </div>
+            {/if}
           </div>
         </div>
 
@@ -2419,8 +2654,12 @@
 
   <!-- Album Modal -->
   {#if albumModalOpen}
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+    <div
+      class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onclick={(e) => { if (e.target === e.currentTarget) albumModalOpen = false; }}
+      role="dialog"
+    >
+      <div class="bg-white dark:bg-zinc-900 bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
         <div class="flex items-center justify-between pb-4 border-b border-[var(--outline-variant)]/20">
           <h2 class="text-xl font-bold">{editingAlbum ? "编辑相册" : "新建相册"}</h2>
           <button onclick={() => (albumModalOpen = false)} class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]">
@@ -2464,6 +2703,7 @@
                 <option value="public">完全公开</option>
                 <option value="login_required">登录可见</option>
                 <option value="points_required">积分解锁</option>
+                <option value="password">独立密码保护 (Password)</option>
               </select>
             </div>
             {#if albumForm.permissionType === 'points_required'}
@@ -2473,6 +2713,29 @@
               </div>
             {/if}
           </div>
+
+          {#if albumForm.permissionType === 'password'}
+            <div class="grid grid-cols-2 gap-4 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+              <div>
+                <label class="text-xs font-semibold block mb-1 text-rose-600 dark:text-rose-400">相册访问密码 *</label>
+                <input
+                  type="text"
+                  bind:value={albumForm.password}
+                  placeholder="设置访问密码"
+                  class="w-full px-3.5 py-2 rounded-xl border border-rose-500/30 bg-[var(--surface)] text-sm outline-none font-mono"
+                />
+              </div>
+              <div>
+                <label class="text-xs font-semibold block mb-1 text-rose-600 dark:text-rose-400">密码提示 Password Hint</label>
+                <input
+                  type="text"
+                  bind:value={albumForm.passwordHint}
+                  placeholder="例如：某次旅行的地点"
+                  class="w-full px-3.5 py-2 rounded-xl border border-rose-500/30 bg-[var(--surface)] text-sm outline-none"
+                />
+              </div>
+            </div>
+          {/if}
 
           <div>
             <label class="text-xs font-semibold block mb-1">照片地址列表 (每行一张图片 URL)</label>
@@ -2495,8 +2758,12 @@
 
   <!-- Moment Edit Modal -->
   {#if momentModalOpen}
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl">
+    <div
+      class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onclick={(e) => { if (e.target === e.currentTarget) momentModalOpen = false; }}
+      role="dialog"
+    >
+      <div class="bg-white dark:bg-zinc-900 bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl">
         <div class="flex items-center justify-between pb-4 border-b border-[var(--outline-variant)]/20">
           <h2 class="text-xl font-bold">编辑动态日记</h2>
           <button onclick={() => (momentModalOpen = false)} class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]">
@@ -2506,12 +2773,40 @@
 
         <div class="flex-1 overflow-y-auto py-4 space-y-4 pr-2">
           <div>
-            <label class="text-xs font-semibold block mb-1">动态正文内容 *</label>
-            <textarea
-              bind:value={editMomentForm.content}
-              rows="4"
-              class="w-full p-3.5 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none resize-none"
-            ></textarea>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-semibold">动态正文内容 *</label>
+              <div class="flex items-center rounded-xl bg-[var(--surface-container)] p-0.5 text-xs font-medium border border-[var(--outline-variant)]/20">
+                <button
+                  type="button"
+                  onclick={() => (editMomentEditorTab = "edit")}
+                  class="px-3 py-1 rounded-lg transition-colors {editMomentEditorTab === 'edit' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                >
+                  编辑源码
+                </button>
+                <button
+                  type="button"
+                  onclick={() => (editMomentEditorTab = "preview")}
+                  class="px-3 py-1 rounded-lg transition-colors {editMomentEditorTab === 'preview' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                >
+                  实时预览
+                </button>
+              </div>
+            </div>
+            {#if editMomentEditorTab === "edit"}
+              <textarea
+                bind:value={editMomentForm.content}
+                rows="4"
+                class="w-full p-3.5 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none resize-none"
+              ></textarea>
+            {:else}
+              <div class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] min-h-[120px] max-h-[250px] overflow-y-auto prose dark:prose-invert max-w-none text-sm leading-relaxed">
+                {#if editMomentPreviewHtml}
+                  {@html editMomentPreviewHtml}
+                {:else}
+                  <p class="text-xs text-[var(--on-surface-variant)] italic">暂无内容，请在左侧“编辑源码”中输入 Markdown 文本</p>
+                {/if}
+              </div>
+            {/if}
           </div>
 
           <div class="grid grid-cols-2 gap-4">
@@ -2585,8 +2880,12 @@
 
   <!-- Page Edit/Create Modal -->
   {#if pageModalOpen}
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+    <div
+      class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onclick={(e) => { if (e.target === e.currentTarget) pageModalOpen = false; }}
+      role="dialog"
+    >
+      <div class="bg-white dark:bg-zinc-900 bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
         <div class="flex items-center justify-between pb-4 border-b border-[var(--outline-variant)]/20">
           <h2 class="text-xl font-bold">{editingPage ? "编辑独立页面" : "新建独立页面"}</h2>
           <button onclick={() => (pageModalOpen = false)} class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]">
@@ -2635,8 +2934,12 @@
 
   <!-- Adjust Points Modal -->
   {#if userPointsModalOpen && targetUser}
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-sm shadow-2xl">
+    <div
+      class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onclick={(e) => { if (e.target === e.currentTarget) userPointsModalOpen = false; }}
+      role="dialog"
+    >
+      <div class="bg-white dark:bg-zinc-900 bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-sm shadow-2xl">
         <h3 class="text-lg font-bold mb-1">调整用户积分</h3>
         <p class="text-xs text-[var(--on-surface-variant)] mb-4">
           目标用户：<strong class="text-[var(--on-surface)]">{targetUser.username}</strong>（当前积分：{targetUser.points}）
@@ -2660,8 +2963,12 @@
 
   <!-- Friend Modal -->
   {#if friendModalOpen}
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div class="bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-md shadow-2xl">
+    <div
+      class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onclick={(e) => { if (e.target === e.currentTarget) friendModalOpen = false; }}
+      role="dialog"
+    >
+      <div class="bg-white dark:bg-zinc-900 bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-md shadow-2xl">
         <div class="flex items-center justify-between pb-4 border-b border-[var(--outline-variant)]/20">
           <h2 class="text-xl font-bold">{editingFriend ? "编辑友链" : "添加友链"}</h2>
           <button onclick={() => (friendModalOpen = false)} class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]">
@@ -2725,6 +3032,106 @@
         <div class="pt-4 border-t border-[var(--outline-variant)]/20 flex items-center justify-end gap-3">
           <button onclick={() => (friendModalOpen = false)} class="px-5 py-2 rounded-full border border-[var(--outline-variant)]/40 text-xs font-medium hover:bg-[var(--surface-container)]">取消</button>
           <button onclick={saveFriend} class="px-6 py-2 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105">保存友链</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Tag Manager Modal -->
+  {#if tagManagerModalOpen}
+    <div
+      class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onclick={(e) => { if (e.target === e.currentTarget) tagManagerModalOpen = false; }}
+      role="dialog"
+    >
+      <div class="bg-white dark:bg-zinc-900 bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
+        <div class="flex items-center justify-between pb-4 border-b border-[var(--outline-variant)]/20">
+          <div>
+            <h2 class="text-xl font-bold">全站标签管理</h2>
+            <p class="text-xs text-[var(--on-surface-variant)] mt-0.5">创建、重命名或删除标签（重命名与删除会自动同步更新所有关联文章）</p>
+          </div>
+          <button onclick={() => (tagManagerModalOpen = false)} class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- Add New Tag Input -->
+        <div class="pt-4 pb-2 border-b border-[var(--outline-variant)]/20 flex items-center gap-2">
+          <input
+            type="text"
+            bind:value={newTagName}
+            placeholder="输入新标签名 (例如: Anime, 日记)"
+            class="flex-1 px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none focus:border-primary"
+            onkeydown={(e) => { if (e.key === 'Enter') handleAddNewTag(); }}
+          />
+          <button
+            onclick={handleAddNewTag}
+            class="px-4 py-2 rounded-xl bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105 shrink-0"
+          >
+            添加新标签
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto py-4 space-y-3">
+          {#if existingTagsWithCount.length === 0}
+            <div class="text-center py-8 text-xs text-[var(--on-surface-variant)]">
+              暂无任何标签数据
+            </div>
+          {:else}
+            <div class="space-y-2">
+              {#each existingTagsWithCount as tag}
+                <div class="flex items-center justify-between p-3 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20">
+                  <div class="flex items-center gap-2">
+                    <span class="px-2.5 py-1 rounded-xl bg-primary/10 text-primary font-semibold text-xs font-mono">
+                      #{tag.name}
+                    </span>
+                    <span class="text-xs text-[var(--on-surface-variant)]">
+                      {tag.count} 篇文章
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    {#if renamingOldTag === tag.name}
+                      <input
+                        type="text"
+                        bind:value={renamingNewTag}
+                        placeholder="新标签名"
+                        class="px-2.5 py-1 rounded-xl border border-primary text-xs bg-[var(--surface)] outline-none w-28"
+                      />
+                      <button
+                        onclick={() => handleRenameTag(tag.name)}
+                        class="px-3 py-1 rounded-xl bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105"
+                      >
+                        确认
+                      </button>
+                      <button
+                        onclick={() => { renamingOldTag = ""; renamingNewTag = ""; }}
+                        class="px-2 py-1 rounded-xl border border-[var(--outline-variant)]/40 text-xs hover:bg-[var(--surface-container)]"
+                      >
+                        取消
+                      </button>
+                    {:else}
+                      <button
+                        onclick={() => { renamingOldTag = tag.name; renamingNewTag = tag.name; }}
+                        class="px-3 py-1 rounded-xl border border-[var(--outline-variant)]/40 text-xs font-medium hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors"
+                      >
+                        重命名
+                      </button>
+                      <button
+                        onclick={() => handleDeleteTag(tag.name)}
+                        class="px-3 py-1 rounded-xl border border-rose-500/30 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                      >
+                        删除
+                      </button>
+                    {/if}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+
+        <div class="pt-4 border-t border-[var(--outline-variant)]/20 flex items-center justify-end">
+          <button onclick={() => (tagManagerModalOpen = false)} class="px-5 py-2 rounded-full border border-[var(--outline-variant)]/40 text-xs font-medium hover:bg-[var(--surface-container)]">关闭</button>
         </div>
       </div>
     </div>

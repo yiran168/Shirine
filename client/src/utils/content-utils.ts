@@ -14,9 +14,39 @@ import { normalizeApiUrl, getAuthKey } from "@/services/api";
 
 export { normalizeApiUrl, getAuthKey };
 
-const POSTS_CACHE_TTL_MS = 30_000;
+export function resolveApiBase(request?: Request): string {
+	if (import.meta.env.PUBLIC_API_URL) {
+		return normalizeApiUrl(import.meta.env.PUBLIC_API_URL);
+	}
+	if (request) {
+		try {
+			const u = new URL(request.url);
+			if (u.port === "4321") {
+				return "http://127.0.0.1:11498/api";
+			}
+			return `${u.origin}/api`;
+		} catch {}
+	}
+	if (typeof window !== "undefined" && window.location) {
+		if (window.location.port === "4321") {
+			return "http://127.0.0.1:11498/api";
+		}
+		return `${window.location.origin}/api`;
+	}
+	return "http://127.0.0.1:11498/api";
+}
+
+const POSTS_CACHE_TTL_MS = 2_000;
 let cachedPostsMap = new Map<string, { time: number; data: CollectionEntry<"posts">[] }>();
 let inFlightPostsPromise = new Map<string, Promise<CollectionEntry<"posts">[]>>();
+
+export function clearContentCache() {
+	cachedPostsMap.clear();
+	cachedMoments = null;
+	cachedFriends = null;
+	cachedAlbumsMap.clear();
+	cachedDiscovery = null;
+}
 
 // Retrieve posts dynamically from backend API and sort them by publication date
 async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"posts">[]> {
@@ -33,9 +63,7 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 	}
 
 	const fetchPromise = (async () => {
-		const apiBase = normalizeApiUrl(
-			import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api")
-		);
+		const apiBase = resolveApiBase(request);
 
 		let apiPosts: CollectionEntry<"posts">[] = [];
 		let apiConnected = false;
@@ -98,17 +126,14 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 		}
 
 		let postsToUse: CollectionEntry<"posts">[] = [];
-		if (apiConnected) {
+		if (apiConnected && apiPosts.length > 0) {
 			postsToUse = apiPosts;
 		} else {
-			const isDynamicProd = Boolean(import.meta.env.PROD && import.meta.env.PUBLIC_API_URL);
-			if (!isDynamicProd) {
-				try {
-					postsToUse = await getCollection("posts", ({ data }) => {
-						return import.meta.env.PROD ? data.draft !== true : true;
-					});
-				} catch {}
-			}
+			try {
+				postsToUse = await getCollection("posts", ({ data }) => {
+					return import.meta.env.PROD ? data.draft !== true : true;
+				});
+			} catch {}
 		}
 
 		for (const post of postsToUse) validatePublicationMetadata(post);
@@ -272,9 +297,9 @@ function withMomentThumbnails(image: MomentImage): MomentImage {
 
 let cachedMoments: { time: number; data: MomentItem[] } | null = null;
 let inFlightMomentsPromise: Promise<MomentItem[]> | null = null;
-const MOMENTS_CACHE_TTL_MS = 30_000;
+const MOMENTS_CACHE_TTL_MS = 2_000;
 
-export async function getSortedMoments(): Promise<MomentItem[]> {
+export async function getSortedMoments(request?: Request): Promise<MomentItem[]> {
 	const now = Date.now();
 	if (cachedMoments && now - cachedMoments.time < MOMENTS_CACHE_TTL_MS) {
 		return cachedMoments.data;
@@ -284,15 +309,21 @@ export async function getSortedMoments(): Promise<MomentItem[]> {
 	}
 
 	const promise = (async () => {
-		const apiBase = normalizeApiUrl(
-			import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api")
-		);
+		const apiBase = resolveApiBase(request);
 
 		let apiMoments: MomentItem[] = [];
 		let apiConnected = false;
 		if (apiBase) {
 			try {
+				const headers: Record<string, string> = {};
+				if (request) {
+					const cookie = request.headers.get("cookie");
+					if (cookie) headers["cookie"] = cookie;
+					const auth = request.headers.get("authorization");
+					if (auth) headers["authorization"] = auth;
+				}
 				const res = await fetch(`${apiBase.replace(/\/$/, "")}/moments`, {
+					headers,
 					signal: AbortSignal.timeout(3000),
 				});
 				if (res.ok) {
@@ -315,39 +346,36 @@ export async function getSortedMoments(): Promise<MomentItem[]> {
 		}
 
 		let momentsToUse: MomentItem[] = [];
-		if (apiConnected) {
+		if (apiConnected && apiMoments.length > 0) {
 			momentsToUse = apiMoments;
 		} else {
-			const isDynamicProd = Boolean(import.meta.env.PROD && import.meta.env.PUBLIC_API_URL);
-			if (!isDynamicProd) {
-				let entries: CollectionEntry<"moments">[] = [];
-				try {
-					entries = await getCollection("moments", ({ data }) => {
-						return import.meta.env.PROD ? data.draft !== true : true;
+			let entries: CollectionEntry<"moments">[] = [];
+			try {
+				entries = await getCollection("moments", ({ data }) => {
+					return import.meta.env.PROD ? data.draft !== true : true;
+				});
+			} catch {}
+
+			momentsRendererPromise ??= siteMarkdownProcessor.createRenderer({});
+			const renderer = await momentsRendererPromise;
+
+			momentsToUse = await Promise.all(
+				entries.map(async (entry) => {
+					const { code } = await renderer.render(entry.body ?? "", {
+						frontmatter: entry.data as unknown as Record<string, unknown>,
 					});
-				} catch {}
-
-				momentsRendererPromise ??= siteMarkdownProcessor.createRenderer({});
-				const renderer = await momentsRendererPromise;
-
-				momentsToUse = await Promise.all(
-					entries.map(async (entry) => {
-						const { code } = await renderer.render(entry.body ?? "", {
-							frontmatter: entry.data as unknown as Record<string, unknown>,
-						});
-						return {
-							id: entry.id,
-							published: new Date(entry.data.published).toISOString(),
-							html: code,
-							pinned: entry.data.pinned,
-							location: entry.data.location,
-							mood: entry.data.mood,
-							tags: entry.data.tags,
-							images: entry.data.images.map(withMomentThumbnails),
-						} satisfies MomentItem;
-					}),
-				);
-			}
+					return {
+						id: entry.id,
+						published: new Date(entry.data.published).toISOString(),
+						html: code,
+						pinned: entry.data.pinned,
+						location: entry.data.location,
+						mood: entry.data.mood,
+						tags: entry.data.tags,
+						images: entry.data.images.map(withMomentThumbnails),
+					} satisfies MomentItem;
+				}),
+			);
 		}
 
 		const sorted = momentsToUse.sort((a, b) => {
@@ -368,23 +396,29 @@ export async function getSortedMoments(): Promise<MomentItem[]> {
 }
 
 let cachedFriends: { time: number; data: FriendItem[] } | null = null;
-const FRIENDS_CACHE_TTL_MS = 60_000;
+const FRIENDS_CACHE_TTL_MS = 2_000;
 
-export async function getDynamicFriends(): Promise<FriendItem[]> {
+export async function getDynamicFriends(request?: Request): Promise<FriendItem[]> {
 	const now = Date.now();
 	if (cachedFriends && now - cachedFriends.time < FRIENDS_CACHE_TTL_MS) {
 		return cachedFriends.data;
 	}
 
-	const apiBase = normalizeApiUrl(
-		import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api")
-	);
+	const apiBase = resolveApiBase(request);
 	let allFriends: FriendItem[] = [];
 	let apiConnected = false;
 
 	if (apiBase) {
 		try {
+			const headers: Record<string, string> = {};
+			if (request) {
+				const cookie = request.headers.get("cookie");
+				if (cookie) headers["cookie"] = cookie;
+				const auth = request.headers.get("authorization");
+				if (auth) headers["authorization"] = auth;
+			}
 			const res = await fetch(`${apiBase.replace(/\/$/, "")}/friends`, {
+				headers,
 				signal: AbortSignal.timeout(3000),
 			});
 			if (res.ok) {
@@ -405,7 +439,7 @@ export async function getDynamicFriends(): Promise<FriendItem[]> {
 		} catch {}
 	}
 
-	if (!apiConnected) {
+	if (!apiConnected || allFriends.length === 0) {
 		try {
 			const { getFriendsList } = await import("../data/friends");
 			allFriends = [...getFriendsList()];
@@ -419,7 +453,7 @@ export async function getDynamicFriends(): Promise<FriendItem[]> {
 }
 
 let cachedAlbumsMap = new Map<string, { time: number; data: any[] }>();
-const ALBUMS_CACHE_TTL_MS = 30_000;
+const ALBUMS_CACHE_TTL_MS = 2_000;
 
 export async function getDynamicAlbums(request?: Request): Promise<any[]> {
 	const authKey = getAuthKey(request);
@@ -429,9 +463,7 @@ export async function getDynamicAlbums(request?: Request): Promise<any[]> {
 		return cached.data;
 	}
 
-	const apiBase = normalizeApiUrl(
-		import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api")
-	);
+	const apiBase = resolveApiBase(request);
 	let dynamicAlbums: any[] = [];
 	let apiConnected = false;
 
@@ -464,7 +496,9 @@ export async function getDynamicAlbums(request?: Request): Promise<any[]> {
 						permissionType: a.permissionType || "public",
 						requiredPoints: a.requiredPoints || 0,
 						isUnlocked: Boolean(a.isUnlocked),
-						protected: a.permissionType !== "public",
+						protected: a.permissionType !== "public" || Boolean(a.requiresPassword),
+						requiresPassword: Boolean(a.requiresPassword),
+						passwordHint: a.passwordHint || undefined,
 						tags: Array.isArray(a.tags) ? a.tags : [],
 						layout: a.layout || "masonry",
 						columns: a.columns || 3,
@@ -476,24 +510,21 @@ export async function getDynamicAlbums(request?: Request): Promise<any[]> {
 	}
 
 	let localAlbums: any[] = [];
-	if (!apiConnected) {
-		const isDynamicProd = Boolean(import.meta.env.PROD && import.meta.env.PUBLIC_API_URL);
-		if (!isDynamicProd) {
-			try {
-				const { scanVisibleAlbums, toAlbumIndexItem } = await import("./album-scanner");
-				localAlbums = scanVisibleAlbums().map(toAlbumIndexItem);
-			} catch {}
-		}
+	if (!apiConnected || dynamicAlbums.length === 0) {
+		try {
+			const { scanVisibleAlbums, toAlbumIndexItem } = await import("./album-scanner");
+			localAlbums = scanVisibleAlbums().map(toAlbumIndexItem);
+		} catch {}
 	}
 
-	const result = apiConnected ? dynamicAlbums : localAlbums;
+	const result = (apiConnected && dynamicAlbums.length > 0) ? dynamicAlbums : localAlbums;
 	cachedAlbumsMap.set(authKey, { time: Date.now(), data: result });
 	return result;
 }
 
 let cachedDiscovery: { time: number; data: any[] } | null = null;
 let inFlightDiscoveryPromise: Promise<any[]> | null = null;
-const DISCOVERY_CACHE_TTL_MS = 60_000;
+const DISCOVERY_CACHE_TTL_MS = 10_000;
 
 export async function getDiscoveryCandidates(request?: Request): Promise<any[]> {
 	const now = Date.now();
@@ -505,9 +536,7 @@ export async function getDiscoveryCandidates(request?: Request): Promise<any[]> 
 	}
 
 	const promise = (async () => {
-		const apiBase = normalizeApiUrl(
-			import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api")
-		);
+		const apiBase = resolveApiBase(request);
 		let candidates: any[] = [];
 		if (apiBase) {
 			try {
@@ -548,4 +577,44 @@ export async function getDiscoveryCandidates(request?: Request): Promise<any[]> 
 	} finally {
 		inFlightDiscoveryPromise = null;
 	}
+}
+
+export async function getDynamicCompass(request?: Request): Promise<any[]> {
+	const apiBase = resolveApiBase(request);
+	if (apiBase) {
+		try {
+			const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
+				signal: AbortSignal.timeout(2000),
+			});
+			if (res.ok) {
+				const json = await res.json();
+				const siteCfg = json.data || json.site;
+				if (siteCfg && Array.isArray(siteCfg.compass) && siteCfg.compass.length > 0) {
+					return siteCfg.compass;
+				}
+			}
+		} catch {}
+	}
+	const { compassData } = await import("../data/compass");
+	return compassData;
+}
+
+export async function getDynamicAnime(request?: Request): Promise<any[]> {
+	const apiBase = resolveApiBase(request);
+	if (apiBase) {
+		try {
+			const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
+				signal: AbortSignal.timeout(2000),
+			});
+			if (res.ok) {
+				const json = await res.json();
+				const siteCfg = json.data || json.site;
+				if (siteCfg && Array.isArray(siteCfg.anime) && siteCfg.anime.length > 0) {
+					return siteCfg.anime;
+				}
+			}
+		} catch {}
+	}
+	const { getAnimeList } = await import("./anime-data");
+	return await getAnimeList();
 }

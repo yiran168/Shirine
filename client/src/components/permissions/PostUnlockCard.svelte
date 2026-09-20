@@ -3,7 +3,7 @@
   import { postsApi, albumsApi } from "../../services/api";
 
   interface Props {
-    postId: number;
+    postId: number | string;
     permissionType: string;
     requiredPoints?: number;
     userPoints?: number;
@@ -36,7 +36,7 @@
       ? "login_required"
       : permissionType === "points_required"
       ? "points_required"
-      : "unknown")
+      : "password_required")
   );
 
   async function handleVerifyPassword(e?: Event) {
@@ -50,7 +50,10 @@
     errorMsg = "";
 
     try {
-      const res = await postsApi.verifyPassword(postId, inputPassword.trim());
+      const res =
+        itemType === "album"
+          ? await albumsApi.verifyPassword(postId, inputPassword.trim())
+          : await postsApi.verifyPassword(postId, inputPassword.trim());
       if (res.success) {
         if (typeof window !== "undefined") {
           try {

@@ -64,10 +64,23 @@
       saving = false;
     }
   }
+
+  function portal(node: HTMLElement) {
+    if (typeof document !== "undefined") {
+      document.body.appendChild(node);
+    }
+    return {
+      destroy() {
+        if (node.parentNode) {
+          node.parentNode.removeChild(node);
+        }
+      },
+    };
+  }
 </script>
 
 {#if open}
-  <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs transition-opacity animate-fade-in">
+  <div use:portal class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity animate-fade-in">
     <!-- Click backdrop to close -->
     <button
       type="button"
@@ -76,8 +89,8 @@
       aria-label="关闭窗口"
     ></button>
 
-    <!-- Modal Box -->
-    <div class="relative w-full max-w-2xl max-h-[85vh] bg-surface border border-outline/20 rounded-3xl shadow-2xl p-6 md:p-8 flex flex-col z-10 overflow-hidden">
+    <!-- Modal Box: Semi-transparent frosted glass centered in viewport -->
+    <div class="relative w-full max-w-2xl max-h-[85vh] bg-white/85 dark:bg-zinc-900/90 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-3xl shadow-2xl p-6 md:p-8 flex flex-col z-10 overflow-hidden">
       <!-- Header -->
       <div class="flex items-center justify-between pb-4 border-b border-outline/10">
         <div>

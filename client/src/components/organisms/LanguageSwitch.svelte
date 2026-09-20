@@ -100,10 +100,10 @@
 
   {#if open}
     <div
-      class="shirine-dropdown absolute right-0 mt-2 w-44 rounded-2xl bg-[var(--surface-container-highest)] border border-[var(--outline-variant)]/30 shadow-2xl p-1.5 z-[100] animate-fade-in backdrop-blur-xl text-[var(--on-surface)]"
+      class="shirine-dropdown absolute right-0 mt-2 w-44 rounded-2xl bg-[var(--surface-container-highest)] border border-[var(--outline-variant)]/30 shadow-2xl p-1.5 z-[100] animate-fade-in backdrop-blur-xl text-zinc-900 dark:text-zinc-100"
       role="menu"
     >
-      <div class="px-3 py-1.5 text-[11px] font-bold text-[var(--on-surface-variant)] uppercase tracking-wider border-b border-[var(--outline-variant)]/15 mb-1">
+      <div class="px-3 py-1.5 text-[11px] font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider border-b border-[var(--outline-variant)]/15 mb-1">
         Language / 语言
       </div>
       {#each SUPPORTED_LANGUAGES as lang}
@@ -112,7 +112,7 @@
           role="menuitem"
           data-active={currentLang === lang.code ? "true" : undefined}
           onclick={() => selectLanguage(lang)}
-          class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-left transition-colors !border-0 !shadow-none {currentLang === lang.code ? '!bg-primary/15 !text-primary font-bold' : '!text-[var(--on-surface)] hover:!bg-[var(--surface-container)] hover:!text-primary'}"
+          class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-left transition-colors !border-0 !shadow-none {currentLang === lang.code ? '!bg-primary/15 !text-primary font-bold' : '!text-zinc-900 dark:!text-zinc-100 hover:!bg-[var(--surface-container)] hover:!text-primary'}"
         >
           <span>{lang.name}</span>
           {#if currentLang === lang.code}

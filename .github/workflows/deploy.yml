@@ -62,6 +62,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PUBLIC_API_URL: ${{ secrets.PUBLIC_API_URL || vars.PUBLIC_API_URL }}
+          API_URL: ${{ needs.deploy-server.outputs.api_url }}
           PAGES_NAME: ${{ vars.PAGES_NAME || 'shirine' }}
         run: bun run deploy:client
 

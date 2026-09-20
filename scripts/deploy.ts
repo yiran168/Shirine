@@ -382,7 +382,7 @@ export async function deployServer(): Promise<void> {
 
 // 4. Deploy Frontend Client (Cloudflare Pages)
 export async function deployClient(): Promise<void> {
-  const effectiveApiUrl = PUBLIC_API_URL || detectedWorkerApiUrl;
+  const effectiveApiUrl = PUBLIC_API_URL || process.env.API_URL || detectedWorkerApiUrl;
   console.log(`\n🌐 [4/4] Building and Deploying Frontend to Cloudflare Pages...`);
   console.log(`   • Project Name:   ${PAGES_NAME}`);
   console.log(`   • PUBLIC_API_URL: ${effectiveApiUrl || "(relative /api fallback)"}`);

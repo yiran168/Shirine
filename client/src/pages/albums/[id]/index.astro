@@ -14,15 +14,13 @@ import { encryptProtectedContent } from "@utils/password-protection";
 import { url } from "@utils/url-utils";
 import { Icon } from "astro-icon/components";
 import type { ProtectedPayload } from "@/types/protectedContent";
-import { normalizeApiUrl } from "@/services/api";
+import { resolveApiBase } from "@utils/content-utils";
 
 const id = Astro.params.id ?? "";
 let resolvedAlbum: any = null;
 let apiConnected = false;
 
-const apiBase = normalizeApiUrl(
-	import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api")
-);
+const apiBase = resolveApiBase(Astro.request);
 if (apiBase) {
 	try {
 		const headers: Record<string, string> = {};
@@ -47,7 +45,7 @@ if (apiBase) {
 					cover: a.cover || "",
 					date: a.createdAt?.slice(0, 10) || "",
 					tags: Array.isArray(a.tags) ? a.tags : [],
-					protected: a.permissionType !== "public",
+					protected: a.permissionType !== "public" || Boolean(a.requiresPassword),
 					layout: a.layout || "masonry",
 					columns: a.columns || 3,
 					photos: Array.isArray(a.photos)
@@ -62,6 +60,8 @@ if (apiBase) {
 					photoCount: a.count ?? a.photoCount ?? (Array.isArray(a.photos) ? a.photos.length : 0),
 					permissionType: a.permissionType || "public",
 					requiredPoints: a.requiredPoints || 0,
+					requiresPassword: Boolean(a.requiresPassword),
+					passwordHint: a.passwordHint || "",
 					isUnlocked: Boolean(a.isUnlocked),
 					dbId: a.id,
 				} as any;
@@ -86,7 +86,8 @@ const dbId = Number((resolvedAlbum as any).dbId || 0);
 const isLocked = apiConnected
 	? !isUnlocked
 	: (permissionType === "login_required" && !Astro.cookies.get("shirine_token")?.value) ||
-	  (permissionType === "points_required" && !isUnlocked);
+	  (permissionType === "points_required" && !isUnlocked) ||
+	  (permissionType === "password" && !isUnlocked);
 
 // Never leak photo arrays in HTML or client props when locked
 if (isLocked) {
@@ -164,9 +165,10 @@ if (resolvedAlbum.password) {
 			{isLocked ? (
 				<PostUnlockCard
 					client:load
-					postId={dbId}
+					postId={dbId || id}
 					permissionType={permissionType}
 					requiredPoints={requiredPoints}
+					passwordHint={resolvedAlbum.passwordHint}
 					itemType="album"
 				/>
 			) : payload ? (
