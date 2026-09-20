@@ -12,17 +12,51 @@ import { onMount, tick } from "svelte";
 import { siteConfig } from "@/config";
 import { getDynamicNavBarConfig, getLinkPresets } from "@/config/navBarConfig";
 import { getCurrentLang } from "../../i18n/translation";
+import { pagesApi } from "@/services/api";
 
 let open = $state(false);
 let activePrimary = $state("");
 const openGroups = $state<Record<string, boolean>>({});
 let currentLang = $state(getCurrentLang());
+let customPages = $state<{ title: string; slug: string }[]>([]);
 
 const primaryItems = $derived.by(() => {
 	const activeConfig = getDynamicNavBarConfig(currentLang);
 	const links = resolveNavBarLinks(activeConfig.links, getLinkPresets(currentLang));
 	return links.map((link) => {
 		const key = (link.pageKey || link.name).toLowerCase();
+		let children = link.children?.map((child) => ({
+			value: (child.pageKey || child.name).toLowerCase(),
+			label: child.name,
+			icon: child.icon,
+			href: child.url
+				? child.external
+					? child.url
+					: url(child.url)
+				: undefined,
+			external: !!child.external,
+			pageKey: child.pageKey ?? "",
+		}));
+
+		if (key === "more" && customPages.length > 0) {
+			const pageChildren = customPages.map((p) => ({
+				value: `page-${p.slug}`,
+				label: p.title,
+				icon: "material-symbols:article-outline-rounded",
+				href: url(`/pages/${p.slug}/`),
+				external: false,
+				pageKey: `page-${p.slug}`,
+			}));
+			const baseChildren = children ? [...children] : [];
+			const aboutIdx = baseChildren.findIndex((c) => c.pageKey === "about" || c.pageKey === "github");
+			if (aboutIdx !== -1) {
+				baseChildren.splice(aboutIdx, 0, ...pageChildren);
+			} else {
+				baseChildren.push(...pageChildren);
+			}
+			children = baseChildren;
+		}
+
 		return {
 			value: key,
 			label: link.name,
@@ -30,18 +64,7 @@ const primaryItems = $derived.by(() => {
 			href: link.url ? (link.external ? link.url : url(link.url)) : undefined,
 			external: !!link.external,
 			pageKey: link.pageKey ?? "",
-			children: link.children?.map((child) => ({
-				value: (child.pageKey || child.name).toLowerCase(),
-				label: child.name,
-				icon: child.icon,
-				href: child.url
-					? child.external
-						? child.url
-						: url(child.url)
-					: undefined,
-				external: !!child.external,
-				pageKey: child.pageKey ?? "",
-			})),
+			children,
 		};
 	});
 });
@@ -76,6 +99,17 @@ function toggleGroup(group: string) {
 
 onMount(() => {
 	syncFromRoute();
+	pagesApi
+		.list()
+		.then((res: any) => {
+			if (res?.success && Array.isArray(res.data)) {
+				customPages = res.data.filter(
+					(p: any) => !p.draft && p.status !== "draft",
+				);
+				tick().then(syncFromRoute);
+			}
+		})
+		.catch(() => {});
 	const onToggle = () => {
 		open = !open;
 		if (open) {

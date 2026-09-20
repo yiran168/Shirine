@@ -19,11 +19,32 @@ import LightDarkSwitch from "./LightDarkSwitch.svelte";
 import Search from "./Search.svelte";
 import LanguageSwitch from "./LanguageSwitch.svelte";
 import UserNavMenu from "./UserNavMenu.svelte";
+import { getDynamicPages } from "@utils/content-utils";
 
 const className = Astro.props.class;
 const currentLang = Astro.locals.lang || siteConfig.lang || getCurrentLang();
 const activeNavBarConfig = getDynamicNavBarConfig(currentLang);
 const links = resolveNavBarLinks(activeNavBarConfig.links);
+
+const dynamicPages = await getDynamicPages(Astro.request);
+if (dynamicPages && dynamicPages.length > 0) {
+	const moreLink = links.find((l) => l.pageKey === "more" || (l.children && l.children.length > 0));
+	if (moreLink && moreLink.children) {
+		const customPageLinks = dynamicPages.map((p) => ({
+			name: p.title,
+			url: `/pages/${p.slug}/`,
+			icon: "material-symbols:article-outline-rounded",
+			pageKey: `page-${p.slug}`,
+		}));
+		const aboutIndex = moreLink.children.findIndex((c) => c.pageKey === "about" || c.pageKey === "github");
+		if (aboutIndex !== -1) {
+			moreLink.children.splice(aboutIndex, 0, ...customPageLinks);
+		} else {
+			moreLink.children.push(...customPageLinks);
+		}
+	}
+}
+
 const currentPageKey = resolvePageKey(Astro.url);
 
 function hrefFor(path?: string) {

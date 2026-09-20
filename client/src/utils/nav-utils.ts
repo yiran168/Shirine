@@ -47,5 +47,9 @@ export function resolvePageKey(
 	if (pathname === "/albums" || pathname.startsWith("/albums/"))
 		return "albums";
 	if (pathname === "/about") return "about";
+	if (pathname.startsWith("/pages/")) {
+		const slug = pathname.slice("/pages/".length).replace(/\/+$/, "");
+		if (slug) return `page-${slug}`;
+	}
 	return "";
 }

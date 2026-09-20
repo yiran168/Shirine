@@ -46,6 +46,7 @@ export function clearContentCache() {
 	cachedFriends = null;
 	cachedAlbumsMap.clear();
 	cachedDiscovery = null;
+	cachedPages = null;
 }
 
 // Retrieve posts dynamically from backend API and sort them by publication date
@@ -617,4 +618,45 @@ export async function getDynamicAnime(request?: Request): Promise<any[]> {
 	}
 	const { getAnimeList } = await import("./anime-data");
 	return await getAnimeList();
+}
+
+let cachedPages: { time: number; data: any[] } | null = null;
+let inFlightPagesPromise: Promise<any[]> | null = null;
+
+export async function getDynamicPages(request?: Request): Promise<any[]> {
+	const now = Date.now();
+	if (cachedPages && now - cachedPages.time < 5_000) {
+		return cachedPages.data;
+	}
+	if (inFlightPagesPromise) {
+		return inFlightPagesPromise;
+	}
+
+	const promise = (async () => {
+		const apiBase = resolveApiBase(request);
+		if (apiBase) {
+			try {
+				const res = await fetch(`${apiBase.replace(/\/$/, "")}/pages`, {
+					signal: AbortSignal.timeout(2000),
+				});
+				if (res.ok) {
+					const json = await res.json();
+					if (json.success && Array.isArray(json.data)) {
+						const publishedPages = json.data.filter((p: any) => !p.draft && p.status !== "draft");
+						cachedPages = { time: Date.now(), data: publishedPages };
+						return publishedPages;
+					}
+				}
+			} catch {}
+		}
+		cachedPages = { time: Date.now(), data: [] };
+		return [];
+	})();
+
+	inFlightPagesPromise = promise;
+	try {
+		return await promise;
+	} finally {
+		inFlightPagesPromise = null;
+	}
 }
