@@ -48,22 +48,16 @@ export async function getDynamicSiteConfig(): Promise<DynamicSiteConfigResult> {
 
   cachedTime = now;
   const promise = (async (): Promise<DynamicSiteConfigResult> => {
-    const rawBase = (
-      import.meta.env.PUBLIC_API_URL ||
-      (import.meta.env.PROD ? "" : "http://localhost:11498/api")
-    ).replace(/\/$/, "");
-
-    if (!rawBase) {
-      return {
-        site: siteConfig,
-        profile: profileConfig,
-        music: musicConfig,
-        announcement: announcementConfig,
-        footer: footerConfig,
-      };
+    let apiBase = "";
+    if (import.meta.env.PUBLIC_API_URL) {
+      const raw = import.meta.env.PUBLIC_API_URL.replace(/\/$/, "");
+      apiBase = raw.endsWith("/api") ? raw : `${raw}/api`;
+    } else if (typeof window !== "undefined" && window.location) {
+      apiBase = `${window.location.origin}/api`;
+    } else {
+      apiBase = "http://127.0.0.1:11498/api";
     }
 
-    const apiBase = rawBase.endsWith("/api") ? rawBase : `${rawBase}/api`;
     try {
       const res = await fetch(`${apiBase}/config/site`, {
         signal: AbortSignal.timeout(3000),

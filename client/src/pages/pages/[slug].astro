@@ -7,23 +7,25 @@ import MainGridLayout from "@layouts/MainGridLayout.astro";
 import { renderDynamicMarkdown } from "@utils/dynamic-markdown";
 import { formatDateToYYYYMMDD } from "@utils/date-utils";
 import type { PageDto } from "@/types/dto";
-import { normalizeApiUrl } from "@/services/api";
+import { resolveApiBase } from "@utils/content-utils";
 
 const { slug } = Astro.params;
 if (!slug) {
 	return Astro.redirect("/404");
 }
 
-const apiBase = normalizeApiUrl(
-	import.meta.env.PUBLIC_API_URL || (import.meta.env.PROD ? "" : "http://localhost:11498/api")
-);
+const apiBase = resolveApiBase(Astro.request);
 let pageData: PageDto | null = null;
 
 if (apiBase) {
 	try {
 		const cookieHeader = Astro.request.headers.get("cookie") || "";
-		const res = await fetch(`${apiBase}/pages/${slug}`, {
-			headers: cookieHeader ? { cookie: cookieHeader } : {},
+		const authHeader = Astro.request.headers.get("authorization") || "";
+		const headers: Record<string, string> = {};
+		if (cookieHeader) headers["cookie"] = cookieHeader;
+		if (authHeader) headers["authorization"] = authHeader;
+		const res = await fetch(`${apiBase.replace(/\/$/, "")}/pages/${slug}`, {
+			headers,
 			signal: AbortSignal.timeout(3000),
 		});
 		if (res.ok) {

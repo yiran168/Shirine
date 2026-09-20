@@ -16,7 +16,7 @@
   import { SUPPORTED_LANGUAGES, getAdminText, type AdminLang, type LanguageOption } from "../../i18n/adminI18n";
   import { renderDynamicMarkdown } from "../../utils/dynamic-markdown";
 
-  type TabType = "overview" | "posts" | "albums" | "moments" | "pages" | "friends" | "users" | "settings";
+  type TabType = "overview" | "posts" | "albums" | "moments" | "pages" | "friends" | "compass" | "anime" | "users" | "settings";
 
   let currentTab = $state<TabType>("overview");
   let loading = $state(true);
@@ -276,6 +276,11 @@
     announcementContent: "The only way to do great work is to love what you do",
     announcementLinkText: "GitHub",
     announcementLinkUrl: "https://github.com/yiran168/Shirine",
+    announcementLinks: [
+      { text: "GitHub", url: "https://github.com/yiran168/Shirine" },
+      { text: "Steam", url: "https://store.steampowered.com" },
+      { text: "Facebook", url: "https://www.facebook.com" },
+    ] as Array<{ text: string; url: string }>,
     musicEnable: true,
     musicProvider: "mixed",
     musicVolume: 0.7,
@@ -412,7 +417,7 @@
       } else if (tab === "users") {
         const res = await adminApi.getUsers({ pageSize: 100 });
         if (res.success) users = res.data || [];
-      } else if (tab === "settings") {
+      } else if (tab === "settings" || tab === "compass" || tab === "anime") {
         const [siteRes, sysRes] = await Promise.all([
           configApi.getSite(),
           configApi.getAdminSystem(),
@@ -451,6 +456,9 @@
             announcementContent: a.content ?? siteConfigState.announcementContent,
             announcementLinkText: a.link?.text ?? siteConfigState.announcementLinkText,
             announcementLinkUrl: a.link?.url ?? siteConfigState.announcementLinkUrl,
+            announcementLinks: Array.isArray(a.links) && a.links.length > 0
+              ? a.links
+              : (a.link && a.link.url ? [{ text: a.link.text || "GitHub", url: a.link.url }] : siteConfigState.announcementLinks),
             musicEnable: m.enable ?? siteConfigState.musicEnable,
             musicProvider: m.provider ?? siteConfigState.musicProvider,
             musicVolume: m.defaultVolume ?? siteConfigState.musicVolume,
@@ -1091,17 +1099,69 @@
     siteConfigState.profileLinks = siteConfigState.profileLinks.filter((_, i) => i !== index);
   }
 
-  // --- Announcement Presets ---
-  function setAnnouncementLinkPreset(name: "github" | "steam" | "facebook") {
-    if (name === "github") {
-      siteConfigState.announcementLinkText = "GitHub";
-      siteConfigState.announcementLinkUrl = "https://github.com/yiran168/Shirine";
-    } else if (name === "steam") {
-      siteConfigState.announcementLinkText = "Steam";
-      siteConfigState.announcementLinkUrl = "https://store.steampowered.com";
+  // --- Announcement Multi-Links Operations ---
+  function addAnnouncementLinkPreset(name: "github" | "steam" | "facebook") {
+    let preset = { text: "GitHub", url: "https://github.com/yiran168/Shirine" };
+    if (name === "steam") {
+      preset = { text: "Steam", url: "https://store.steampowered.com" };
     } else if (name === "facebook") {
-      siteConfigState.announcementLinkText = "Facebook";
-      siteConfigState.announcementLinkUrl = "https://www.facebook.com";
+      preset = { text: "Facebook", url: "https://www.facebook.com" };
+    }
+    const current = siteConfigState.announcementLinks || [];
+    if (!current.some((l) => l.text.toLowerCase() === preset.text.toLowerCase())) {
+      siteConfigState.announcementLinks = [...current, preset];
+    }
+    if (siteConfigState.announcementLinks.length > 0) {
+      siteConfigState.announcementLinkText = siteConfigState.announcementLinks[0].text;
+      siteConfigState.announcementLinkUrl = siteConfigState.announcementLinks[0].url;
+    }
+  }
+
+  function addCustomAnnouncementLink() {
+    siteConfigState.announcementLinks = [
+      ...(siteConfigState.announcementLinks || []),
+      { text: "自定义链接", url: "https://" },
+    ];
+  }
+
+  function removeAnnouncementLink(index: number) {
+    siteConfigState.announcementLinks = (siteConfigState.announcementLinks || []).filter((_, i) => i !== index);
+    if (siteConfigState.announcementLinks.length > 0) {
+      siteConfigState.announcementLinkText = siteConfigState.announcementLinks[0].text;
+      siteConfigState.announcementLinkUrl = siteConfigState.announcementLinks[0].url;
+    } else {
+      siteConfigState.announcementLinkText = "";
+      siteConfigState.announcementLinkUrl = "";
+    }
+  }
+
+  function setAnnouncementLinkPreset(name: "github" | "steam" | "facebook") {
+    addAnnouncementLinkPreset(name);
+  }
+
+  async function saveCompassSettings() {
+    try {
+      const res = await configApi.updateSite({ compass: siteConfigState.compass });
+      if (res.success) {
+        showMessage("站点罗盘导航分类与网址已保存成功！刷新前台 /compass/ 即可查看最新内容");
+      } else {
+        showMessage(res.error || "保存站点罗盘失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  async function saveAnimeSettings() {
+    try {
+      const res = await configApi.updateSite({ anime: siteConfigState.anime });
+      if (res.success) {
+        showMessage("追番列表与进度已保存成功！刷新前台 /anime/ 即可查看最新内容");
+      } else {
+        showMessage(res.error || "保存番剧列表失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
     }
   }
 
@@ -1556,6 +1616,22 @@
         </button>
 
         <button
+          onclick={() => switchTab("compass")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'compass' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+          <span>🧭 站点罗盘</span>
+        </button>
+
+        <button
+          onclick={() => switchTab("anime")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'anime' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          <span>📺 番剧追番</span>
+        </button>
+
+        <button
           onclick={() => switchTab("users")}
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'users' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
         >
@@ -1631,6 +1707,20 @@
               >
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                 <span>同步预设示例到数据库</span>
+              </button>
+              <button
+                onclick={() => switchTab("compass")}
+                class="px-5 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] font-medium text-sm transition-all flex items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+                <span>管理站点罗盘</span>
+              </button>
+              <button
+                onclick={() => switchTab("anime")}
+                class="px-5 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] font-medium text-sm transition-all flex items-center gap-2"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <span>管理番剧清单</span>
               </button>
               <button
                 onclick={() => switchTab("settings")}
@@ -1930,7 +2020,7 @@
                     </td>
                     <td class="px-6 py-4 text-right space-x-2">
                       <a
-                        href={['about', 'projects', 'devices', 'skills'].includes(page.slug) ? `/${page.slug}/` : `/pages/${page.slug}`}
+                        href={['about', 'projects', 'devices', 'skills'].includes(page.slug) ? `/${page.slug}/` : `/pages/${page.slug}/`}
                         target="_blank"
                         class="text-emerald-600 dark:text-emerald-400 font-medium text-xs hover:underline"
                       >
@@ -1943,6 +2033,18 @@
                 {/each}
               </tbody>
             </table>
+            {#if pages.length === 0}
+              <div class="p-8 text-center space-y-3">
+                <p class="text-sm text-[var(--on-surface-variant)]">暂无独立页面记录。预设的「关于」、「精选项目」、「我的设备」、「专业技能」可通过一键同步导入。</p>
+                <button
+                  type="button"
+                  onclick={() => handleSeedPresets(false)}
+                  class="px-5 py-2 rounded-full bg-primary/10 text-primary hover:bg-primary/20 font-semibold text-xs transition-colors"
+                >
+                  📥 立即同步预设页面到数据库
+                </button>
+              </div>
+            {/if}
           </div>
 
         {:else if currentTab === "friends"}
@@ -2070,6 +2172,331 @@
                 {/each}
               </tbody>
             </table>
+          </div>
+
+        {:else if currentTab === "compass"}
+          <!-- Compass Settings Panel -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl font-bold">🧭 站点罗盘导航 (Compass)</h1>
+              <p class="text-xs text-[var(--on-surface-variant)] mt-1">管理前台 /compass/ 站点罗盘导航的分组与网址磁贴，支持实时增删改查</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <a
+                href="/compass/"
+                target="_blank"
+                class="px-4 py-2 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] text-xs font-semibold transition-all"
+              >
+                预览前台罗盘 ↗
+              </a>
+              <button
+                type="button"
+                onclick={saveCompassSettings}
+                class="px-6 py-2.5 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105 active:scale-98 transition-all flex items-center gap-1.5"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span>保存罗盘设置</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-6 max-w-4xl">
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-bold">罗盘分组与站点磁贴</h2>
+                <button
+                  type="button"
+                  onclick={addCompassShelf}
+                  class="px-3.5 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-all flex items-center gap-1"
+                >
+                  + 新增导航分组
+                </button>
+              </div>
+
+              {#if siteConfigState.compass && siteConfigState.compass.length > 0}
+                <div class="space-y-4">
+                  {#each siteConfigState.compass as shelf, shelfIdx}
+                    <div class="p-4 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3">
+                      <div class="flex items-center justify-between gap-3 pb-2 border-b border-[var(--outline-variant)]/10">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1">
+                          <div>
+                            <label class="text-[10px] text-[var(--on-surface-variant)] block">分组名称</label>
+                            <input
+                              type="text"
+                              bind:value={shelf.name}
+                              placeholder="如 Development"
+                              class="w-full px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs font-bold outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label class="text-[10px] text-[var(--on-surface-variant)] block">分组唯一 Key</label>
+                            <input
+                              type="text"
+                              bind:value={shelf.key}
+                              placeholder="如 dev"
+                              class="w-full px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs font-mono outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label class="text-[10px] text-[var(--on-surface-variant)] block">分组描述 (Blurb)</label>
+                            <input
+                              type="text"
+                              bind:value={shelf.blurb}
+                              placeholder="分组副说明"
+                              class="w-full px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs outline-none"
+                            />
+                          </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onclick={() => addCompassEntry(shelfIdx)}
+                            class="px-2.5 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-medium hover:brightness-105 transition-all"
+                            title="添加一条站点"
+                          >
+                            + 添站
+                          </button>
+                          <button
+                            type="button"
+                            onclick={() => removeCompassShelf(shelfIdx)}
+                            class="p-1.5 text-error hover:bg-error/10 rounded-lg transition-colors"
+                            title="删除整个分组"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- Entries -->
+                      {#if shelf.entries && shelf.entries.length > 0}
+                        <div class="space-y-2">
+                          {#each shelf.entries as entry, entryIdx}
+                            <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 p-2.5 rounded-xl bg-[var(--surface)] border border-[var(--outline-variant)]/20 text-xs">
+                              <div class="w-full sm:w-1/4">
+                                <label class="text-[9px] text-[var(--on-surface-variant)] block">网站名称</label>
+                                <input
+                                  type="text"
+                                  bind:value={entry.label}
+                                  placeholder="GitHub"
+                                  class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface-container-low)] outline-none"
+                                />
+                              </div>
+                              <div class="w-full sm:w-1/3">
+                                <label class="text-[9px] text-[var(--on-surface-variant)] block">网址 URL</label>
+                                <input
+                                  type="text"
+                                  bind:value={entry.href}
+                                  placeholder="https://..."
+                                  class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface-container-low)] outline-none font-mono"
+                                />
+                              </div>
+                              <div class="w-full sm:w-1/4">
+                                <label class="text-[9px] text-[var(--on-surface-variant)] block">简短说明</label>
+                                <input
+                                  type="text"
+                                  bind:value={entry.note}
+                                  placeholder="代码托管与开源协作"
+                                  class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface-container-low)] outline-none"
+                                />
+                              </div>
+                              <div class="w-full sm:w-1/6">
+                                <label class="text-[9px] text-[var(--on-surface-variant)] block">图标 (Iconify)</label>
+                                <input
+                                  type="text"
+                                  bind:value={entry.icon}
+                                  placeholder="fa6-brands:github"
+                                  class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface-container-low)] outline-none font-mono"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onclick={() => removeCompassEntry(shelfIdx, entryIdx)}
+                                class="mt-3 p-1 text-error hover:bg-error/10 rounded-md transition-colors"
+                                title="删除此站点"
+                              >
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                              </button>
+                            </div>
+                          {/each}
+                        </div>
+                      {:else}
+                        <p class="text-xs text-[var(--on-surface-variant)] italic">该分组下暂无站点磁贴，请点击右上角「+ 添站」添加</p>
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <p class="text-xs text-[var(--on-surface-variant)] italic py-2">暂无罗盘分组，请点击右上角「+ 新增导航分组」</p>
+              {/if}
+            </div>
+
+            <button
+              type="button"
+              onclick={saveCompassSettings}
+              class="px-8 py-3 rounded-full bg-primary text-on-primary font-bold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span>保存罗盘设置</span>
+            </button>
+          </div>
+
+        {:else if currentTab === "anime"}
+          <!-- Anime Settings Panel -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl font-bold">📺 番剧追番清单 (Anime)</h1>
+              <p class="text-xs text-[var(--on-surface-variant)] mt-1">管理前台 /anime/ 番剧清单的追番状态、评分与播放进度，支持实时增删改查</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <a
+                href="/anime/"
+                target="_blank"
+                class="px-4 py-2 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] text-xs font-semibold transition-all"
+              >
+                预览前台番剧 ↗
+              </a>
+              <button
+                type="button"
+                onclick={saveAnimeSettings}
+                class="px-6 py-2.5 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105 active:scale-98 transition-all flex items-center gap-1.5"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span>保存追番列表</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-6 max-w-4xl">
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-bold">追番列表</h2>
+                <button
+                  type="button"
+                  onclick={addAnimeItem}
+                  class="px-3.5 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-all flex items-center gap-1"
+                >
+                  + 新增追番条目
+                </button>
+              </div>
+
+              {#if siteConfigState.anime && siteConfigState.anime.length > 0}
+                <div class="space-y-3">
+                  {#each siteConfigState.anime as item, idx}
+                    <div class="p-4 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3">
+                      <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
+                        <div class="flex items-center gap-3 flex-1">
+                          <img
+                            src={item.cover || "/assets/images/demo-avatar.webp"}
+                            alt={item.title}
+                            class="w-12 h-16 rounded-lg object-cover bg-[var(--surface-container)] shrink-0"
+                          />
+                          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 flex-1">
+                            <div>
+                              <label class="text-[10px] text-[var(--on-surface-variant)] block">番剧名称</label>
+                              <input
+                                type="text"
+                                bind:value={item.title}
+                                placeholder="番剧中文/原名"
+                                class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs font-bold outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label class="text-[10px] text-[var(--on-surface-variant)] block">追番状态</label>
+                              <select
+                                bind:value={item.status}
+                                class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs outline-none"
+                              >
+                                <option value="watching">在看 (watching)</option>
+                                <option value="completed">看过 (completed)</option>
+                                <option value="planned">想看 (planned)</option>
+                                <option value="onHold">搁置 (onHold)</option>
+                                <option value="dropped">抛弃 (dropped)</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label class="text-[10px] text-[var(--on-surface-variant)] block">个人评分 (0-10)</label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                max="10"
+                                bind:value={item.rating}
+                                class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs font-bold text-amber-500 outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label class="text-[10px] text-[var(--on-surface-variant)] block">进度 (已看 / 总集数)</label>
+                              <div class="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  bind:value={item.progress.watched}
+                                  class="w-1/2 px-2 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs outline-none text-center"
+                                />
+                                <span class="text-xs text-[var(--on-surface-variant)]">/</span>
+                                <input
+                                  type="number"
+                                  bind:value={item.progress.total}
+                                  class="w-1/2 px-2 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs outline-none text-center"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onclick={() => removeAnimeItem(idx)}
+                          class="p-2 text-error hover:bg-error/10 rounded-lg transition-colors shrink-0"
+                          title="删除此番剧条目"
+                        >
+                          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-[var(--outline-variant)]/10 text-xs">
+                        <div>
+                          <label class="text-[9px] text-[var(--on-surface-variant)] block">封面图片 URL</label>
+                          <input
+                            type="text"
+                            bind:value={item.cover}
+                            placeholder="/assets/anime/..."
+                            class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[9px] text-[var(--on-surface-variant)] block">外链播放/Bangumi 地址</label>
+                          <input
+                            type="text"
+                            bind:value={item.link}
+                            placeholder="https://..."
+                            class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface)] outline-none font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[9px] text-[var(--on-surface-variant)] block">一句话短评/感想</label>
+                          <input
+                            type="text"
+                            bind:value={item.description}
+                            placeholder="番剧简评..."
+                            class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/20 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <p class="text-xs text-[var(--on-surface-variant)] italic py-2">暂无追番条目，请点击右上角「+ 新增追番条目」</p>
+              {/if}
+            </div>
+
+            <button
+              type="button"
+              onclick={saveAnimeSettings}
+              class="px-8 py-3 rounded-full bg-primary text-on-primary font-bold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span>保存追番列表</span>
+            </button>
           </div>
 
         {:else if currentTab === "settings"}
@@ -2526,55 +2953,82 @@
                       class="w-full p-3 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
                     ></textarea>
                   </div>
-                  <!-- Announcement Jump Link -->
-                  <div class="space-y-2">
+                  <!-- Announcement Jump Links List -->
+                  <div class="space-y-3">
                     <div class="flex flex-wrap items-center justify-between gap-2">
-                      <span class="text-xs font-semibold">跳转链接设置</span>
-                      <div class="flex items-center gap-1.5">
-                        <span class="text-[10px] text-[var(--on-surface-variant)]">快速填入：</span>
+                      <div>
+                        <span class="text-xs font-semibold block">公告跳转按钮列表</span>
+                        <span class="text-[10px] text-[var(--on-surface-variant)]">支持同时配置多个跳转链接（如 GitHub、Steam、Facebook 等）</span>
+                      </div>
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="text-[10px] text-[var(--on-surface-variant)]">快捷添加：</span>
                         <button
                           type="button"
-                          onclick={() => setAnnouncementLinkPreset("github")}
+                          onclick={() => addAnnouncementLinkPreset("github")}
                           class="px-2 py-0.5 rounded bg-[var(--surface-container-high)] text-[11px] hover:bg-[var(--surface-container-highest)] transition-colors"
                         >
-                          GitHub
+                          + GitHub
                         </button>
                         <button
                           type="button"
-                          onclick={() => setAnnouncementLinkPreset("steam")}
+                          onclick={() => addAnnouncementLinkPreset("steam")}
                           class="px-2 py-0.5 rounded bg-[var(--surface-container-high)] text-[11px] hover:bg-[var(--surface-container-highest)] transition-colors"
                         >
-                          Steam
+                          + Steam
                         </button>
                         <button
                           type="button"
-                          onclick={() => setAnnouncementLinkPreset("facebook")}
+                          onclick={() => addAnnouncementLinkPreset("facebook")}
                           class="px-2 py-0.5 rounded bg-[var(--surface-container-high)] text-[11px] hover:bg-[var(--surface-container-highest)] transition-colors"
                         >
-                          Facebook
+                          + Facebook
+                        </button>
+                        <button
+                          type="button"
+                          onclick={addCustomAnnouncementLink}
+                          class="px-2 py-0.5 rounded bg-primary/10 text-primary text-[11px] hover:bg-primary/20 transition-colors"
+                        >
+                          + 自定义
                         </button>
                       </div>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label class="text-[10px] text-[var(--on-surface-variant)] block mb-1">按钮文字</label>
-                        <input
-                          type="text"
-                          bind:value={siteConfigState.announcementLinkText}
-                          placeholder="例如：了解更多 / GitHub"
-                          class="w-full px-4 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
-                        />
+
+                    {#if siteConfigState.announcementLinks && siteConfigState.announcementLinks.length > 0}
+                      <div class="space-y-2">
+                        {#each siteConfigState.announcementLinks as link, idx}
+                          <div class="flex items-center gap-2 p-2.5 rounded-xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 text-xs">
+                            <div class="w-1/3">
+                              <label class="text-[9px] text-[var(--on-surface-variant)] block mb-0.5">按钮名称</label>
+                              <input
+                                type="text"
+                                bind:value={link.text}
+                                placeholder="如 GitHub"
+                                class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs font-semibold outline-none"
+                              />
+                            </div>
+                            <div class="flex-1">
+                              <label class="text-[9px] text-[var(--on-surface-variant)] block mb-0.5">跳转 URL</label>
+                              <input
+                                type="text"
+                                bind:value={link.url}
+                                placeholder="https://..."
+                                class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs outline-none font-mono"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onclick={() => removeAnnouncementLink(idx)}
+                              class="mt-3 p-1.5 text-error hover:bg-error/10 rounded-md transition-colors"
+                              title="删除此跳转链接"
+                            >
+                              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                          </div>
+                        {/each}
                       </div>
-                      <div>
-                        <label class="text-[10px] text-[var(--on-surface-variant)] block mb-1">跳转目标 URL</label>
-                        <input
-                          type="text"
-                          bind:value={siteConfigState.announcementLinkUrl}
-                          placeholder="https://..."
-                          class="w-full px-4 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono"
-                        />
-                      </div>
-                    </div>
+                    {:else}
+                      <p class="text-xs text-[var(--on-surface-variant)] italic py-1">暂无跳转链接，点击上方快捷按钮添加</p>
+                    {/if}
                   </div>
                 </div>
               {/if}

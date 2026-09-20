@@ -19,9 +19,29 @@ const rawLinks: any[] = Array.isArray((config as any).links) && (config as any).
 	? (config as any).links
 	: config.link ? [config.link] : [];
 
-const validLinks = rawLinks.filter(
-	(l) => l && l.enable !== false && l.text && l.url && !/^(javascript|vbscript|data):/i.test(l.url.trim())
-);
+const validLinks = rawLinks
+	.filter((l) => l && l.enable !== false && l.text && l.url && !/^(javascript|vbscript|data):/i.test(l.url.trim()))
+	.map((l) => {
+		let targetUrl = l.url.trim();
+		if (!/^[a-zA-Z][a-zA-Z\d+.-]*:|\/|#/.test(targetUrl)) {
+			targetUrl = `https://${targetUrl}`;
+		}
+		const lowerText = (l.text || "").toLowerCase();
+		const lowerUrl = targetUrl.toLowerCase();
+		let brandIcon: string | null = null;
+		if (lowerText.includes("github") || lowerUrl.includes("github.com")) brandIcon = "fa6-brands:github";
+		else if (lowerText.includes("steam") || lowerUrl.includes("steampowered.com")) brandIcon = "fa6-brands:steam";
+		else if (lowerText.includes("facebook") || lowerUrl.includes("facebook.com")) brandIcon = "fa6-brands:facebook";
+		else if (lowerText.includes("bilibili") || lowerUrl.includes("bilibili.com")) brandIcon = "fa6-brands:bilibili";
+		else if (lowerText.includes("twitter") || lowerText === "x" || lowerUrl.includes("twitter.com") || lowerUrl.includes("x.com")) brandIcon = "fa6-brands:x-twitter";
+		else if (lowerText.includes("telegram") || lowerUrl.includes("t.me")) brandIcon = "fa6-brands:telegram";
+
+		return {
+			...l,
+			url: targetUrl,
+			brandIcon,
+		};
+	});
 const hasLink = validLinks.length > 0;
 const closeDuration = Number((config as any).closeDuration ?? 86400);
 ---
@@ -55,10 +75,13 @@ const closeDuration = Number((config as any).closeDuration ?? 86400);
 									href={safeUrl}
 									target={isExternal ? "_blank" : "_self"}
 									rel={isExternal ? "noopener noreferrer" : undefined}
-									class="announcement-btn inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--btn-regular-bg)] text-[var(--primary)] hover:bg-[var(--btn-regular-bg-hover)] active:bg-[var(--btn-regular-bg-active)] active:scale-95 transition-all shadow-sm"
+									class="announcement-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--btn-regular-bg)] text-[var(--primary)] hover:bg-[var(--btn-regular-bg-hover)] active:bg-[var(--btn-regular-bg-active)] active:scale-95 transition-all shadow-sm"
 								>
+									{item.brandIcon && (
+										<Icon name={item.brandIcon} class="text-sm opacity-90" />
+									)}
 									<span>{item.text}</span>
-									{isExternal && (
+									{isExternal && !item.brandIcon && (
 										<Icon
 											name="material-symbols:arrow-outward-rounded"
 											class="text-sm opacity-80"

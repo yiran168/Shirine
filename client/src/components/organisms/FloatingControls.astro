@@ -125,7 +125,7 @@ const isHomeItemVisible = homeItem
 
 	<!-- 4. 全局悬浮音乐控制按钮（停止/播放、音乐动效与切歌） -->
 	{musicOptions && (
-		<div data-fab-slot class="mb-2">
+		<div data-fab-slot class="pointer-events-auto mb-2">
 			<FloatingMusicWidget client:load options={musicOptions} />
 		</div>
 	)}

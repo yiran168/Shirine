@@ -4,7 +4,7 @@ import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
 import { requireAdmin } from "../core/middleware";
 import type { PageDto } from "../types/dto";
-
+import { ensureD1Schema } from "../db/migrate";
 import { PRESET_PAGES } from "../db/seed";
 
 export const pagesRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -36,18 +36,24 @@ pagesRouter.get("/", async (c) => {
     const db = getDb(c.env.DB);
     const isAdmin = user && (user.role === "superadmin" || user.role === "admin");
 
+    await ensureD1Schema(c.env.DB, db);
+
     let allPages = await db.query.pages.findMany({
       where: !isAdmin ? eq(schema.pages.draft, 0) : undefined,
       orderBy: [desc(schema.pages.createdAt)],
     });
 
-    if (allPages.length === 0) {
-      try {
-        const superadmin = await db.query.users.findFirst({
-          where: eq(schema.users.role, "superadmin"),
-        });
-        const uid = superadmin ? superadmin.id : null;
-        for (const page of PRESET_PAGES) {
+    // Ensure all PRESET_PAGES exist in database
+    let hasInsertedMissingPreset = false;
+    const superadmin = await db.query.users.findFirst({
+      where: eq(schema.users.role, "superadmin"),
+    });
+    const uid = superadmin ? superadmin.id : null;
+
+    for (const page of PRESET_PAGES) {
+      const exists = allPages.some((row) => row.slug === page.slug);
+      if (!exists) {
+        try {
           await db
             .insert(schema.pages)
             .values({
@@ -58,12 +64,16 @@ pagesRouter.get("/", async (c) => {
               uid,
             })
             .onConflictDoNothing();
-        }
-        allPages = await db.query.pages.findMany({
-          where: !isAdmin ? eq(schema.pages.draft, 0) : undefined,
-          orderBy: [desc(schema.pages.createdAt)],
-        });
-      } catch {}
+          hasInsertedMissingPreset = true;
+        } catch {}
+      }
+    }
+
+    if (hasInsertedMissingPreset) {
+      allPages = await db.query.pages.findMany({
+        where: !isAdmin ? eq(schema.pages.draft, 0) : undefined,
+        orderBy: [desc(schema.pages.createdAt)],
+      });
     }
 
     const formatted: (PageDto & { status?: string })[] = allPages.map((p) => ({
@@ -128,6 +138,7 @@ pagesRouter.post("/", requireAdmin, async (c) => {
   try {
     const user = c.get("user")!;
     const db = getDb(c.env.DB);
+    await ensureD1Schema(c.env.DB, db);
     const body = await c.req.json();
     const { slug, title, content } = body;
     const isDraft = body.draft !== undefined ? Boolean(body.draft) : body.status === "draft";

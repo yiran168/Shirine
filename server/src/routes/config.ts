@@ -95,10 +95,15 @@ export const defaultSiteConfig = {
     enable: true,
     title: "",
     content: "The only way to do great work is to love what you do",
+    links: [
+      { text: "GitHub", url: "https://github.com/yiran168/Shirine", external: true, enable: true },
+      { text: "Steam", url: "https://store.steampowered.com", external: true, enable: true },
+      { text: "Facebook", url: "https://www.facebook.com", external: true, enable: true },
+    ],
     link: {
       enable: true,
       text: "GitHub",
-      url: "https://github.com",
+      url: "https://github.com/yiran168/Shirine",
     },
   },
   music: {
@@ -324,6 +329,10 @@ function sanitizeUrl(rawUrl: unknown): string {
   ) {
     return trimmed;
   }
+  // Auto-prefix domains like store.steampowered.com, facebook.com, github.com
+  if (/^[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,}/.test(trimmed)) {
+    return "https://" + trimmed;
+  }
   // Safe relative paths like assets/images/... or ./assets/... (V10-P0-05)
   if (lower.startsWith("assets/") || lower.startsWith("./assets/")) {
     return "/" + trimmed.replace(/^\.\//, "");
@@ -524,11 +533,21 @@ configRouter.put("/site", requireAdmin, async (c) => {
       if (body.announcementTitle !== undefined) annUpdates.title = body.announcementTitle;
       if (body.announcementContent !== undefined) annUpdates.content = body.announcementContent;
       if (body.announcementLinks !== undefined && Array.isArray(body.announcementLinks)) {
-        annUpdates.links = body.announcementLinks.map((l: any) => ({
-          text: String(l.text || "").trim(),
-          url: sanitizeUrl(l.url),
-          external: true,
-        }));
+        annUpdates.links = body.announcementLinks
+          .map((l: any) => ({
+            text: String(l.text || "").trim(),
+            url: sanitizeUrl(l.url),
+            external: true,
+            enable: l.enable !== false,
+          }))
+          .filter((l: any) => l.text && l.url && l.url !== "#");
+        if (annUpdates.links.length > 0) {
+          annUpdates.link = {
+            enable: true,
+            text: annUpdates.links[0].text,
+            url: annUpdates.links[0].url,
+          };
+        }
       }
       if (body.announcementLinkText !== undefined || body.announcementLinkUrl !== undefined) {
         const safeUrl = sanitizeUrl(body.announcementLinkUrl);

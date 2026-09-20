@@ -35,4 +35,6 @@ export interface AnnouncementConfig {
 	closeDuration?: number;
 	/** 可选行动链接配置 */
 	link?: AnnouncementLinkConfig;
+	/** 多链接列表（支持同时展示 GitHub、Steam、Facebook 等多个跳转按钮） */
+	links?: AnnouncementLinkConfig[];
 }

@@ -142,6 +142,9 @@ onMount(() => {
 	const params = new URLSearchParams(window.location.search);
 	query = params.get("q") || "";
 	selectedTag = params.get("tag") || "";
+	if (params.get("apply") === "1" || params.get("apply") === "true") {
+		applyModalOpen = true;
+	}
 	initialized = true;
 	return () => phaseTimers.forEach(clearTimeout);
 });

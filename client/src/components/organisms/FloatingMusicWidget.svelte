@@ -53,41 +53,52 @@ onMount(() => {
 	let unsubscribe = () => {};
 	let active = true;
 
+	const onFirstGesture = () => {
+		if (runtime && snapshot.status !== "playing") {
+			void runtime.play();
+		}
+		cleanupGestureListeners();
+	};
+
+	const cleanupGestureListeners = () => {
+		window.removeEventListener("click", onFirstGesture, true);
+		window.removeEventListener("touchstart", onFirstGesture, true);
+		window.removeEventListener("keydown", onFirstGesture, true);
+		window.removeEventListener("scroll", onFirstGesture, true);
+	};
+
 	void import("@utils/music").then(({ getMusicRuntime }) => {
 		if (!active) return;
 		const rt = getMusicRuntime(options);
 		runtime = rt;
 		unsubscribe = rt.subscribe((next) => {
 			snapshot = next;
+			if (next.status === "playing") {
+				cleanupGestureListeners();
+			}
 		});
 
-		// 自动播放处理：先尝试直接播放，若被浏览器策略拦截则在用户首次交互时静默开启
+		// 自动播放启动与浏览器策略兜底处理
 		if (options.autoplay !== false) {
-			rt.play().catch(() => {
-				const onFirstGesture = () => {
-					rt.play().catch(() => {});
-					window.removeEventListener("click", onFirstGesture);
-					window.removeEventListener("touchstart", onFirstGesture);
-					window.removeEventListener("keydown", onFirstGesture);
-					window.removeEventListener("scroll", onFirstGesture);
-				};
-				window.addEventListener("click", onFirstGesture, { once: true, passive: true });
-				window.addEventListener("touchstart", onFirstGesture, { once: true, passive: true });
-				window.addEventListener("keydown", onFirstGesture, { once: true, passive: true });
-				window.addEventListener("scroll", onFirstGesture, { once: true, passive: true });
-			});
+			void rt.play();
+			// 立即监听全站手势：点击/触摸/按键/滚动，在浏览器策略拦截时用户首次交互即刻播放
+			window.addEventListener("click", onFirstGesture, { once: true, capture: true, passive: true });
+			window.addEventListener("touchstart", onFirstGesture, { once: true, capture: true, passive: true });
+			window.addEventListener("keydown", onFirstGesture, { once: true, capture: true, passive: true });
+			window.addEventListener("scroll", onFirstGesture, { once: true, capture: true, passive: true });
 		}
 	});
 
 	return () => {
 		active = false;
+		cleanupGestureListeners();
 		unsubscribe();
 	};
 });
 </script>
 
 <div
-	class="floating-music-wrapper relative flex items-center gap-1.5"
+	class="floating-music-wrapper relative flex items-center gap-1.5 pointer-events-auto select-none"
 	onmouseenter={() => (showControls = true)}
 	onmouseleave={() => (showControls = false)}
 >
@@ -159,6 +170,9 @@ onMount(() => {
 </div>
 
 <style>
+	.floating-music-wrapper {
+		pointer-events: auto;
+	}
 	.wave-bar {
 		display: inline-block;
 		width: 2.5px;
