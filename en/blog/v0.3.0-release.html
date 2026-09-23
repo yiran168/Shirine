@@ -6,12 +6,12 @@
 <script>{;var defaultLang = "zh", langs = ["en","zh"];if (!/bot|spider|crawl|lighthouse/i.test(window.navigator.userAgent)) {;var firstVisitKey = 'rspress-visited', visited = localStorage.getItem(firstVisitKey);if (!visited) {;localStorage.setItem(firstVisitKey, '1');var targetLang = window.navigator.language.split('-')[0], { pathname, search } = window.location, base = "/Shirine", cleanPathname = pathname.startsWith(base) ? pathname.slice(base.length) || '/' : pathname, pathSegments = cleanPathname.split('/').filter(Boolean), currentLang = langs.includes(pathSegments[0]) ? pathSegments[0] : defaultLang;if (langs.includes(targetLang) && targetLang !== currentLang) {;var newPathSegments = pathSegments.slice();if (targetLang === defaultLang) {;newPathSegments.splice(0, 1);} else if (currentLang === defaultLang) {;newPathSegments.splice(0, 0, targetLang);} else {;newPathSegments[0] = targetLang;};;var newPathname = '/' + newPathSegments.join('/'), trailingSlash = newPathname !== '/' && cleanPathname.endsWith('/') ? '/' : '';window.location['replace'](base + newPathname + trailingSlash + search);};};};}</script>
 <script>{;const saved = localStorage.getItem('rspress-theme-appearance');const preferDark = window.matchMedia('(prefers-color-scheme: dark)').matches;const defaultTheme = 'auto';const theme = saved === 'light' || saved === 'dark' || saved === 'auto' ? saved : defaultTheme;const isDark = theme === 'auto' ? preferDark : theme === 'dark';document.documentElement.classList.toggle('dark', isDark);document.documentElement.classList.toggle('rp-dark', isDark);document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';}</script>
 <link href="/Shirine/static/css/styles.04e542d6f7.css" rel="stylesheet">
-<link rel="preload" href="/Shirine/static/js/async/route-6c5a65604030.2c39fe362c.js" as="script">
+<link rel="preload" href="/Shirine/static/js/async/route-6c5a65604030.5d02aab444.js" as="script">
 <script defer src="/Shirine/static/js/styles.559c94daf5.js"></script>
 <script defer src="/Shirine/static/js/lib-react.b07fbc04ff.js"></script>
 <script defer src="/Shirine/static/js/lib-router.39a7b4234e.js"></script>
 <script defer src="/Shirine/static/js/360.a8cf4e28d9.js"></script>
-<script defer src="/Shirine/static/js/index.6e2797b4ee.js"></script>
+<script defer src="/Shirine/static/js/index.8f5e3edba6.js"></script>
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="generator" content="Rspress v2.0.21">
 <link rel="alternate" hreflang="en" href="/Shirine/en/blog/v0.3.0-release.html">
@@ -37,7 +37,7 @@
 <h3 class="rp-toc-include" id="api-and-shared-package-cleanup"><a href="#api-and-shared-package-cleanup" class="rp-header-anchor rp-link" aria-hidden="true">#</a>API and shared package cleanup</h3>
 <p>This version line also clarifies the shared boundary between apps:</p>
 <ul>
-<li><code>@rin/api</code>, <code>@rin/config</code>, and <code>@rin/ui</code> are now part of the workspace story</li>
+<li>Streamlined server DTOs, system configuration, and UI specs</li>
 <li>The frontend no longer depends on Eden Treaty-style calls and instead uses a custom type-safe API client</li>
 <li>Development, deployment, database, and release tasks are grouped under the Shirine CLI</li>
 </ul>

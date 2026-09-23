@@ -6,12 +6,12 @@
 <script>{;var defaultLang = "zh", langs = ["en","zh"];if (!/bot|spider|crawl|lighthouse/i.test(window.navigator.userAgent)) {;var firstVisitKey = 'rspress-visited', visited = localStorage.getItem(firstVisitKey);if (!visited) {;localStorage.setItem(firstVisitKey, '1');var targetLang = window.navigator.language.split('-')[0], { pathname, search } = window.location, base = "/Shirine", cleanPathname = pathname.startsWith(base) ? pathname.slice(base.length) || '/' : pathname, pathSegments = cleanPathname.split('/').filter(Boolean), currentLang = langs.includes(pathSegments[0]) ? pathSegments[0] : defaultLang;if (langs.includes(targetLang) && targetLang !== currentLang) {;var newPathSegments = pathSegments.slice();if (targetLang === defaultLang) {;newPathSegments.splice(0, 1);} else if (currentLang === defaultLang) {;newPathSegments.splice(0, 0, targetLang);} else {;newPathSegments[0] = targetLang;};;var newPathname = '/' + newPathSegments.join('/'), trailingSlash = newPathname !== '/' && cleanPathname.endsWith('/') ? '/' : '';window.location['replace'](base + newPathname + trailingSlash + search);};};};}</script>
 <script>{;const saved = localStorage.getItem('rspress-theme-appearance');const preferDark = window.matchMedia('(prefers-color-scheme: dark)').matches;const defaultTheme = 'auto';const theme = saved === 'light' || saved === 'dark' || saved === 'auto' ? saved : defaultTheme;const isDark = theme === 'auto' ? preferDark : theme === 'dark';document.documentElement.classList.toggle('dark', isDark);document.documentElement.classList.toggle('rp-dark', isDark);document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';}</script>
 <link href="/Shirine/static/css/styles.04e542d6f7.css" rel="stylesheet">
-<link rel="preload" href="/Shirine/static/js/async/route-e7dc00d3a60d.56a7447cc6.js" as="script">
+<link rel="preload" href="/Shirine/static/js/async/route-e7dc00d3a60d.51a3ca8724.js" as="script">
 <script defer src="/Shirine/static/js/styles.559c94daf5.js"></script>
 <script defer src="/Shirine/static/js/lib-react.b07fbc04ff.js"></script>
 <script defer src="/Shirine/static/js/lib-router.39a7b4234e.js"></script>
 <script defer src="/Shirine/static/js/360.a8cf4e28d9.js"></script>
-<script defer src="/Shirine/static/js/index.6e2797b4ee.js"></script>
+<script defer src="/Shirine/static/js/index.8f5e3edba6.js"></script>
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="generator" content="Rspress v2.0.21">
 <link rel="alternate" hreflang="en" href="/Shirine/en/blog/v0.3.0-release.html">
@@ -37,7 +37,7 @@
 <h3 class="rp-toc-include" id="api-与共享包整理"><a href="#api-与共享包整理" class="rp-header-anchor rp-link" aria-hidden="true">#</a>API 与共享包整理</h3>
 <p>这条版本线把前后端共享边界明确了一步：</p>
 <ul>
-<li>新增 <code>@rin/api</code>、<code>@rin/config</code>、<code>@rin/ui</code> 共享包</li>
+<li>整理服务端 DTO、系统配置与 UI 共享规范</li>
 <li>前端不再依赖 Eden Treaty 风格调用，改为自定义的类型安全 API client</li>
 <li>发布、开发、部署、数据库任务统一收敛到 Shirine CLI</li>
 </ul>
