@@ -563,6 +563,14 @@ export const defaultSystemConfig = {
       { name: "Shizuku", url: "https://cdn.jsdelivr.net/gh/fghrsh/live2d_api/model/shizuku/index.json" },
       { name: "Koharu", url: "https://cdn.jsdelivr.net/gh/fghrsh/live2d_api/model/koharu/index.json" },
     ],
+    quotes: [
+      "欢迎来到 Shirine！",
+      "今天也是美好的一天～",
+      "有什么想和我聊聊的吗？",
+      "看文章累了就伸个懒腰吧！",
+      "点击右下角按钮可以返回顶部哦～",
+      "我会一直在这里陪着你的！",
+    ],
   },
   ai_config: {
     apiUrl: "https://api.openai.com/v1",
@@ -1104,6 +1112,7 @@ configRouter.get("/system", async (c) => {
       live2dModel: sys.live2d?.model || defaultSystemConfig.live2d.model,
       live2dLang: sys.live2d?.lang || "zh_CN",
       live2dModels: sys.live2d?.models || defaultSystemConfig.live2d.models,
+      live2dQuotes: sys.live2d?.quotes || defaultSystemConfig.live2d.quotes,
     };
 
     return c.json({
@@ -1170,6 +1179,7 @@ configRouter.get("/system/admin", requireAdmin, async (c) => {
       live2dModel: sys.live2d?.model || defaultSystemConfig.live2d.model,
       live2dLang: sys.live2d?.lang || "zh_CN",
       live2dModels: sys.live2d?.models || defaultSystemConfig.live2d.models,
+      live2dQuotes: sys.live2d?.quotes || defaultSystemConfig.live2d.quotes,
       aiApiUrl: aiConfig.apiUrl || "https://api.openai.com/v1",
       aiApiKey: hasAiSecret ? "••••••••" : "",
       aiModel: aiConfig.model || "gpt-4o-mini",
@@ -1283,7 +1293,8 @@ configRouter.put("/system", requireAdmin, async (c) => {
       "live2dAdminEnable" in body ||
       "live2dModel" in body ||
       "live2dLang" in body ||
-      "live2dModels" in body;
+      "live2dModels" in body ||
+      "live2dQuotes" in body;
     if (hasLive2d) {
       const existingLive2dRow = await db.query.systemConfigs.findFirst({
         where: eq(schema.systemConfigs.key, "live2d"),
@@ -1298,6 +1309,12 @@ configRouter.put("/system", requireAdmin, async (c) => {
         typeof body.live2dModel === "string" && body.live2dModel.trim()
           ? body.live2dModel.trim()
           : baseLive2d.model;
+      const live2dQuotes =
+        Array.isArray(body.live2dQuotes)
+          ? body.live2dQuotes
+          : typeof body.live2dQuotes === "string"
+          ? body.live2dQuotes.split("\n").map((s: string) => s.trim()).filter(Boolean)
+          : baseLive2d.quotes;
       const live2dConfig = {
         guestEnabled:
           body.live2dGuestEnable !== undefined
@@ -1310,6 +1327,7 @@ configRouter.put("/system", requireAdmin, async (c) => {
         model: live2dModel,
         lang: body.live2dLang || baseLive2d.lang || "zh_CN",
         models: Array.isArray(body.live2dModels) ? body.live2dModels : baseLive2d.models,
+        quotes: live2dQuotes,
       };
       await db
         .insert(schema.systemConfigs)

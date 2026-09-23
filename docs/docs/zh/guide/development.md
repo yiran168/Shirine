@@ -201,18 +201,18 @@ bun run test:server:coverage
 - **特性**：类型安全请求、错误处理、认证令牌管理
 - **使用方式**：所有 API 调用都通过类型化客户端进行
 
-### 共享类型 (@rin/api)
+### 共享类型与 DTO
 
-`@rin/api` 包为客户端和服务端提供共享的 TypeScript 类型：
+Shirine 为客户端和服务端提供清晰完备的 TypeScript 类型与 DTO 契约：
 
-- **位置**：`packages/api/`
-- **用途**：API 契约的端到端类型安全
-- **使用方式**：在客户端和服务端代码中从 `@rin/api` 导入类型
+- **服务端契约**：`server/src/types/dto.ts`
+- **客户端类型**：`client/src/types/` 与 `client/src/services/api.ts`
+- **用途**：API 契约与全站数据模型端到端类型安全
 
 添加新 API 端点时：
-1. 在 `packages/api/src/types.ts` 中定义类型
-2. 在 `server/src/services/` 中实现服务端处理器
-3. 客户端通过共享类型自动获得类型安全
+1. 在 `server/src/types/dto.ts` 中定义请求与响应 DTO
+2. 在 `server/src/routes/` 中实现服务端处理器与校验
+3. 在 `client/src/services/api.ts` 中添加封装方法并使用对应类型
 
 ## 故障排除
 
@@ -267,10 +267,7 @@ bun run dev:setup
 │   │   ├── db/            # 数据库表结构
 │   │   ├── core/          # 路由和核心类型
 │   │   └── utils/         # 工具函数
-│   ├── tests/             # 测试文件
-│   └── package.json
-├── packages/               # 共享包
-│   └── api/                # @rin/api - 共享 API 类型
+├── test/                   # 测试套件 (Bun & Vitest)
 ├── cli/                    # Shirine CLI 工具
 │   ├── bin/               # 薄入口
 │   ├── src/               # 命令、任务、共享工具

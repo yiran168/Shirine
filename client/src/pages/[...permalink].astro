@@ -70,8 +70,13 @@ if (/^\d+$/.test(permalink)) {
 }
 
 const apiBase = resolveApiBase(Astro.request);
-const cookieHeader = Astro.request.headers.get("cookie") || "";
-const authHeader = Astro.request.headers.get("authorization") || "";
+const cookieToken = Astro.cookies.get("shirine_token")?.value;
+const rawCookie = Astro.request.headers.get("cookie") || "";
+const cookieHeader = rawCookie || (cookieToken ? `shirine_token=${cookieToken}` : "");
+let authHeader = Astro.request.headers.get("authorization") || "";
+if (!authHeader && cookieToken) {
+	authHeader = `Bearer ${cookieToken}`;
+}
 
 // Fetch authoritative post detail from backend API first (O(1))
 let dynamicDetail: any = null;
@@ -444,7 +449,7 @@ const jsonLd = {
 				</div>
 			}
 
-            {isLocked || (isEncrypted && (!entry.data.password || entry.data.password.trim().length === 0)) ? (
+            {isLocked ? (
 				<PostUnlockCard
 					client:load
 					postId={dbId || permalink}
@@ -453,15 +458,7 @@ const jsonLd = {
 					lockReason={dynamicDetail?.lockReason || "password_required"}
 					passwordHint={dynamicDetail?.passwordHint || (entry.data as any).passwordHint}
 				/>
-			) : isEncrypted ? (
-                <EncryptedContent
-                    password={entry.data.password!}
-                    scope={scope}
-                    hint={entry.data.passwordHint}
-                >
-                    {Content ? <Content /> : <div class="prose max-w-none text-[var(--on-surface)]" set:html={dynamicHtml} />}
-                </EncryptedContent>
-            ) : Content ? (
+			) : Content ? (
                 <Markdown class="mb-6 onload-animation">
                     <Content />
                 </Markdown>

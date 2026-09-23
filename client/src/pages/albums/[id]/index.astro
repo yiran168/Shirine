@@ -23,10 +23,14 @@ let apiConnected = false;
 const apiBase = resolveApiBase(Astro.request);
 if (apiBase) {
 	try {
-		const headers: Record<string, string> = {};
-		const cookieHeader = Astro.request.headers.get("cookie");
+		const cookieToken = Astro.cookies.get("shirine_token")?.value;
+		const rawCookie = Astro.request.headers.get("cookie") || "";
+		const cookieHeader = rawCookie || (cookieToken ? `shirine_token=${cookieToken}` : "");
 		if (cookieHeader) headers["cookie"] = cookieHeader;
-		const authHeader = Astro.request.headers.get("authorization");
+		let authHeader = Astro.request.headers.get("authorization") || "";
+		if (!authHeader && cookieToken) {
+			authHeader = `Bearer ${cookieToken}`;
+		}
 		if (authHeader) headers["authorization"] = authHeader;
 
 		const res = await fetch(`${apiBase}/albums/${id}`, {
@@ -161,7 +165,7 @@ if (resolvedAlbum.password) {
 			</div>
 		</div>
 
-		<div class:list={["album-detail__gallery", payload && "album-detail__gallery--protected"]}>
+		<div class="album-detail__gallery">
 			{isLocked ? (
 				<PostUnlockCard
 					client:load
@@ -170,15 +174,6 @@ if (resolvedAlbum.password) {
 					requiredPoints={requiredPoints}
 					passwordHint={resolvedAlbum.passwordHint}
 					itemType="album"
-				/>
-			) : payload ? (
-				<ProtectedAlbum
-					payload={payload}
-					scope={scope}
-					hint={resolvedAlbum.passwordHint}
-					layout={resolvedAlbum.layout}
-					columns={resolvedAlbum.columns}
-					client:only="svelte"
 				/>
 			) : (
 				<AlbumGallery

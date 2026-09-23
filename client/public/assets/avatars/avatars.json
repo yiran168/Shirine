@@ -158,5 +158,245 @@
     "prompt": "Pale blonde shaggy hair, silver earrings, stylish dark bomber jacket",
     "url": "/assets/avatars/avatar_20.webp",
     "thumbUrl": "/assets/avatars/avatar_20_thumb.webp"
+  },
+  {
+    "id": 21,
+    "code": "avatar_21",
+    "name": "紫发星眸·神秘",
+    "prompt": "Purple hair with starry eyes, mystical magical girl anime aesthetic",
+    "url": "/assets/avatars/avatar_21.webp",
+    "thumbUrl": "/assets/avatars/avatar_21_thumb.webp"
+  },
+  {
+    "id": 22,
+    "code": "avatar_22",
+    "name": "银灰波浪·清冷",
+    "prompt": "Silvery gray wavy hair, crystalline blue eyes, elegant poised anime portrait",
+    "url": "/assets/avatars/avatar_22.webp",
+    "thumbUrl": "/assets/avatars/avatar_22_thumb.webp"
+  },
+  {
+    "id": 23,
+    "code": "avatar_23",
+    "name": "蓝发侧马尾·元气",
+    "prompt": "Vibrant cobalt blue side ponytail, lively amber eyes, energetic sporty anime heroine",
+    "url": "/assets/avatars/avatar_23.webp",
+    "thumbUrl": "/assets/avatars/avatar_23_thumb.webp"
+  },
+  {
+    "id": 24,
+    "code": "avatar_24",
+    "name": "浅金卷发·贵族",
+    "prompt": "Soft blonde princess curls, emerald green eyes, aristocratic anime dress",
+    "url": "/assets/avatars/avatar_24.webp",
+    "thumbUrl": "/assets/avatars/avatar_24_thumb.webp"
+  },
+  {
+    "id": 25,
+    "code": "avatar_25",
+    "name": "赤发赤瞳·热烈",
+    "prompt": "Fiery crimson red hair, ruby eyes, intense flame warrior anime maiden",
+    "url": "/assets/avatars/avatar_25.webp",
+    "thumbUrl": "/assets/avatars/avatar_25_thumb.webp"
+  },
+  {
+    "id": 26,
+    "code": "avatar_26",
+    "name": "翡翠短发·清新",
+    "prompt": "Emerald mint green short bob, bright teal eyes, fresh spring breeze anime girl",
+    "url": "/assets/avatars/avatar_26.webp",
+    "thumbUrl": "/assets/avatars/avatar_26_thumb.webp"
+  },
+  {
+    "id": 27,
+    "code": "avatar_27",
+    "name": "淡紫双丸子·俏皮",
+    "prompt": "Lilac twin buns, playful smiling expression, pastel street fashion anime girl",
+    "url": "/assets/avatars/avatar_27.webp",
+    "thumbUrl": "/assets/avatars/avatar_27_thumb.webp"
+  },
+  {
+    "id": 28,
+    "code": "avatar_28",
+    "name": "浅粉长直·甜美",
+    "prompt": "Sweet sakura pastel pink silky hair, blossom ribbons, delicate gentle anime portrait",
+    "url": "/assets/avatars/avatar_28.webp",
+    "thumbUrl": "/assets/avatars/avatar_28_thumb.webp"
+  },
+  {
+    "id": 29,
+    "code": "avatar_29",
+    "name": "墨发异色瞳·冷艳",
+    "prompt": "Jet black silky locks, heterochromia gold and blue eyes, cool mysterious beauty",
+    "url": "/assets/avatars/avatar_29.webp",
+    "thumbUrl": "/assets/avatars/avatar_29_thumb.webp"
+  },
+  {
+    "id": 30,
+    "code": "avatar_30",
+    "name": "白金短碎发·帅气",
+    "prompt": "Platinum blonde layered crop, silver stud, charismatic and handsome anime style",
+    "url": "/assets/avatars/avatar_30.webp",
+    "thumbUrl": "/assets/avatars/avatar_30_thumb.webp"
+  },
+  {
+    "id": 31,
+    "code": "avatar_31",
+    "name": "冰蓝长卷发·空灵",
+    "prompt": "Etherial ice blue flowing curls, frosty snowflake hairpin, serene expression",
+    "url": "/assets/avatars/avatar_31.webp",
+    "thumbUrl": "/assets/avatars/avatar_31_thumb.webp"
+  },
+  {
+    "id": 32,
+    "code": "avatar_32",
+    "name": "焦糖色微卷·知性",
+    "prompt": "Caramel brown wavy hair, tortoiseshell spectacles, bookish cafe intellect anime girl",
+    "url": "/assets/avatars/avatar_32.webp",
+    "thumbUrl": "/assets/avatars/avatar_32_thumb.webp"
+  },
+  {
+    "id": 33,
+    "code": "avatar_33",
+    "name": "橘粉半扎发·阳光",
+    "prompt": "Sunset orange and peach half-up hair, warm radiant smile, golden hour glow",
+    "url": "/assets/avatars/avatar_33.webp",
+    "thumbUrl": "/assets/avatars/avatar_33_thumb.webp"
+  },
+  {
+    "id": 34,
+    "code": "avatar_34",
+    "name": "暗紫长发·魔女",
+    "prompt": "Midnight purple flowing hair, gothic rune chokers, captivating sorceress anime girl",
+    "url": "/assets/avatars/avatar_34.webp",
+    "thumbUrl": "/assets/avatars/avatar_34_thumb.webp"
+  },
+  {
+    "id": 35,
+    "code": "avatar_35",
+    "name": "纯白短发·精灵",
+    "prompt": "Pure snowy white pixie cut, pointed elf ears, glowing crystal pendant, whimsical vibe",
+    "url": "/assets/avatars/avatar_35.webp",
+    "thumbUrl": "/assets/avatars/avatar_35_thumb.webp"
+  },
+  {
+    "id": 36,
+    "code": "avatar_36",
+    "name": "青金双马尾·未来",
+    "prompt": "Cyber cyan and gold twin tails, audio visualizer headphones, virtual singer style",
+    "url": "/assets/avatars/avatar_36.webp",
+    "thumbUrl": "/assets/avatars/avatar_36_thumb.webp"
+  },
+  {
+    "id": 37,
+    "code": "avatar_37",
+    "name": "深棕内扣·学妹",
+    "prompt": "Deep mocha bob with neat bangs, sailor uniform collar, adorable junior anime girl",
+    "url": "/assets/avatars/avatar_37.webp",
+    "thumbUrl": "/assets/avatars/avatar_37_thumb.webp"
+  },
+  {
+    "id": 38,
+    "code": "avatar_38",
+    "name": "薄荷绿卷发·森林",
+    "prompt": "Mint green gentle curls, botanical floral hairpins, woodland dryad anime maiden",
+    "url": "/assets/avatars/avatar_38.webp",
+    "thumbUrl": "/assets/avatars/avatar_38_thumb.webp"
+  },
+  {
+    "id": 39,
+    "code": "avatar_39",
+    "name": "浅蓝编发·人鱼",
+    "prompt": "Aquamarine braided side weave, pearl accessories, deep sea mermaid anime princess",
+    "url": "/assets/avatars/avatar_39.webp",
+    "thumbUrl": "/assets/avatars/avatar_39_thumb.webp"
+  },
+  {
+    "id": 40,
+    "code": "avatar_40",
+    "name": "金橙微卷·晚霞",
+    "prompt": "Golden amber twilight curls, warm sun-kissed cheeks, dusk aesthetic anime maiden",
+    "url": "/assets/avatars/avatar_40.webp",
+    "thumbUrl": "/assets/avatars/avatar_40_thumb.webp"
+  },
+  {
+    "id": 41,
+    "code": "avatar_41",
+    "name": "银蓝短发·机甲",
+    "prompt": "Steel silver blue sleek bob, mecha pilot collar, sharp tactical anime girl",
+    "url": "/assets/avatars/avatar_41.webp",
+    "thumbUrl": "/assets/avatars/avatar_41_thumb.webp"
+  },
+  {
+    "id": 42,
+    "code": "avatar_42",
+    "name": "黛紫及腰·梦幻",
+    "prompt": "Dreamy indigo waist-length tresses, luminous butterfly hairclip, fantasy anime heroine",
+    "url": "/assets/avatars/avatar_42.webp",
+    "thumbUrl": "/assets/avatars/avatar_42_thumb.webp"
+  },
+  {
+    "id": 43,
+    "code": "avatar_43",
+    "name": "琥珀浅金·学者",
+    "prompt": "Amber champagne blonde half-ponytail, leather bound tome, academy research anime scholar",
+    "url": "/assets/avatars/avatar_43.webp",
+    "thumbUrl": "/assets/avatars/avatar_43_thumb.webp"
+  },
+  {
+    "id": 44,
+    "code": "avatar_44",
+    "name": "红白发丝·巫女",
+    "prompt": "Crimson and white traditional shrine maiden miko ribbon, sacred bells, serene anime face",
+    "url": "/assets/avatars/avatar_44.webp",
+    "thumbUrl": "/assets/avatars/avatar_44_thumb.webp"
+  },
+  {
+    "id": 45,
+    "code": "avatar_45",
+    "name": "星空紫蓝·银河",
+    "prompt": "Cosmic violet and navy gradient hair, starlight speckles, constellation diadem",
+    "url": "/assets/avatars/avatar_45.webp",
+    "thumbUrl": "/assets/avatars/avatar_45_thumb.webp"
+  },
+  {
+    "id": 46,
+    "code": "avatar_46",
+    "name": "浅墨短发·剑客",
+    "prompt": "Ink black dynamic parted fringe, sword tassel earring, wanderer ronin anime heroine",
+    "url": "/assets/avatars/avatar_46.webp",
+    "thumbUrl": "/assets/avatars/avatar_46_thumb.webp"
+  },
+  {
+    "id": 47,
+    "code": "avatar_47",
+    "name": "茶色卷发·猫系",
+    "prompt": "Warm milk tea curls, fluffy brown cat ear headband, charming fanged smile",
+    "url": "/assets/avatars/avatar_47.webp",
+    "thumbUrl": "/assets/avatars/avatar_47_thumb.webp"
+  },
+  {
+    "id": 48,
+    "code": "avatar_48",
+    "name": "珊瑚橙长发·海洋",
+    "prompt": "Coral sunset flowing waves, seashell clip, tropical seaside breeze anime beauty",
+    "url": "/assets/avatars/avatar_48.webp",
+    "thumbUrl": "/assets/avatars/avatar_48_thumb.webp"
+  },
+  {
+    "id": 49,
+    "code": "avatar_49",
+    "name": "奶灰挑染·朋克",
+    "prompt": "Ash gray layered shaggy hair with electric pink highlights, punk collar and pins",
+    "url": "/assets/avatars/avatar_49.webp",
+    "thumbUrl": "/assets/avatars/avatar_49_thumb.webp"
+  },
+  {
+    "id": 50,
+    "code": "avatar_50",
+    "name": "暮色黑发·星光",
+    "prompt": "Silky obsidian dark hair, glimmering starlight eyes, elegant night sky gown",
+    "url": "/assets/avatars/avatar_50.webp",
+    "thumbUrl": "/assets/avatars/avatar_50_thumb.webp"
   }
 ]

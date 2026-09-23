@@ -49,12 +49,18 @@ function getToken(): string | null {
 export function setToken(token: string) {
   if (typeof window !== "undefined") {
     localStorage.setItem("shirine_token", token);
+    try {
+      document.cookie = `shirine_token=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
+    } catch {}
   }
 }
 
 export function removeToken() {
   if (typeof window !== "undefined") {
     localStorage.removeItem("shirine_token");
+    try {
+      document.cookie = "shirine_token=; path=/; max-age=0; SameSite=Lax";
+    } catch {}
   }
 }
 

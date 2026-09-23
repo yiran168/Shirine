@@ -115,13 +115,13 @@ uploadRouter.get("/", requireAdmin, async (c) => {
   }
   try {
     const listed = await c.env.STORAGE.list({ limit: 100 });
-    const publicUrlBase = c.env.PUBLIC_R2_URL?.replace(/\/$/, "") || "";
+    const publicUrlBase = (c.env.PUBLIC_R2_URL || "https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev").replace(/\/$/, "");
     const objects = listed.objects.map((obj) => ({
       key: obj.key,
       size: obj.size,
       uploaded: obj.uploaded ? new Date(obj.uploaded).toISOString() : new Date().toISOString(),
       httpMetadata: obj.httpMetadata,
-      url: publicUrlBase ? `${publicUrlBase}/${obj.key}` : `/api/blob/${encodeURIComponent(obj.key)}`,
+      url: `${publicUrlBase}/${obj.key}`,
     }));
     return c.json({ success: true, objects });
   } catch (err: any) {
@@ -213,9 +213,8 @@ uploadRouter.post("/", requireAdmin, async (c) => {
         },
       });
 
-      const publicUrl = c.env.PUBLIC_R2_URL
-        ? `${c.env.PUBLIC_R2_URL.replace(/\/$/, "")}/${key}`
-        : `/api/blob/${encodeURIComponent(key)}`;
+      const publicUrlBase = (c.env.PUBLIC_R2_URL || "https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev").replace(/\/$/, "");
+      const publicUrl = `${publicUrlBase}/${key}`;
 
       return c.json({
         success: true,

@@ -275,6 +275,9 @@
     if (e.data.lang) {
       currentLang = e.data.lang;
     }
+    if (e.data.quotes && Array.isArray(e.data.quotes) && e.data.quotes.length > 0) {
+      quotesByLang[currentLang || 'zh_CN'] = e.data.quotes;
+    }
     var config = e.data.config;
     var configKey = JSON.stringify(config);
 

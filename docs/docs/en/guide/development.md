@@ -201,18 +201,18 @@ The project uses a custom HTTP client instead of Eden for type-safe API communic
 - **Features**: Type-safe requests, error handling, auth token management
 - **Usage**: All API calls go through the typed client
 
-### Shared Types (@rin/api)
+### Shared Types & DTOs
 
-The `@rin/api` package provides shared TypeScript types for both client and server:
+Shirine provides robust TypeScript types and DTO contracts across client and server:
 
-- **Location**: `packages/api/`
-- **Purpose**: End-to-end type safety for API contracts
-- **Usage**: Import types from `@rin/api` in both client and server code
+- **Server Contracts**: `server/src/types/dto.ts`
+- **Client Types**: `client/src/types/` and `client/src/services/api.ts`
+- **Purpose**: End-to-end type safety for API contracts and full-stack data models
 
 When adding new API endpoints:
-1. Define types in `packages/api/src/types.ts`
-2. Implement server handler in `server/src/services/`
-3. Client automatically gets type safety through shared types
+1. Define request and response types in `server/src/types/dto.ts`
+2. Implement server handlers and validation in `server/src/routes/`
+3. Add typed helper methods in `client/src/services/api.ts`
 
 ## Troubleshooting
 
@@ -267,10 +267,7 @@ GitHub OAuth needs to be configured for local development:
 │   │   ├── db/            # Database schema
 │   │   ├── core/          # Router and core types
 │   │   └── utils/         # Utility functions
-│   ├── tests/             # Test files
-│   └── package.json
-├── packages/               # Shared packages
-│   └── api/                # @rin/api - Shared API types
+├── test/                   # Test suite (Bun & Vitest)
 ├── cli/                    # Shirine CLI tool
 │   ├── bin/               # Thin executable entrypoints
 │   ├── src/               # Commands, tasks, shared helpers

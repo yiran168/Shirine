@@ -20,6 +20,6 @@
   "vars": {
     // Note: For production deployments, configure via `wrangler secret put JWT_SECRET`
     "JWT_SECRET": "dev_fallback_jwt_secret_please_set_in_wrangler_secrets",
-    "PUBLIC_R2_URL": ""
+    "PUBLIC_R2_URL": "https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev"
   }
 }

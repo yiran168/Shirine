@@ -235,10 +235,34 @@
     id: 0,
     title: "",
     slug: "",
+    icon: "",
     content: "",
     status: "published",
   });
   let pageEditorTab = $state<"edit" | "preview">("edit");
+
+  const BUILTIN_PAGE_ICONS = [
+    { name: "article", icon: "material-symbols:article-outline-rounded", label: "📄 文章" },
+    { name: "info", icon: "material-symbols:info-outline-rounded", label: "ℹ️ 关于" },
+    { name: "code", icon: "material-symbols:code-rounded", label: "💻 项目" },
+    { name: "devices", icon: "material-symbols:devices-rounded", label: "📱 设备" },
+    { name: "psychology", icon: "material-symbols:psychology-outline-rounded", label: "🧠 技能" },
+    { name: "explore", icon: "material-symbols:explore-outline-rounded", label: "🧭 罗盘" },
+    { name: "movie", icon: "material-symbols:movie-outline-rounded", label: "🎬 番剧" },
+    { name: "photo", icon: "material-symbols:photo-library-outline-rounded", label: "🖼️ 相册" },
+    { name: "chat", icon: "material-symbols:chat-bubble-outline-rounded", label: "💬 动态" },
+    { name: "link", icon: "material-symbols:link-rounded", label: "🔗 友链" },
+    { name: "history", icon: "material-symbols:history-rounded", label: "⏳ 时间线" },
+    { name: "menu_book", icon: "material-symbols:menu-book-outline-rounded", label: "📖 手册" },
+    { name: "folder", icon: "material-symbols:folder-outline-rounded", label: "📁 分类" },
+    { name: "tag", icon: "material-symbols:tag-rounded", label: "🏷️ 标签" },
+    { name: "music", icon: "material-symbols:music-note-rounded", label: "🎵 音乐" },
+    { name: "star", icon: "material-symbols:star-outline-rounded", label: "⭐ 收藏" },
+    { name: "mail", icon: "material-symbols:mail-outline-rounded", label: "✉️ 联系" },
+    { name: "rss", icon: "material-symbols:rss-feed-rounded", label: "📡 订阅" },
+    { name: "help", icon: "material-symbols:help-outline-rounded", label: "❓ 帮助" },
+    { name: "settings", icon: "material-symbols:settings-outline-rounded", label: "⚙️ 设置" },
+  ];
 
   // Friends State
   let friends = $state<any[]>([]);
@@ -322,6 +346,7 @@
     live2dAdminEnable: true,
     live2dModel: "/pio/models/NOIR/noir.model3.json",
     live2dLang: "zh_CN",
+    live2dQuotes: "欢迎来到 Shirine！\n今天也是美好的一天～\n有什么想和我聊聊的吗？\n看文章累了就伸个懒腰吧！\n点击右下角按钮可以返回顶部哦～\n我会一直在这里陪着你的！",
     live2dModels: [
       { name: "NOIR (默认)", url: "/pio/models/NOIR/noir.model3.json" },
       { name: "Hiyori", url: "https://fastly.jsdelivr.net/gh/evpt/live2d-models/hiyori/hiyori.model3.json" },
@@ -362,8 +387,32 @@
   let draggedTimelineIndex = $state<number | null>(null);
 
   // Media Library state
-  let mediaFiles = $state<Array<{ key: string; size: number; uploaded: string; url: string; httpMetadata?: any }>>([]);
-  let mediaFilter = $state<"all" | "image" | "audio">("all");
+  const R2_PUBLIC_BASE = "https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev";
+
+  const PRESET_MEDIA: Array<{ key: string; size: number; uploaded: string; url: string; isPreset?: boolean }> = [
+    // Audio Presets
+    { key: "audio/dazbee.mp3", size: 4521000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/dazbee.mp3`, isPreset: true },
+    { key: "audio/hitori.mp3", size: 5120000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/hitori.mp3`, isPreset: true },
+    { key: "audio/xryx.mp3", size: 4890000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/xryx.mp3`, isPreset: true },
+    { key: "audio/cl.mp3", size: 4760000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/cl.mp3`, isPreset: true },
+    { key: "audio/Baka.wav", size: 245000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Baka.wav`, isPreset: true },
+    { key: "audio/Ciallo.wav", size: 312000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Ciallo.wav`, isPreset: true },
+    { key: "audio/Ehe.wav", size: 198000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Ehe.wav`, isPreset: true },
+    { key: "audio/Imoi.wav", size: 220000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Imoi.wav`, isPreset: true },
+    { key: "audio/Zako.wav", size: 280000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Zako.wav`, isPreset: true },
+    // Image / Cover / Banner Presets
+    { key: "images/banner/desktop/1.webp", size: 845000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/images/banner/desktop/1.webp`, isPreset: true },
+    { key: "images/banner/mobile/1.webp", size: 412000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/images/banner/mobile/1.webp`, isPreset: true },
+    { key: "images/demo-avatar.webp", size: 688000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/images/demo-avatar.webp`, isPreset: true },
+    { key: "anime/lkls.webp", size: 320000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/lkls.webp`, isPreset: true },
+    { key: "anime/rynh.webp", size: 310000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/rynh.webp`, isPreset: true },
+    { key: "anime/laxxx.webp", size: 340000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/laxxx.webp`, isPreset: true },
+    { key: "anime/tz1.webp", size: 290000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/tz1.webp`, isPreset: true },
+    { key: "anime/cmmn.webp", size: 330000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/cmmn.webp`, isPreset: true },
+  ];
+
+  let mediaFiles = $state<Array<{ key: string; size: number; uploaded: string; url: string; isPreset?: boolean; httpMetadata?: any }>>([]);
+  let mediaFilter = $state<"all" | "image" | "audio" | "preset" | "uploaded">("all");
   let mediaSearch = $state("");
   let mediaUploading = $state(false);
 
@@ -373,6 +422,10 @@
       list = list.filter((f) => /\.(png|jpe?g|webp|gif|svg|avif|ico)$/i.test(f.key) || f.httpMetadata?.contentType?.startsWith("image/"));
     } else if (mediaFilter === "audio") {
       list = list.filter((f) => /\.(mp3|flac|wav|ogg|m4a|aac)$/i.test(f.key) || f.httpMetadata?.contentType?.startsWith("audio/"));
+    } else if (mediaFilter === "preset") {
+      list = list.filter((f) => f.isPreset);
+    } else if (mediaFilter === "uploaded") {
+      list = list.filter((f) => !f.isPreset);
     }
     if (mediaSearch.trim()) {
       const q = mediaSearch.trim().toLowerCase();
@@ -1637,11 +1690,18 @@
   async function loadMediaLibrary() {
     try {
       const res = await mediaApi.list();
-      if (res.success) {
-        mediaFiles = res.objects || res.data || [];
-      }
+      const rawList = res.success ? (res.objects || res.data || []) : [];
+      const uploadedList = rawList.map((f: any) => ({
+        ...f,
+        url: f.url?.startsWith("http") ? f.url : `${R2_PUBLIC_BASE}/${f.key.replace(/^\/+/, "")}`,
+        isPreset: false,
+      }));
+      const uploadedKeys = new Set(uploadedList.map((f: any) => f.key));
+      const presets = PRESET_MEDIA.filter((p) => !uploadedKeys.has(p.key));
+      mediaFiles = [...uploadedList, ...presets];
     } catch (err: any) {
       console.error(err);
+      mediaFiles = [...PRESET_MEDIA];
     }
   }
 
@@ -4280,6 +4340,23 @@
                     </div>
                   {/each}
                 </div>
+
+                <!-- Live2D Quotes / Custom Dialogues -->
+                <div class="mt-4 pt-3 border-t border-[var(--outline-variant)]/20 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <label class="text-xs font-bold text-primary">Live2D 看板娘互动台词设定 (每行一句)</label>
+                    <span class="text-[11px] text-[var(--on-surface-variant)]">点击看板娘或停留时随机提示</span>
+                  </div>
+                  <textarea
+                    bind:value={systemConfigState.live2dQuotes}
+                    rows="5"
+                    placeholder="欢迎来到 Shirine！&#10;今天也是美好的一天～&#10;看文章累了就伸个懒腰吧！"
+                    class="w-full p-3 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs font-mono outline-none focus:border-primary leading-relaxed"
+                  ></textarea>
+                  <p class="text-[11px] text-[var(--on-surface-variant)]">
+                    支持多行文本，访客在前台与看板娘交互时将随机朗读或弹出气泡台词。保存设置后即刻生效。
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -5273,23 +5350,37 @@
                 <button
                   type="button"
                   onclick={() => (mediaFilter = "all")}
-                  class="px-3 py-1 rounded-lg transition-colors {mediaFilter === 'all' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                  class="px-2.5 py-1 rounded-lg transition-colors {mediaFilter === 'all' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
                 >
                   全部 ({mediaFiles.length})
                 </button>
                 <button
                   type="button"
                   onclick={() => (mediaFilter = "image")}
-                  class="px-3 py-1 rounded-lg transition-colors {mediaFilter === 'image' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                  class="px-2.5 py-1 rounded-lg transition-colors {mediaFilter === 'image' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
                 >
                   图片
                 </button>
                 <button
                   type="button"
                   onclick={() => (mediaFilter = "audio")}
-                  class="px-3 py-1 rounded-lg transition-colors {mediaFilter === 'audio' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                  class="px-2.5 py-1 rounded-lg transition-colors {mediaFilter === 'audio' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
                 >
                   音频
+                </button>
+                <button
+                  type="button"
+                  onclick={() => (mediaFilter = "uploaded")}
+                  class="px-2.5 py-1 rounded-lg transition-colors {mediaFilter === 'uploaded' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                >
+                  云端上传
+                </button>
+                <button
+                  type="button"
+                  onclick={() => (mediaFilter = "preset")}
+                  class="px-2.5 py-1 rounded-lg transition-colors {mediaFilter === 'preset' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                >
+                  全站预设
                 </button>
               </div>
 
@@ -5317,8 +5408,8 @@
                     {#if isImage}
                       <img src={file.url} alt={file.key} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
                     {:else if isAudio}
-                      <div class="flex flex-col items-center gap-1.5 text-primary p-2">
-                        <span class="text-3xl">🎵</span>
+                      <div class="flex flex-col items-center gap-1.5 text-primary p-2 w-full">
+                        <span class="text-2xl">🎵</span>
                         <span class="text-[10px] font-mono text-[var(--on-surface-variant)] truncate max-w-[100px]">{file.key.split('.').pop()?.toUpperCase()}</span>
                       </div>
                     {:else}
@@ -5327,6 +5418,9 @@
                         <span class="text-[10px] font-mono uppercase">{file.key.split('.').pop()}</span>
                       </div>
                     {/if}
+                    <span class="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-semibold {file.isPreset ? 'bg-secondary/80 text-on-secondary' : 'bg-primary/80 text-on-primary'} backdrop-blur-xs">
+                      {file.isPreset ? '预设' : 'R2 云端'}
+                    </span>
                     <span class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/60 text-white text-[9px] font-mono backdrop-blur-xs">
                       {formatFileSize(file.size)}
                     </span>
@@ -5336,6 +5430,9 @@
                     <div>
                       <p class="text-xs font-semibold text-[var(--on-surface)] truncate" title={file.key}>{file.key.split("/").pop() || file.key}</p>
                       <p class="text-[10px] text-[var(--on-surface-variant)] font-mono truncate mt-0.5" title={file.url}>{file.url}</p>
+                      {#if isAudio}
+                        <audio controls src={file.url} preload="none" class="w-full mt-2 h-7 rounded"></audio>
+                      {/if}
                     </div>
 
                     <div class="mt-3 pt-2 border-t border-[var(--outline-variant)]/10 flex items-center justify-between text-xs">
@@ -5345,16 +5442,20 @@
                         class="text-primary hover:underline text-[11px] font-medium flex items-center gap-1"
                         title="复制外链"
                       >
-                        <span>📋 复制</span>
+                        <span>📋 复制 URL</span>
                       </button>
-                      <button
-                        type="button"
-                        onclick={() => deleteMediaFile(file.key)}
-                        class="text-error hover:underline text-[11px] font-medium"
-                        title="从 R2 彻底删除"
-                      >
-                        删除
-                      </button>
+                      {#if !file.isPreset}
+                        <button
+                          type="button"
+                          onclick={() => deleteMediaFile(file.key)}
+                          class="text-error hover:underline text-[11px] font-medium"
+                          title="从 R2 彻底删除"
+                        >
+                          删除
+                        </button>
+                      {:else}
+                        <span class="text-[10px] text-[var(--on-surface-variant)]">内置</span>
+                      {/if}
                     </div>
                   </div>
                 </div>
@@ -5569,6 +5670,198 @@ npm install
 :::
 
 ::spoiler[这是一段鼠标滑过才显示的剧透遮罩文字]</code></pre>
+            </div>
+
+            <!-- Steps Flow -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>🪜 序号导轨步骤条 (Steps Flow)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard(':::steps{title="部署流程"}\n1. **安装项目依赖**\n\n   在终端执行 `bun install` 安装所有必须的运行时模块。\n\n2. **配置环境变量**\n\n   根据 `.env.example` 填入 Cloudflare D1、R2 凭证与鉴权密钥。\n\n3. **执行发布构建**\n\n   运行 `bun run build` 生成生产就绪静态文件并推送到 Cloudflare Pages。\n:::')}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制步骤条语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">将有序列表渲染为 Material 3 Expressive 序号导轨流，适合撰写环境配置、安装教程与工作流。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::steps&#123;title="部署流程"&#125;
+1. **安装项目依赖**
+
+   在终端执行 `bun install` 安装所有必须的运行时模块。
+
+2. **配置环境变量**
+
+   根据 `.env.example` 填入 Cloudflare D1、R2 凭证与鉴权密钥。
+
+3. **执行发布构建**
+
+   运行 `bun run build` 生成生产就绪静态文件并推送到 Cloudflare Pages。
+:::</code></pre>
+            </div>
+
+            <!-- File Tree -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>🌲 交互式目录树 (File Tree)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard(':::file-tree{title="Shirine 源码目录结构" icon="colored"}\n- client/\n  - src/\n    - components/\n      - PostCard.astro\n      - Header.astro\n    - content/\n      - posts/ # 博客正文 Markdown\n    - styles/\n  - public/\n    - favicon.svg\n- server/\n  - src/\n    - routes/\n- wrangler.jsonc\n:::')}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制目录树语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">使用 Markdown 嵌套列表或代码围栏即可生成带多彩图标的可折叠项目目录树。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::file-tree&#123;title="Shirine 源码目录结构" icon="colored"&#125;
+- client/
+  - src/
+    - components/
+      - PostCard.astro
+      - Header.astro
+    - content/
+      - posts/ # 博客正文 Markdown
+    - styles/
+  - public/
+    - favicon.svg
+- server/
+  - src/
+    - routes/
+- wrangler.jsonc
+:::</code></pre>
+            </div>
+
+            <!-- Artplayer & Audio Reader -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>🎥 Artplayer 视频播放器与 Audio Reader 行内朗读</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard('::artplayer{src="https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev/video/demo.mp4" title="Shirine 演示视频" preload="auto"}\n\n:audio-reader[试听《口笛で愛は歌えない》音频片段]{src="https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev/audio/dazbee.mp3"}')}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制音视频语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">Shirine 原生支持接入 R2 直链的 HTML5 原生极速播放器与紧凑型行内发音朗读器。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>::artplayer&#123;src="https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev/video/demo.mp4" title="Shirine 演示视频" preload="auto"&#125;
+
+:audio-reader[试听《口笛で愛は歌えない》音频片段]&#123;src="https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev/audio/dazbee.mp3"&#125;</code></pre>
+            </div>
+
+            <!-- GitHub Card & Field Group -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>🐙 GitHub 仓库卡片与参数属性清单 (Field Cards)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard('::github{repo="yiran168/Shirine"}\n\n:::: field-group\n\n::: field title\n@type string\n@required\n\n博文或页面的主标题，将渲染在文章卡片与顶部 AppBar 中。\n:::\n\n::: field draft\n@type boolean\n@default false\n@optional\n\n是否存为草稿。当设为 true 时，仅管理员登录后可见，普通访客不可访问。\n:::\n\n::::')}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制卡片语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">一行代码自动拉取并渲染 GitHub 仓库信息，以及编写 API 文档专用的结构化参数属性卡片。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>::github&#123;repo="yiran168/Shirine"&#125;
+
+:::: field-group
+
+::: field title
+@type string
+@required
+
+博文或页面的主标题，将渲染在文章卡片与顶部 AppBar 中。
+:::
+
+::: field draft
+@type boolean
+@default false
+@optional
+
+是否存为草稿。当设为 true 时，仅管理员登录后可见，普通访客不可访问。
+:::
+
+::::</code></pre>
+            </div>
+
+            <!-- Annotations & Marker Highlights -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>🏷️ 荧光笔高亮与悬浮术语注解 (Marker & Annotations)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard('Shirine 采用了现代化 Material 3 动态取色算法 [+m3e]。\n\n[+m3e]:\n  Material 3 Expressive 设计规范，根据主色相自动生成全套对比度适配的色彩变量。\n\n==主题主色荧光标记==\n==错误警示标记=={.error}\n==实用技巧标记=={.tip}\n==第三强调色标记=={.tertiary}')}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制高亮与注解语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">支持 4 种语义的荧光笔高亮标注，以及鼠标悬停即刻弹出浮层解释的行内术语注解。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>Shirine 采用了现代化 Material 3 动态取色算法 [+m3e]。
+
+[+m3e]:
+  Material 3 Expressive 设计规范，根据主色相自动生成全套对比度适配的色彩变量。
+
+==主题主色荧光标记==
+==错误警示标记==&#123;.error&#125;
+==实用技巧标记==&#123;.tip&#125;
+==第三强调色标记==&#123;.tertiary&#125;</code></pre>
+            </div>
+
+            <!-- Multi-tab Sync & Accordion FAQ -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>❓ 手风琴问答组与同步代码选项卡 (Accordion & Option Groups)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard(':::collapse[❓ 常见问题 1：全站多媒体如何直传 Cloudflare R2？]\n配置 Cloudflare R2 绑定凭证并在 `wrangler.jsonc` 中指定 `PUBLIC_R2_URL`，系统上传的所有图片、音频与预设文件均全量使用 R2 CDN 直链。\n:::\n\n:::collapse[❓ 常见问题 2：为什么管理员无需输入密码或积分即可直读加密内容？]\nShirine 现已全面升级权限流：当检测到当前访客具有管理员（admin / superadmin）身份时，SSR 端自动透传特权直出完整正文，无需解密密码或扣除积分！\n:::\n\n::: tabs#package-manager\n\n@tab:active pnpm#pnpm\n```bash\npnpm install\npnpm dev\n```\n\n@tab Bun#bun\n```bash\nbun install\nbun dev\n```\n\n@tab npm#npm\n```bash\nnpm install\nnpm run dev\n```\n\n:::')}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制问答与选项卡语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">带有记忆能力的多选项卡，以及可自由折叠展开的手风琴问答列表。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::collapse[❓ 常见问题 1：全站多媒体如何直传 Cloudflare R2？]
+配置 Cloudflare R2 绑定凭证并在 `wrangler.jsonc` 中指定 `PUBLIC_R2_URL`，系统上传的所有图片、音频与预设文件均全量使用 R2 CDN 直链。
+:::
+
+:::collapse[❓ 常见问题 2：为什么管理员无需输入密码或积分即可直读加密内容？]
+Shirine 现已全面升级权限流：当检测到当前访客具有管理员（admin / superadmin）身份时，SSR 端自动透传特权直出完整正文，无需解密密码或扣除积分！
+:::
+
+::: tabs#package-manager
+
+@tab:active pnpm#pnpm
+```bash
+pnpm install
+pnpm dev
+```
+
+@tab Bun#bun
+```bash
+bun install
+bun dev
+```
+
+@tab npm#npm
+```bash
+npm install
+npm run dev
+```
+
+:::</code></pre>
             </div>
           </div>
         {/if}
@@ -6071,7 +6364,7 @@ npm install
         </div>
 
         <div class="flex-1 overflow-y-auto py-4 space-y-4 pr-2">
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="text-xs font-semibold block mb-1">页面标题 *</label>
               <input type="text" bind:value={pageForm.title} placeholder="例如：关于我们" class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
@@ -6080,9 +6373,60 @@ npm install
               <label class="text-xs font-semibold block mb-1">访问路径 (Slug) *</label>
               <input type="text" bind:value={pageForm.slug} placeholder="例如：about" class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono" />
             </div>
+          </div>
+
+          <!-- Iconify Picker Section -->
+          <div class="p-3.5 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-primary flex items-center gap-1.5">
+                <span>🎨 页面导航图标 (Iconify)</span>
+                {#if pageForm.icon}
+                  <span class="px-2 py-0.5 rounded-md bg-primary/10 text-primary font-mono text-[11px] font-semibold">{pageForm.icon}</span>
+                {/if}
+              </label>
+              <a
+                href="https://icon-sets.iconify.design/material-symbols/"
+                target="_blank"
+                rel="noreferrer"
+                class="text-[11px] text-primary hover:underline flex items-center gap-1"
+                title="在新窗口查阅 Material Symbols 官方全量图标名"
+              >
+                <span>查询 Material Symbols 全量图标库 ↗</span>
+              </a>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <input
+                type="text"
+                bind:value={pageForm.icon}
+                placeholder="例如: material-symbols:article-outline-rounded"
+                class="flex-1 px-3 py-1.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs font-mono outline-none focus:border-primary"
+              />
+              {#if pageForm.icon}
+                <button
+                  type="button"
+                  onclick={() => (pageForm.icon = "")}
+                  class="px-2.5 py-1.5 rounded-xl border border-[var(--outline-variant)]/30 text-xs text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)]"
+                >
+                  清除
+                </button>
+              {/if}
+            </div>
+
             <div>
-              <label class="text-xs font-semibold block mb-1">导航图标 (Iconify)</label>
-              <input type="text" bind:value={pageForm.icon} placeholder="material-symbols:article-outline-rounded" class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono" />
+              <div class="text-[11px] text-[var(--on-surface-variant)] mb-1.5 font-medium">常用 Material Symbols 图标（点击一键选用）：</div>
+              <div class="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto pr-1">
+                {#each BUILTIN_PAGE_ICONS as item}
+                  <button
+                    type="button"
+                    onclick={() => (pageForm.icon = item.icon)}
+                    class="px-2.5 py-1 rounded-lg text-xs flex items-center gap-1 transition-all {pageForm.icon === item.icon ? 'bg-primary text-on-primary font-bold shadow-xs' : 'bg-[var(--surface)] hover:bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] border border-[var(--outline-variant)]/20'}"
+                    title={item.icon}
+                  >
+                    <span>{item.label}</span>
+                  </button>
+                {/each}
+              </div>
             </div>
           </div>
 
