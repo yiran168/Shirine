@@ -15,6 +15,7 @@ export const defaultSiteConfig = {
     subtitle: "A Material 3 Expressive dynamic blog",
     lang: "zh_CN",
     timeZone: "Asia/Shanghai",
+    publicR2Url: "",
     topAppBar: { contentAlign: "center" },
     displaySettings: {
       colorStyle: true,
@@ -577,6 +578,7 @@ export const defaultSystemConfig = {
     apiKey: "",
     model: "gpt-4o-mini",
   },
+  publicR2Url: "",
 };
 
 export function deepMerge<T extends Record<string, any>>(target: T, source: any): T {
@@ -623,9 +625,29 @@ configRouter.get("/site", async (c) => {
     }
 
     const flatSite = (merged as any).site || {};
+    const r2Row = await db.query.siteConfigs.findFirst({
+      where: eq(schema.siteConfigs.key, "publicR2Url"),
+    });
+    let publicR2Url = "";
+    if (r2Row && r2Row.value) {
+      try {
+        const parsed = JSON.parse(r2Row.value);
+        publicR2Url = typeof parsed === "string" ? parsed : (parsed?.url || parsed?.publicR2Url || r2Row.value);
+      } catch {
+        publicR2Url = r2Row.value;
+      }
+    }
+    const effectivePublicR2Url =
+      (typeof publicR2Url === "string" && publicR2Url ? publicR2Url : "") ||
+      (typeof (merged as any).publicR2Url === "string" ? (merged as any).publicR2Url : "") ||
+      (typeof flatSite.publicR2Url === "string" ? flatSite.publicR2Url : "") ||
+      c.env.PUBLIC_R2_URL ||
+      "";
+
     const responseData = {
       ...flatSite,
       ...merged,
+      publicR2Url: effectivePublicR2Url,
       title: flatSite.title,
       subtitle: flatSite.subtitle,
     };
@@ -640,6 +662,7 @@ configRouter.get("/site", async (c) => {
     const defaultData = {
       ...flatDefault,
       ...defaultSiteConfig,
+      publicR2Url: c.env.PUBLIC_R2_URL || "",
       title: flatDefault.title,
       subtitle: flatDefault.subtitle,
     };
@@ -765,6 +788,11 @@ configRouter.put("/site", requireAdmin, async (c) => {
         }
       }
 
+      if (body.publicR2Url !== undefined) {
+        const rawUrl = typeof body.publicR2Url === "string" ? body.publicR2Url.trim() : "";
+        siteUpdates.publicR2Url = rawUrl ? sanitizeUrl(rawUrl).replace(/\/$/, "") : "";
+      }
+
       const updatedSite = deepMerge(baseSite, siteUpdates);
       await db
         .insert(schema.siteConfigs)
@@ -776,6 +804,23 @@ configRouter.put("/site", requireAdmin, async (c) => {
         .onConflictDoUpdate({
           target: schema.siteConfigs.key,
           set: { value: JSON.stringify(updatedSite), updatedAt: new Date() },
+        });
+    }
+
+    // 1.5 publicR2Url standalone update (persisted directly to D1 site_configs)
+    if ("publicR2Url" in body) {
+      const rawUrl = typeof body.publicR2Url === "string" ? body.publicR2Url.trim() : "";
+      const publicR2Url = rawUrl ? sanitizeUrl(rawUrl).replace(/\/$/, "") : "";
+      await db
+        .insert(schema.siteConfigs)
+        .values({
+          key: "publicR2Url",
+          value: JSON.stringify(publicR2Url),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.siteConfigs.key,
+          set: { value: JSON.stringify(publicR2Url), updatedAt: new Date() },
         });
     }
 
@@ -1150,6 +1195,22 @@ configRouter.get("/system/admin", requireAdmin, async (c) => {
     const aiConfig = (sys as any).ai_config || defaultSystemConfig.ai_config;
     const hasAiSecret = Boolean(aiConfig.apiKey);
 
+    const r2Row = await db.query.siteConfigs.findFirst({
+      where: eq(schema.siteConfigs.key, "publicR2Url"),
+    });
+    let publicR2Url = "";
+    if (r2Row && r2Row.value) {
+      try {
+        const parsed = JSON.parse(r2Row.value);
+        publicR2Url = typeof parsed === "string" ? parsed : (parsed?.url || parsed?.publicR2Url || r2Row.value);
+      } catch {
+        publicR2Url = r2Row.value;
+      }
+    }
+    if (!publicR2Url) {
+      publicR2Url = (sys as any).publicR2Url || c.env.PUBLIC_R2_URL || "";
+    }
+
     const adminSys = {
       checkin_rule: sys.checkin_rule,
       turnstile: {
@@ -1184,6 +1245,7 @@ configRouter.get("/system/admin", requireAdmin, async (c) => {
       aiApiKey: hasAiSecret ? "••••••••" : "",
       aiModel: aiConfig.model || "gpt-4o-mini",
       defaultLang: sys.i18n?.defaultLang || "zh_CN",
+      publicR2Url: publicR2Url || "",
     };
 
     return c.json({
@@ -1403,7 +1465,36 @@ configRouter.put("/system", requireAdmin, async (c) => {
         });
     }
 
-    if (hasCheckin || hasTurnstile || hasLive2d || ("defaultLang" in body) || hasAi) {
+    // 6. publicR2Url: persist custom R2 public domain to D1 site_configs and system_configs
+    if ("publicR2Url" in body) {
+      const rawUrl = typeof body.publicR2Url === "string" ? body.publicR2Url.trim() : "";
+      const publicR2Url = rawUrl ? sanitizeUrl(rawUrl).replace(/\/$/, "") : "";
+      await db
+        .insert(schema.siteConfigs)
+        .values({
+          key: "publicR2Url",
+          value: JSON.stringify(publicR2Url),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.siteConfigs.key,
+          set: { value: JSON.stringify(publicR2Url), updatedAt: new Date() },
+        });
+
+      await db
+        .insert(schema.systemConfigs)
+        .values({
+          key: "publicR2Url",
+          value: JSON.stringify(publicR2Url),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.systemConfigs.key,
+          set: { value: JSON.stringify(publicR2Url), updatedAt: new Date() },
+        });
+    }
+
+    if (hasCheckin || hasTurnstile || hasLive2d || ("defaultLang" in body) || hasAi || ("publicR2Url" in body)) {
       return c.json({ success: true, message: "System configuration saved successfully" });
     }
 

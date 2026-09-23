@@ -1,10 +1,71 @@
 import { Hono } from "hono";
+import { eq } from "drizzle-orm";
 import type { Env, Variables } from "../types";
+import { getDb, schema } from "../db";
 import { requireAdmin } from "../core/middleware";
 import { stripExifFromBuffer } from "../utils/exif";
 import { handleBlobStream } from "../core/blob-handler";
 
 export const uploadRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+/**
+ * Resolves the public R2 access base URL.
+ * Priority: D1 site_configs (publicR2Url / site.publicR2Url) -> D1 system_configs -> c.env.PUBLIC_R2_URL -> default fallback.
+ */
+export async function getPublicR2Url(env: Env): Promise<string> {
+  try {
+    if (env.DB) {
+      const db = getDb(env.DB);
+      // 1. Try D1 site_configs (key 'publicR2Url')
+      const r2Row = await db.query.siteConfigs.findFirst({
+        where: eq(schema.siteConfigs.key, "publicR2Url"),
+      });
+      if (r2Row && r2Row.value) {
+        let val: any = r2Row.value;
+        try {
+          const parsed = JSON.parse(r2Row.value);
+          val = typeof parsed === "string" ? parsed : (parsed?.url || parsed?.publicR2Url || r2Row.value);
+        } catch {}
+        if (typeof val === "string" && val.trim().length > 0) {
+          return val.trim().replace(/\/$/, "");
+        }
+      }
+
+      // 2. Try D1 site_configs (key 'site')
+      const siteRow = await db.query.siteConfigs.findFirst({
+        where: eq(schema.siteConfigs.key, "site"),
+      });
+      if (siteRow && siteRow.value) {
+        try {
+          const parsed = JSON.parse(siteRow.value);
+          if (parsed && typeof parsed.publicR2Url === "string" && parsed.publicR2Url.trim().length > 0) {
+            return parsed.publicR2Url.trim().replace(/\/$/, "");
+          }
+        } catch {}
+      }
+
+      // 3. Try D1 system_configs (key 'publicR2Url')
+      const sysRow = await db.query.systemConfigs.findFirst({
+        where: eq(schema.systemConfigs.key, "publicR2Url"),
+      });
+      if (sysRow && sysRow.value) {
+        let val: any = sysRow.value;
+        try {
+          const parsed = JSON.parse(sysRow.value);
+          val = typeof parsed === "string" ? parsed : (parsed?.url || parsed?.publicR2Url || sysRow.value);
+        } catch {}
+        if (typeof val === "string" && val.trim().length > 0) {
+          return val.trim().replace(/\/$/, "");
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Failed to query custom publicR2Url from DB:", err);
+  }
+
+  const fallback = env.PUBLIC_R2_URL || "https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev";
+  return fallback.trim().replace(/\/$/, "");
+}
 
 const ALLOWED_MIME_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -115,7 +176,7 @@ uploadRouter.get("/", requireAdmin, async (c) => {
   }
   try {
     const listed = await c.env.STORAGE.list({ limit: 100 });
-    const publicUrlBase = (c.env.PUBLIC_R2_URL || "https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev").replace(/\/$/, "");
+    const publicUrlBase = await getPublicR2Url(c.env);
     const objects = listed.objects.map((obj) => ({
       key: obj.key,
       size: obj.size,
@@ -213,7 +274,7 @@ uploadRouter.post("/", requireAdmin, async (c) => {
         },
       });
 
-      const publicUrlBase = (c.env.PUBLIC_R2_URL || "https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev").replace(/\/$/, "");
+      const publicUrlBase = await getPublicR2Url(c.env);
       const publicUrl = `${publicUrlBase}/${key}`;
 
       return c.json({

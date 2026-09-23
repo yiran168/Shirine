@@ -123,6 +123,26 @@ export class MockR2Bucket {
     return this.get(key);
   }
 
+  async list(options?: { limit?: number; prefix?: string; cursor?: string }): Promise<{
+    objects: MockR2ObjectBody[];
+    truncated: boolean;
+    cursor?: string;
+  }> {
+    const prefix = options?.prefix || "";
+    const limit = options?.limit || 1000;
+    const objects: MockR2ObjectBody[] = [];
+    for (const [key, item] of this.storage.entries()) {
+      if (key.startsWith(prefix)) {
+        objects.push(new MockR2ObjectBody(key, item.data, item.metadata));
+        if (objects.length >= limit) break;
+      }
+    }
+    return {
+      objects,
+      truncated: false,
+    };
+  }
+
   clear(): void {
     this.storage.clear();
   }

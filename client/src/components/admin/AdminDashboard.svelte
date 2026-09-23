@@ -332,6 +332,7 @@
       avatar: "/assets/images/demo-avatar.webp",
       desc: "The rain remembers what the sky forgot to say.",
     },
+    publicR2Url: "",
   });
 
   let systemConfigState = $state({
@@ -354,6 +355,7 @@
     aiApiUrl: "https://api.openai.com/v1",
     aiApiKey: "",
     aiModel: "gpt-4o-mini",
+    publicR2Url: "",
   });
 
   // Distinct categories for instant click-and-reuse
@@ -605,7 +607,11 @@
             devices: Array.isArray(siteRes.data.devices) && siteRes.data.devices.length > 0 ? siteRes.data.devices : (siteConfigState.devices?.length ? siteConfigState.devices : JSON.parse(JSON.stringify(devicesData))),
             skills: Array.isArray(siteRes.data.skills) && siteRes.data.skills.length > 0 ? siteRes.data.skills : (siteConfigState.skills?.length ? siteConfigState.skills : JSON.parse(JSON.stringify(skillsData))),
             friendApplyInfo: siteRes.data.friendApplyInfo ?? siteConfigState.friendApplyInfo,
+            publicR2Url: siteRes.data.publicR2Url ?? siteConfigState.publicR2Url,
           };
+          if (siteRes.data.publicR2Url) {
+            systemConfigState.publicR2Url = siteRes.data.publicR2Url;
+          }
         }
         if (sysRes.success && sysRes.data) {
           const loadedQuotes = sysRes.data.live2dQuotes;
@@ -616,7 +622,11 @@
             ...systemConfigState,
             ...sysRes.data,
             live2dQuotes: formattedQuotes,
+            publicR2Url: sysRes.data.publicR2Url || systemConfigState.publicR2Url,
           };
+          if (sysRes.data.publicR2Url) {
+            siteConfigState.publicR2Url = sysRes.data.publicR2Url;
+          }
         }
       }
     } catch (err) {
@@ -1694,22 +1704,47 @@
     }
   }
 
+  function getR2Base(): string {
+    const custom = (systemConfigState.publicR2Url || siteConfigState.publicR2Url || "").trim().replace(/\/$/, "");
+    return custom || R2_PUBLIC_BASE;
+  }
+
   // --- Media Library Operations ---
   async function loadMediaLibrary() {
     try {
+      if (!systemConfigState.publicR2Url && !siteConfigState.publicR2Url) {
+        try {
+          const siteRes = await configApi.getSite();
+          if (siteRes.success && siteRes.data) {
+            const publicR2 = siteRes.data.publicR2Url || siteRes.data.site?.publicR2Url || "";
+            if (publicR2) {
+              systemConfigState.publicR2Url = publicR2;
+              siteConfigState.publicR2Url = publicR2;
+            }
+          }
+        } catch {}
+      }
+      const r2Base = getR2Base();
       const res = await mediaApi.list();
       const rawList = res.success ? (res.objects || res.data || []) : [];
       const uploadedList = rawList.map((f: any) => ({
         ...f,
-        url: f.url?.startsWith("http") ? f.url : `${R2_PUBLIC_BASE}/${f.key.replace(/^\/+/, "")}`,
+        url: f.url?.startsWith("http") ? f.url : `${r2Base}/${f.key.replace(/^\/+/, "")}`,
         isPreset: false,
       }));
       const uploadedKeys = new Set(uploadedList.map((f: any) => f.key));
-      const presets = PRESET_MEDIA.filter((p) => !uploadedKeys.has(p.key));
+      const presets = PRESET_MEDIA.filter((p) => !uploadedKeys.has(p.key)).map((p) => ({
+        ...p,
+        url: `${r2Base}/${p.key.replace(/^\/+/, "")}`,
+      }));
       mediaFiles = [...uploadedList, ...presets];
     } catch (err: any) {
       console.error(err);
-      mediaFiles = [...PRESET_MEDIA];
+      const r2Base = getR2Base();
+      mediaFiles = PRESET_MEDIA.map((p) => ({
+        ...p,
+        url: `${r2Base}/${p.key.replace(/^\/+/, "")}`,
+      }));
     }
   }
 
@@ -1960,8 +1995,10 @@
         .split("\n")
         .map((s: string) => s.trim())
         .filter(Boolean);
+      const publicR2 = (systemConfigState.publicR2Url || siteConfigState.publicR2Url || "").trim();
       const sitePayload = {
         ...siteConfigState,
+        publicR2Url: publicR2,
         lang: siteConfigState.lang,
         defaultLang: siteConfigState.lang,
         themeHue: siteConfigState.themeHue,
@@ -1970,12 +2007,35 @@
         bannerMobile: mobileBanners.length > 0 ? mobileBanners : ["/assets/images/banner/mobile/1.webp"],
         bannerSubtitles: siteConfigState.bannerSubtitles.split("\n").map((s: string) => s.trim()).filter(Boolean),
       };
+      const systemPayload = {
+        ...systemConfigState,
+        publicR2Url: publicR2,
+      };
       const [siteRes, sysRes] = await Promise.all([
         configApi.updateSite(sitePayload),
-        configApi.updateSystem(systemConfigState),
+        configApi.updateSystem(systemPayload),
       ]);
       if (siteRes.success && sysRes.success) {
-        showMessage("全站外观设定、音乐曲目、背景图与系统设置已保存生效！");
+        showMessage("全站外观设定、存储配置、音乐曲目、背景图与系统设置已保存生效！");
+        await loadMediaLibrary();
+      } else {
+        showMessage(siteRes.error || sysRes.error || "保存失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  async function saveR2Settings() {
+    try {
+      const publicR2 = (systemConfigState.publicR2Url || siteConfigState.publicR2Url || "").trim();
+      const [siteRes, sysRes] = await Promise.all([
+        configApi.updateSite({ publicR2Url: publicR2 }),
+        configApi.updateSystem({ publicR2Url: publicR2 }),
+      ]);
+      if (siteRes.success && sysRes.success) {
+        showMessage("R2 存储桶自定义域名已保存并即刻生效！");
+        await loadMediaLibrary();
       } else {
         showMessage(siteRes.error || sysRes.error || "保存失败", true);
       }
@@ -4274,6 +4334,54 @@
                   </div>
                 </div>
               {/if}
+            </div>
+
+            <!-- Storage & Cloud Services Settings -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <div class="flex items-center justify-between mb-1">
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                  <span>☁️ 存储与服务配置</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={saveR2Settings}
+                  class="px-3.5 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                  <span>保存域名配置</span>
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">
+                配置 Cloudflare R2 对象存储的公共访问域名或自定义 CDN 域名。
+              </p>
+
+              <div>
+                <label class="text-xs font-semibold block mb-1.5">R2 存储桶自定义域名 (Public R2 URL)</label>
+                <div class="flex items-center gap-2">
+                  <input
+                    type="text"
+                    bind:value={systemConfigState.publicR2Url}
+                    oninput={(e) => {
+                      siteConfigState.publicR2Url = (e.currentTarget as HTMLInputElement).value;
+                    }}
+                    placeholder="https://assets.yourdomain.com"
+                    class="flex-1 px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono"
+                  />
+                  {#if systemConfigState.publicR2Url}
+                    <button
+                      type="button"
+                      onclick={() => copyToClipboard(systemConfigState.publicR2Url)}
+                      class="p-2.5 rounded-xl border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] shrink-0"
+                      title="复制域名"
+                    >
+                      📋
+                    </button>
+                  {/if}
+                </div>
+                <p class="text-[11px] text-[var(--on-surface-variant)] mt-1.5 leading-relaxed">
+                  指定已绑定的 Cloudflare R2 自定义域名或公开 R2.dev 链接（例如 <code>https://assets.yourdomain.com</code>）。留空时将自动回退至 Worker 环境变量 <code>PUBLIC_R2_URL</code> 或默认 R2 节点。保存生效后，所有新上传的图片、音频多媒体文件及媒体库预览将立即全量应用此自定义域名。
+                </p>
+              </div>
             </div>
 
             <!-- Live2D Settings -->
