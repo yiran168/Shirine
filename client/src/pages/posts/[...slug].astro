@@ -58,10 +58,11 @@ import {
 	umamiConfig,
 } from "@/config";
 
-const { slug } = Astro.params;
-if (!slug) {
+const rawSlug = Astro.params.slug;
+if (!rawSlug) {
 	return Astro.redirect("/404");
 }
+const slug = decodeURIComponent(rawSlug).trim().replace(/^\/+|\/+$/g, "").replace(/\.(md|mdx|html)$/i, "");
 
 const apiBase = resolveApiBase(Astro.request);
 const cookieHeader = Astro.request.headers.get("cookie") || "";
@@ -116,11 +117,13 @@ if (dynamicDetail) {
 			pinned: Boolean(dynamicDetail.pinned),
 			draft: Boolean(dynamicDetail.draft),
 			comment: Boolean(dynamicDetail.commentEnabled ?? true),
-			encrypted: Boolean(dynamicDetail.requiresPassword || dynamicDetail.encrypted),
+			encrypted: Boolean(dynamicDetail.requiresPassword || dynamicDetail.encrypted || dynamicDetail.permissionType === "password"),
 			permissionType: dynamicDetail.permissionType || "public",
 			requiredPoints: dynamicDetail.requiredPoints || 0,
 			isUnlocked: Boolean(dynamicDetail.isUnlocked),
+			password: dynamicDetail.password,
 			passwordHint: dynamicDetail.passwordHint,
+			words: dynamicDetail.words,
 			alias: dynamicDetail.alias,
 			permalink: dynamicDetail.permalink,
 			prevTitle: dynamicDetail.prev?.title || "",
@@ -209,6 +212,8 @@ let headings: any[] = [];
 let remarkPluginFrontmatter: any = { words: 0, minutes: 0, markdownSyntaxes: [] };
 let dynamicHtml = "";
 
+const explicitWords = (entry.data as any).words ?? (entry.body ? entry.body.replace(/\s+/g, "").length : 0);
+
 try {
 	const rendered = await render(entry);
 	Content = rendered.Content;
@@ -216,12 +221,16 @@ try {
 	remarkPluginFrontmatter = rendered.remarkPluginFrontmatter;
 } catch {
 	dynamicHtml = renderDynamicMarkdown(entry.body);
-	const words = entry.body.length;
 	remarkPluginFrontmatter = {
-		words,
-		minutes: Math.ceil(words / 300) || 1,
+		words: explicitWords,
+		minutes: Math.ceil(explicitWords / 300) || 1,
 		markdownSyntaxes: [],
 	};
+}
+
+if ((!remarkPluginFrontmatter.words || remarkPluginFrontmatter.words === 0) && explicitWords > 0) {
+	remarkPluginFrontmatter.words = explicitWords;
+	remarkPluginFrontmatter.minutes = Math.ceil(explicitWords / 300) || 1;
 }
 
 const renderedMarkdownSyntaxes = remarkPluginFrontmatter?.markdownSyntaxes || [];
@@ -424,13 +433,13 @@ const jsonLd = {
 				</div>
 			}
 
-            {isLocked ? (
+            {isLocked || (isEncrypted && (!entry.data.password || entry.data.password.trim().length === 0)) ? (
 				<PostUnlockCard
 					client:load
 					postId={dbId || slug}
-					permissionType={permissionType}
+					permissionType={permissionType === "public" && isEncrypted ? "password" : permissionType}
 					requiredPoints={requiredPoints}
-					lockReason={dynamicDetail?.lockReason}
+					lockReason={dynamicDetail?.lockReason || "password_required"}
 					passwordHint={dynamicDetail?.passwordHint || (entry.data as any).passwordHint}
 				/>
 			) : isEncrypted ? (

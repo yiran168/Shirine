@@ -44,7 +44,7 @@ const categoryItems = $derived(
 
 const filteredItems = $derived.by(() => {
 	const normalized = query.trim().toLowerCase();
-	return enabledItems.filter((item) => {
+	const list = enabledItems.filter((item) => {
 		if (selectedCategory && item.category !== selectedCategory) return false;
 		if (!normalized) return true;
 		return [
@@ -55,6 +55,12 @@ const filteredItems = $derived.by(() => {
 			item.year ?? "",
 			...item.technologies,
 		].some((val) => val.toLowerCase().includes(normalized));
+	});
+	return list.sort((a, b) => {
+		if (Boolean(a.pinned) !== Boolean(b.pinned)) {
+			return a.pinned ? -1 : 1;
+		}
+		return 0;
 	});
 });
 

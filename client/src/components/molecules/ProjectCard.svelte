@@ -60,16 +60,24 @@ const showCover = $derived(Boolean(project.cover) && !coverFailed);
 		onerror={() => (coverFailed = true)}
 	/>
 	<span class="project-card__scrim" aria-hidden="true"></span>
-	{#if project.featured}
-		<span class="project-card__featured-badge" aria-hidden="true">
-			<Icon icon="material-symbols:star-rounded" />
-			<span>{i18n(I18nKey.pinned)}</span>
-		</span>
-	{/if}
+	<div class="project-card__badges" aria-hidden="true">
+		{#if project.pinned}
+			<span class="project-card__badge project-card__badge--pinned">
+				<Icon icon="material-symbols:push-pin-rounded" />
+				<span>{i18n(I18nKey.pinned)}</span>
+			</span>
+		{/if}
+		{#if project.featured}
+			<span class="project-card__badge project-card__badge--featured">
+				<Icon icon="material-symbols:star-rounded" />
+				<span>精选</span>
+			</span>
+		{/if}
+	</div>
 {/snippet}
 
 <article
-	class={`project-card ${showCover ? "project-card--with-cover" : "project-card--without-cover"} ${project.featured ? "project-card--featured" : ""}`}
+	class={`project-card ${showCover ? "project-card--with-cover" : "project-card--without-cover"} ${project.featured ? "project-card--featured" : ""} ${project.pinned ? "project-card--pinned" : ""}`}
 	data-project={project.key}
 	style={`--project-phase-color: ${phase.color};`}
 	use:reveal={{ delay }}
@@ -102,7 +110,21 @@ const showCover = $derived(Boolean(project.cover) && !coverFailed);
 
 			<div class="project-card__heading">
 				<div class="project-card__title-row">
-					<h2 class="project-card__title">{project.title}</h2>
+					<div class="inline-flex items-center gap-1.5 min-w-0 flex-wrap">
+						<h2 class="project-card__title">{project.title}</h2>
+						{#if project.pinned && !showCover}
+							<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/20">
+								<Icon icon="material-symbols:push-pin-rounded" class="w-3 h-3" />
+								<span>{i18n(I18nKey.pinned)}</span>
+							</span>
+						{/if}
+						{#if project.featured && !showCover}
+							<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+								<Icon icon="material-symbols:star-rounded" class="w-3 h-3" />
+								<span>精选</span>
+							</span>
+						{/if}
+					</div>
 					{#if project.year}
 						<span class="project-card__year">{project.year}</span>
 					{/if}
@@ -214,12 +236,16 @@ const showCover = $derived(Boolean(project.cover) && !coverFailed);
 		.project-card:hover &
 			opacity: 0.8
 
-	/* 代表项目封面角标：毛玻璃 + star 图标 */
-	&__featured-badge
+	&__badges
 		position: absolute
 		top: 0.625rem
 		left: 0.625rem
 		z-index: 2
+		display: flex
+		flex-wrap: wrap
+		gap: 0.375rem
+
+	&__badge
 		display: inline-flex
 		align-items: center
 		gap: 0.25rem
@@ -235,7 +261,14 @@ const showCover = $derived(Boolean(project.cover) && !coverFailed);
 		> :global(svg)
 			width: 0.875rem
 			height: 0.875rem
-			color: #facc15
+
+		&--pinned
+			> :global(svg)
+				color: var(--primary)
+
+		&--featured
+			> :global(svg)
+				color: #facc15
 
 	&__body
 		display: flex

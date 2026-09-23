@@ -1,29 +1,46 @@
 ---
 import ProtectedPost from "@components/organisms/ProtectedPost.svelte";
+import PostUnlockCard from "@components/permissions/PostUnlockCard.svelte";
 import { encryptProtectedContent } from "@utils/password-protection";
 import type { ProtectedPayload } from "@/types/protectedContent";
 
 interface Props {
-	password: string;
+	password?: string;
 	scope: string;
 	hint?: string;
 }
 
 const { password, scope, hint = "" } = Astro.props;
 
-const rawHtml = await Astro.slots.render("default");
-
-const payload: ProtectedPayload = await encryptProtectedContent(
-	rawHtml,
-	password,
-	scope,
-	"text/html",
-);
+let payload: ProtectedPayload | null = null;
+if (password && password.trim().length > 0) {
+	try {
+		const rawHtml = await Astro.slots.render("default");
+		payload = await encryptProtectedContent(
+			rawHtml,
+			password,
+			scope,
+			"text/html",
+		);
+	} catch (e) {
+		console.error("Encryption error in EncryptedContent:", e);
+	}
+}
 ---
 
-<ProtectedPost
-	payload={payload}
-	scope={scope}
-	hint={hint}
-	client:only="svelte"
-/>
+{payload ? (
+	<ProtectedPost
+		payload={payload}
+		scope={scope}
+		hint={hint}
+		client:only="svelte"
+	/>
+) : (
+	<PostUnlockCard
+		client:load
+		postId={scope.replace(/^post:/, "")}
+		permissionType="password"
+		passwordHint={hint}
+		lockReason="password_required"
+	/>
+)}

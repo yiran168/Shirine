@@ -14,7 +14,7 @@ import { getCategoryList } from "../../utils/content-utils";
 import { url } from "../../utils/url-utils";
 import WidgetLayout from "./WidgetLayout.astro";
 
-const categories = await getCategoryList();
+const categories = await getCategoryList(Astro.request);
 
 interface Props {
 	class?: string;

@@ -71,14 +71,41 @@
   var layoutObserver = null;
   var layoutFrame = 0;
 
-  var cuteQuotes = [
-    '今天也是美好的一天～',
-    '欢迎来到 Shirine！',
-    '有什么想和我聊聊的吗？',
-    '看文章累了就伸个懒腰吧！',
-    '点击右边的按钮可以返回顶部哦～',
-    '我会一直在这里陪着你的！'
-  ];
+  var quotesByLang = {
+    zh_CN: [
+      '今天也是美好的一天～',
+      '欢迎来到 Shirine！',
+      '有什么想和我聊聊的吗？',
+      '看文章累了就伸个懒腰吧！',
+      '点击右边的按钮可以返回顶部哦～',
+      '我会一直在这里陪着你的！'
+    ],
+    zh_TW: [
+      '今天也是美好的一天～',
+      '歡迎來到 Shirine！',
+      '有什麼想和我聊聊的嗎？',
+      '看文章累了就伸個懶腰吧！',
+      '點擊右邊的按鈕可以返回頂部哦～',
+      '我會一直在此陪著你的！'
+    ],
+    en: [
+      'Today is going to be another wonderful day!',
+      'Welcome to Shirine!',
+      'Is there anything you would like to talk about?',
+      'Tired of reading? Stretch and take a break!',
+      'Click the button on the right to scroll back to the top~',
+      'I will always be right here with you!'
+    ],
+    ja: [
+      '今日も素敵な一日になりますように～',
+      'Shirine へようこそ！',
+      '何かお話ししたいことはありますか？',
+      '記事を読んで疲れたら背伸びしてみてね！',
+      '右のボタンを押すとページ一番上に戻れるよ～',
+      'ずっとここで見守っているよ！'
+    ]
+  };
+  var currentLang = 'zh_CN';
 
   var actionIcons = {
     talk: '<svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>',
@@ -92,7 +119,8 @@
     scrollToTop: function() { parent.postMessage({ type: 'l2d-action', action: 'scrollToTop' }, '*'); },
     sleep: function(w) { w.sleep(); },
     talk: function(w) {
-      var quote = cuteQuotes[Math.floor(Math.random() * cuteQuotes.length)];
+      var quotes = quotesByLang[currentLang] || quotesByLang.zh_CN;
+      var quote = quotes[Math.floor(Math.random() * quotes.length)];
       var tipSpan = document.querySelector('div[style*="calc(100%"] span');
       if (tipSpan) {
         tipSpan.textContent = quote;
@@ -238,7 +266,15 @@
   window.addEventListener('blur', onDragEnd);
 
   window.addEventListener('message', function(e) {
+    if (!e.data) return;
+    if (e.data.type === 'l2d-config' && e.data.lang) {
+      currentLang = e.data.lang;
+      return;
+    }
     if (e.data.type !== 'l2d-init') return;
+    if (e.data.lang) {
+      currentLang = e.data.lang;
+    }
     var config = e.data.config;
     var configKey = JSON.stringify(config);
 

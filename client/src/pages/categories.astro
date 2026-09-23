@@ -13,7 +13,7 @@ import { i18n } from "@i18n/translation";
 import MainGridLayout from "@layouts/MainGridLayout.astro";
 import { getCategoryList } from "@utils/content-utils";
 
-const categories = await getCategoryList();
+const categories = await getCategoryList(Astro.request);
 const totalPosts = categories.reduce(
 	(sum, category) => sum + category.count,
 	0,

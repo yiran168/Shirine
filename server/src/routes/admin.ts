@@ -322,3 +322,153 @@ adminRouter.post("/seed", async (c) => {
   }
 });
 
+// Delete User (Only allowed for banned users or non-superadmin users)
+adminRouter.delete("/users/:id", async (c) => {
+  try {
+    const currentUser = c.get("user")!;
+    const db = getDb(c.env.DB);
+    const id = parseInt(c.req.param("id"));
+    if (isNaN(id)) {
+      return c.json({ success: false, error: "Invalid user ID" }, 400);
+    }
+    if (id === currentUser.id) {
+      return c.json({ success: false, error: "Cannot delete your own account" }, 400);
+    }
+    const targetUser = await db.query.users.findFirst({
+      where: eq(schema.users.id, id),
+    });
+    if (!targetUser) {
+      return c.json({ success: false, error: "User not found" }, 404);
+    }
+    if (targetUser.role === "superadmin") {
+      return c.json({ success: false, error: "Cannot delete superadmin account" }, 403);
+    }
+    if (targetUser.role === "admin" && currentUser.role !== "superadmin") {
+      return c.json({ success: false, error: "Only superadmin can delete admin accounts" }, 403);
+    }
+
+    await db.delete(schema.users).where(eq(schema.users.id, id));
+    return c.json({ success: true, message: `用户 ${targetUser.username} 已成功删除` });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || "Failed to delete user" }, 500);
+  }
+});
+
+// AI Helper: Fetch Available Models from OpenAI-compatible API
+adminRouter.post("/ai/models", async (c) => {
+  try {
+    const body = await c.req.json().catch(() => ({}));
+    const db = getDb(c.env.DB);
+
+    let apiUrl = body.apiUrl;
+    let apiKey = body.apiKey;
+
+    if (!apiUrl || !apiKey) {
+      const row = await db.query.systemConfigs.findFirst({
+        where: eq(schema.systemConfigs.key, "ai_config"),
+      });
+      if (row) {
+        try {
+          const cfg = JSON.parse(row.value);
+          if (!apiUrl) apiUrl = cfg.apiUrl;
+          if (!apiKey) apiKey = cfg.apiKey;
+        } catch {}
+      }
+    }
+
+    if (!apiUrl) apiUrl = "https://api.openai.com/v1";
+    if (!apiKey) {
+      return c.json({ success: false, error: "请提供或配置 AI API Key" }, 400);
+    }
+
+    const cleanUrl = apiUrl.replace(/\/+$/, "");
+    const endpoint = cleanUrl.endsWith("/models") ? cleanUrl : `${cleanUrl}/models`;
+
+    const res = await fetch(endpoint, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      return c.json({ success: false, error: `获取模型列表失败 (${res.status}): ${errText.slice(0, 100)}` }, 400);
+    }
+
+    const json = (await res.json()) as any;
+    let models: string[] = [];
+    if (Array.isArray(json.data)) {
+      models = json.data.map((m: any) => m.id || m.name).filter(Boolean);
+    } else if (Array.isArray(json.models)) {
+      models = json.models.map((m: any) => m.id || m.name).filter(Boolean);
+    }
+
+    return c.json({ success: true, models });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || "获取模型异常" }, 500);
+  }
+});
+
+// AI Helper: Generate content
+adminRouter.post("/ai/generate", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { prompt, systemPrompt, model } = body;
+    const db = getDb(c.env.DB);
+
+    let apiUrl = body.apiUrl;
+    let apiKey = body.apiKey;
+    let chosenModel = model;
+
+    const row = await db.query.systemConfigs.findFirst({
+      where: eq(schema.systemConfigs.key, "ai_config"),
+    });
+    if (row) {
+      try {
+        const cfg = JSON.parse(row.value);
+        if (!apiUrl) apiUrl = cfg.apiUrl;
+        if (!apiKey) apiKey = cfg.apiKey;
+        if (!chosenModel) chosenModel = cfg.model;
+      } catch {}
+    }
+
+    if (!apiUrl) apiUrl = "https://api.openai.com/v1";
+    if (!apiKey) {
+      return c.json({ success: false, error: "请在系统设置中配置 AI API Key" }, 400);
+    }
+    if (!chosenModel) chosenModel = "gpt-4o-mini";
+
+    const cleanUrl = apiUrl.replace(/\/+$/, "");
+    const endpoint = cleanUrl.endsWith("/chat/completions") ? cleanUrl : `${cleanUrl}/chat/completions`;
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: chosenModel,
+        messages: [
+          { role: "system", content: systemPrompt || "你是一个优雅、富有文采的博客写作助手。输出符合 Markdown 格式的精美内容。" },
+          { role: "user", content: prompt || "" },
+        ],
+        temperature: 0.7,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      return c.json({ success: false, error: `AI 请求失败 (${res.status}): ${errText.slice(0, 150)}` }, 400);
+    }
+
+    const json = (await res.json()) as any;
+    const output = json.choices?.[0]?.message?.content || "";
+    return c.json({ success: true, text: output });
+  } catch (err: any) {
+    return c.json({ success: false, error: err.message || "AI 生成异常" }, 500);
+  }
+});
+

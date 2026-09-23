@@ -13,7 +13,8 @@
     try {
       const res = await userApi.checkin();
       if (res.success) {
-        checkinMsg = `打卡成功！获得 +${res.pointsAwarded} 积分`;
+        const pts = res.pointsAwarded ?? (res as any).awardedPoints ?? 0;
+        checkinMsg = `打卡成功！获得 +${pts} 积分`;
         authStore.user.points = res.currentPoints;
         authStore.user.checkinStreak = res.checkinStreak;
         authStore.user.checkedInToday = true;

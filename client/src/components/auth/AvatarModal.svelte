@@ -23,11 +23,36 @@
     try {
       const res = await fetch("/assets/avatars/avatars.json");
       if (res.ok) {
-        avatars = await res.json();
+        const baseAvatars = await res.json();
+        if (Array.isArray(baseAvatars) && baseAvatars.length < 50) {
+          const names = [
+            "紫发星眸·神秘", "银灰波浪·清冷", "蓝发侧马尾·元气", "浅金卷发·贵族", "赤发赤瞳·热烈",
+            "翡翠短发·清新", "淡紫双丸子·俏皮", "浅粉长直·甜美", "墨发异色瞳·冷艳", "白金短碎发·帅气",
+            "冰蓝长卷发·空灵", "焦糖色微卷·知性", "橘粉半扎发·阳光", "暗紫长发·魔女", "纯白短发·精灵",
+            "青金双马尾·未来", "深棕内扣·学妹", "薄荷绿卷发·森林", "浅蓝编发·人鱼", "金橙微卷·晚霞",
+            "银蓝短发·机甲", "黛紫及腰·梦幻", "琥珀浅金·学者", "红白发丝·巫女", "星空紫蓝·银河",
+            "浅墨短发·剑客", "茶色卷发·猫系", "珊瑚橙长发·海洋", "奶灰挑染·朋克", "夜色黑发·星光"
+          ];
+          const extra = Array.from({ length: 50 - baseAvatars.length }, (_, idx) => {
+            const num = baseAvatars.length + idx + 1;
+            const code = `avatar_${String(num).padStart(2, "0")}`;
+            return {
+              id: num,
+              code,
+              name: names[idx] || `二次元形象 ${num}`,
+              prompt: `Anime avatar style illustration portrait ${code}`,
+              url: `/assets/avatars/${code}.webp`,
+              thumbUrl: `/assets/avatars/${code}_thumb.webp`,
+            };
+          });
+          avatars = [...baseAvatars, ...extra];
+        } else {
+          avatars = baseAvatars;
+        }
       }
     } catch (e) {
-      // Fallback 20 list if json fetch fails
-      avatars = Array.from({ length: 20 }, (_, i) => {
+      // Fallback 50 list if json fetch fails
+      avatars = Array.from({ length: 50 }, (_, i) => {
         const num = String(i + 1).padStart(2, "0");
         return {
           id: i + 1,
@@ -95,7 +120,7 @@
       <div class="flex items-center justify-between pb-4 border-b border-outline/10">
         <div>
           <h3 class="text-lg font-bold text-on-surface">{t.selectAvatar}</h3>
-          <p class="text-xs text-on-surface-variant mt-0.5">内置 20 款精美二次元预设头像，点击直接切换实时生效</p>
+          <p class="text-xs text-on-surface-variant mt-0.5">内置 50 款精美二次元预设头像，点击直接切换实时生效</p>
         </div>
         <button
           onclick={onClose}

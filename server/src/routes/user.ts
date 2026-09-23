@@ -110,7 +110,9 @@ userRouter.post("/checkin", requireAuth, async (c) => {
       success: true,
       message: `Checked in successfully! You earned +${awarded} points.`,
       awardedPoints: awarded,
+      pointsAwarded: awarded,
       currentPoints: newPoints,
+      points: newPoints,
       checkinStreak: newStreak,
       checkinDate: today,
     });

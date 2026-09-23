@@ -60,7 +60,7 @@ export const posts = sqliteTable("posts", {
   pinned: integer("pinned").default(0).notNull(),
   draft: integer("draft").default(0).notNull(),
   commentEnabled: integer("comment_enabled").default(1).notNull(),
-  permissionType: text("permission_type", { enum: ["public", "login_required", "points_required"] })
+  permissionType: text("permission_type", { enum: ["public", "login_required", "points_required", "password"] })
     .default("public")
     .notNull(),
   requiredPoints: integer("required_points").default(0).notNull(),
@@ -167,6 +167,7 @@ export const pages = sqliteTable("pages", {
   slug: text("slug").notNull().unique(),
   title: text("title").notNull(),
   content: text("content").notNull(),
+  icon: text("icon").default(""),
   draft: integer("draft").default(0).notNull(),
   uid: integer("uid").references(() => users.id, { onDelete: "set null" }),
   createdAt,

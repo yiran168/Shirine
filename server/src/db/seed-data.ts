@@ -17,7 +17,7 @@ export interface SeedPost {
   pinned: number;
   draft: number;
   commentEnabled: number;
-  permissionType: "public" | "login_required" | "points_required";
+  permissionType: "public" | "login_required" | "points_required" | "password";
   requiredPoints: number;
   encrypted?: number;
   password?: string;
@@ -54,8 +54,11 @@ export interface SeedAlbum {
   columns: number;
   tags: string[];
   hidden: number;
-  permissionType: "public" | "login_required" | "points_required";
+  permissionType: "public" | "login_required" | "points_required" | "password";
   requiredPoints: number;
+  encrypted?: number;
+  password?: string;
+  passwordHint?: string;
   draft: number;
   photos: SeedAlbumPhoto[];
 }
@@ -219,12 +222,12 @@ export const PRESET_POSTS: SeedPost[] = [
     ],
     "lang": "en",
     "pinned": 1,
-    "draft": 1,
+    "draft": 0,
     "commentEnabled": 1,
     "permissionType": "login_required",
     "requiredPoints": 0,
     "encrypted": 1,
-    "password": "",
+    "password": "shirine-secret",
     "passwordHint": "Hint: the demo unlock password is shirine-secret",
     "hideHomeContent": 1,
     "createdAt": 1787184000000
@@ -1062,9 +1065,12 @@ export const PRESET_ALBUMS: SeedAlbum[] = [
       "example"
     ],
     "hidden": 0,
-    "permissionType": "login_required",
+    "permissionType": "password",
     "requiredPoints": 0,
-    "draft": 1,
+    "encrypted": 1,
+    "password": "123456",
+    "passwordHint": "Six digits",
+    "draft": 0,
     "photos": [
       {
         "url": "https://picsum.photos/seed/shirine-protected-1/1200/800",

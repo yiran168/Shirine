@@ -75,7 +75,8 @@
         authStore.user.checkedInToday = true;
         authStore.notify();
 
-        showToast(t.checkinSuccess.replace("{points}", String(res.pointsAwarded)));
+        const pts = res.pointsAwarded ?? (res as any).awardedPoints ?? 0;
+        showToast(t.checkinSuccess.replace("{points}", String(pts)));
 
         if (typeof window !== "undefined") {
           try {
@@ -292,7 +293,7 @@
 
 <!-- Toast popup for checkin -->
 {#if checkinToast.show}
-  <div class="fixed top-20 right-5 z-50 px-4 py-2.5 rounded-2xl bg-surface border border-primary/30 shadow-xl text-xs font-semibold text-primary flex items-center gap-2 backdrop-blur-md animate-fade-in">
+  <div class="fixed top-20 right-5 z-[99999] px-4 py-2.5 rounded-2xl bg-surface border border-primary/30 shadow-xl text-xs font-semibold text-primary flex items-center gap-2 backdrop-blur-md animate-fade-in pointer-events-none">
     <span>✨</span>
     <span>{checkinToast.msg}</span>
   </div>

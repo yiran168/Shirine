@@ -18,7 +18,7 @@ let open = $state(false);
 let activePrimary = $state("");
 const openGroups = $state<Record<string, boolean>>({});
 let currentLang = $state(getCurrentLang());
-let customPages = $state<{ title: string; slug: string }[]>([]);
+let customPages = $state<{ title: string; slug: string; icon?: string }[]>([]);
 
 const primaryItems = $derived.by(() => {
 	const activeConfig = getDynamicNavBarConfig(currentLang);
@@ -45,6 +45,7 @@ const primaryItems = $derived.by(() => {
 				const existingChild = baseChildren.find((c) => c.pageKey === p.slug);
 				if (existingChild) {
 					if (p.title) existingChild.label = p.title;
+					if (p.icon) existingChild.icon = p.icon;
 				} else {
 					nonPresetPages.push(p);
 				}
@@ -52,7 +53,7 @@ const primaryItems = $derived.by(() => {
 			const pageChildren = nonPresetPages.map((p) => ({
 				value: `page-${p.slug}`,
 				label: p.title,
-				icon: "material-symbols:article-outline-rounded",
+				icon: p.icon || "material-symbols:article-outline-rounded",
 				href: url(`/pages/${p.slug}/`),
 				external: false,
 				pageKey: `page-${p.slug}`,

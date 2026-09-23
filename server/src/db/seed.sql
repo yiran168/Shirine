@@ -139,9 +139,9 @@ INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_ord
 SELECT id, '/images/albums/AcgExample/22.webp', 'Some lovely pictures 22', 'Some lovely pictures 22', '', '["local","webp","example"]', 22
 FROM albums WHERE slug = 'AcgExample'
 ON CONFLICT(album_id, url) DO NOTHING;
-INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, draft, uid)
-VALUES ('EncryptedExample', 'Protected image set', 'A password-protected album backed by the reusable protected-content protocol.', 'https://picsum.photos/seed/shirine-protected-cover/800/600', 'masonry', 3, '["protected","password","example"]', 0, 'login_required', 0, 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(slug) DO NOTHING;
+INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, encrypted, password, password_hint, draft, uid)
+VALUES ('EncryptedExample', 'Protected image set', 'A password-protected album backed by the reusable protected-content protocol.', 'https://picsum.photos/seed/shirine-protected-cover/800/600', 'masonry', 3, '["protected","password","example"]', 0, 'password', 0, 1, '123456', 'Six digits', 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
+ON CONFLICT(slug) DO UPDATE SET permission_type = 'password', encrypted = 1, password = '123456', password_hint = 'Six digits', draft = 0;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, 'https://picsum.photos/seed/shirine-protected-1/1200/800', 'A protected garden landscape', 'Private landscape', '', '["garden"]', 1
 FROM albums WHERE slug = 'EncryptedExample'
@@ -520,8 +520,8 @@ Static encryption has no centralized server database. If a password is forgotten
 
 ## 4. Summary
 
-This demo verifies the entire encryption lifecycle in Shirine: zero plaintext in static output, robust cryptographic verification, session persistence across navigation and page reloads, and dynamic runtime rehydration.', '', 'Examples', '["Demo","Security","Encryption","Markdown"]', 'en', 1, 1, 1, 'login_required', 0, 1, '', 'Hint: the demo unlock password is shirine-secret', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787184000)
-ON CONFLICT(slug) DO NOTHING;
+This demo verifies the entire encryption lifecycle in Shirine: zero plaintext in static output, robust cryptographic verification, session persistence across navigation and page reloads, and dynamic runtime rehydration.', '', 'Examples', '["Demo","Security","Encryption","Markdown"]', 'en', 1, 0, 1, 'login_required', 0, 1, 'shirine-secret', 'Hint: the demo unlock password is shirine-secret', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787184000)
+ON CONFLICT(slug) DO UPDATE SET draft = 0, encrypted = 1, password = 'shirine-secret', password_hint = 'Hint: the demo unlock password is shirine-secret';
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('expressive-code', NULL, NULL, 'Expressive Code Example', 'How code blocks look in Markdown using Expressive Code.', 'Here, we''ll explore how code blocks look using [Expressive Code](https://expressive-code.com/). The provided examples are based on the official documentation, which you can refer to for further details.
 

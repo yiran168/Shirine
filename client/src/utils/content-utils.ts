@@ -92,6 +92,7 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 							collection: "posts" as const,
 							data: {
 								dbId: p.id,
+								words: p.words ?? (p.content ? p.content.replace(/\s+/g, "").length : 0),
 								title: p.title,
 								published: new Date(p.createdAt),
 								updated: p.updatedAt ? new Date(p.updatedAt) : undefined,
@@ -126,15 +127,25 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 			} catch {}
 		}
 
+		let localPosts: CollectionEntry<"posts">[] = [];
+		try {
+			localPosts = await getCollection("posts", ({ data }) => {
+				return import.meta.env.PROD ? data.draft !== true : true;
+			});
+		} catch {}
+		const localPostsMap = new Map(localPosts.map((lp) => [lp.id, lp]));
+
 		let postsToUse: CollectionEntry<"posts">[] = [];
 		if (apiConnected && apiPosts.length > 0) {
-			postsToUse = apiPosts;
+			postsToUse = apiPosts.map((ap) => {
+				const local = localPostsMap.get(ap.id);
+				if (local && (!ap.body || ap.body.trim().length === 0)) {
+					ap.body = local.body;
+				}
+				return ap;
+			});
 		} else {
-			try {
-				postsToUse = await getCollection("posts", ({ data }) => {
-					return import.meta.env.PROD ? data.draft !== true : true;
-				});
-			} catch {}
+			postsToUse = localPosts;
 		}
 
 		for (const post of postsToUse) validatePublicationMetadata(post);
@@ -194,8 +205,8 @@ export type Tag = {
 	count: number;
 };
 
-export async function getTagList(): Promise<Tag[]> {
-	const allBlogPosts = await getRawSortedPosts();
+export async function getTagList(request?: Request): Promise<Tag[]> {
+	const allBlogPosts = await getRawSortedPosts(request);
 
 	const countMap: { [key: string]: number } = {};
 	allBlogPosts.forEach((post: { data: { tags: string[] } }) => {
@@ -219,8 +230,8 @@ export type Category = {
 	url: string;
 };
 
-export async function getCategoryList(): Promise<Category[]> {
-	const allBlogPosts = await getRawSortedPosts();
+export async function getCategoryList(request?: Request): Promise<Category[]> {
+	const allBlogPosts = await getRawSortedPosts(request);
 	const count: { [key: string]: number } = {};
 	allBlogPosts.forEach((post: { data: { category: string | null } }) => {
 		if (!post.data.category) {

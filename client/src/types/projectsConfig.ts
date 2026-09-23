@@ -30,6 +30,8 @@ export interface ProjectItem {
 	coverAlt?: string;
 	/** 代表项目标记，供页面做重点项目识别。 */
 	featured?: boolean;
+	/** 是否置顶，置顶项目排在列表最前。 */
+	pinned?: boolean;
 	website?: string;
 	repository?: string;
 	/** 自由格式的年份或时间范围，如 2024–2026。 */

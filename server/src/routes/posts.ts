@@ -89,7 +89,8 @@ postsRouter.get("/", async (c) => {
       }
 
       if (hasPassword && !user?.role?.includes("admin")) {
-        if (isUnlocked) lockReason = "password_required";
+        isUnlocked = false;
+        lockReason = "password_required";
       }
 
       let parsedTags: string[] = [];
@@ -98,6 +99,8 @@ postsRouter.get("/", async (c) => {
       } catch {
         parsedTags = [];
       }
+
+      const words = post.content ? post.content.replace(/\s+/g, "").length : 0;
 
       return {
         id: post.id,
@@ -119,6 +122,8 @@ postsRouter.get("/", async (c) => {
         isPurchased,
         isAuthenticated: Boolean(user),
         lockReason,
+        words,
+        content: isUnlocked ? post.content : "",
         commentEnabled: post.commentEnabled === 1,
         createdAt: post.createdAt,
         updatedAt: post.updatedAt,
@@ -253,11 +258,15 @@ async function getPostDetailResponse(c: any, slugOrId: string) {
     const user = c.get("user");
     const db = getDb(c.env.DB);
 
+    const clean = decodeURIComponent(slugOrId).trim().replace(/^\/+|\/+$/g, "").replace(/\.(md|mdx|html)$/i, "");
+    const cleanWithSlash = `/${clean}`;
+
     let post = null;
 
     // Check if numeric ID
-    const numericId = parseInt(slugOrId, 10);
-    if (!isNaN(numericId) && numericId.toString() === slugOrId) {
+    const isNumeric = /^\d+$/.test(clean);
+    if (isNumeric) {
+      const numericId = parseInt(clean, 10);
       post = await db.query.posts.findFirst({
         where: eq(schema.posts.id, numericId),
       });
@@ -266,8 +275,12 @@ async function getPostDetailResponse(c: any, slugOrId: string) {
     if (!post) {
       post = await db.query.posts.findFirst({
         where: or(
+          eq(schema.posts.slug, clean),
           eq(schema.posts.slug, slugOrId),
+          eq(schema.posts.alias, clean),
           eq(schema.posts.alias, slugOrId),
+          eq(schema.posts.permalink, clean),
+          eq(schema.posts.permalink, cleanWithSlash),
           eq(schema.posts.permalink, slugOrId)
         ),
       });
@@ -381,6 +394,7 @@ async function getPostDetailResponse(c: any, slugOrId: string) {
       hideHomeContent: post.hideHomeContent === 1,
       isPurchased,
       isAuthenticated: Boolean(user),
+      words: post.content ? post.content.replace(/\s+/g, "").length : 0,
       encrypted: post.encrypted === 1 || hasPassword,
       password: isAdmin ? (post.password || "") : undefined,
       prev: prevPost ? { id: prevPost.id, slug: prevPost.slug, title: prevPost.title } : null,
@@ -757,34 +771,48 @@ postsRouter.post("/", requireAdmin, async (c) => {
 
     const hasPassword = Boolean(password && String(password).trim().length > 0);
 
-    const inserted = await db
-      .insert(schema.posts)
-      .values({
-        slug: finalSlug,
-        alias: alias?.trim() || null,
-        permalink: permalink?.trim() || null,
-        title: title.trim(),
-        content,
-        description: description?.trim() || "",
-        image: image?.trim() || "",
-        category: category?.trim() || "",
-        tags: JSON.stringify(Array.isArray(tags) ? tags : []),
-        pinned: pinned ? 1 : 0,
-        draft: draft ? 1 : 0,
-        commentEnabled: commentEnabled ? 1 : 0,
-        permissionType:
-          permissionType === "login_required" || permissionType === "points_required"
-            ? permissionType
-            : "public",
-        requiredPoints: Math.max(0, parseInt(requiredPoints) || 0),
-        encrypted: (encrypted || hasPassword) ? 1 : 0,
-        password: hasPassword ? String(password).trim() : "",
-        passwordHint: passwordHint ? String(passwordHint).trim() : "",
-        hideHomeContent: hideHomeContent ? 1 : 0,
-        passwordVersion: 1,
-        uid: user.id,
-      })
-      .returning();
+    const resolvedPermission =
+      permissionType === "login_required" || permissionType === "points_required" || permissionType === "password"
+        ? permissionType
+        : hasPassword
+        ? "password"
+        : "public";
+
+    const valuesToInsert = {
+      slug: finalSlug,
+      alias: alias?.trim() || null,
+      permalink: permalink?.trim() || null,
+      title: title.trim(),
+      content,
+      description: description?.trim() || "",
+      image: image?.trim() || "",
+      category: category?.trim() || "",
+      tags: JSON.stringify(Array.isArray(tags) ? tags : []),
+      pinned: pinned ? 1 : 0,
+      draft: draft ? 1 : 0,
+      commentEnabled: commentEnabled ? 1 : 0,
+      permissionType: resolvedPermission,
+      requiredPoints: Math.max(0, parseInt(requiredPoints) || 0),
+      encrypted: (encrypted || hasPassword) ? 1 : 0,
+      password: hasPassword ? String(password).trim() : "",
+      passwordHint: passwordHint ? String(passwordHint).trim() : "",
+      hideHomeContent: hideHomeContent ? 1 : 0,
+      passwordVersion: 1,
+      uid: user.id,
+    };
+
+    let inserted;
+    try {
+      inserted = await db.insert(schema.posts).values(valuesToInsert).returning();
+    } catch (insertErr: any) {
+      if (insertErr.message?.includes("CHECK constraint failed") && valuesToInsert.permissionType === "password") {
+        valuesToInsert.permissionType = "public";
+        valuesToInsert.encrypted = 1;
+        inserted = await db.insert(schema.posts).values(valuesToInsert).returning();
+      } else {
+        throw insertErr;
+      }
+    }
 
     return c.json({
       success: true,
@@ -840,7 +868,7 @@ postsRouter.put("/:id", requireAdmin, async (c) => {
     if (body.commentEnabled !== undefined) updates.commentEnabled = body.commentEnabled ? 1 : 0;
     if (body.permissionType !== undefined) {
       updates.permissionType =
-        body.permissionType === "login_required" || body.permissionType === "points_required"
+        body.permissionType === "login_required" || body.permissionType === "points_required" || body.permissionType === "password"
           ? body.permissionType
           : "public";
     }
@@ -873,11 +901,26 @@ postsRouter.put("/:id", requireAdmin, async (c) => {
       updates.passwordVersion = (existing.passwordVersion || 1) + 1;
     }
 
-    const updated = await db
-      .update(schema.posts)
-      .set(updates)
-      .where(eq(schema.posts.id, id))
-      .returning();
+    let updated;
+    try {
+      updated = await db
+        .update(schema.posts)
+        .set(updates)
+        .where(eq(schema.posts.id, id))
+        .returning();
+    } catch (updateErr: any) {
+      if (updateErr.message?.includes("CHECK constraint failed") && updates.permissionType === "password") {
+        updates.permissionType = "public";
+        updates.encrypted = 1;
+        updated = await db
+          .update(schema.posts)
+          .set(updates)
+          .where(eq(schema.posts.id, id))
+          .returning();
+      } else {
+        throw updateErr;
+      }
+    }
 
     return c.json({
       success: true,

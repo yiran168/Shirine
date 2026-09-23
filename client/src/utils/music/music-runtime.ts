@@ -373,6 +373,19 @@ export function createMusicRuntime(
 			playbackRequested = false;
 			if (isAutoplayError(error)) {
 				patch({ status: "error", error: "autoplay-blocked" });
+				if (typeof document !== "undefined") {
+					const resumeOnFirstInteraction = () => {
+						["pointerdown", "keydown", "touchstart", "click"].forEach((evt) => {
+							document.removeEventListener(evt, resumeOnFirstInteraction, { capture: true });
+						});
+						if (state.status === "error" && state.error === "autoplay-blocked") {
+							playLoadedSource(true).catch(() => {});
+						}
+					};
+					["pointerdown", "keydown", "touchstart", "click"].forEach((evt) => {
+						document.addEventListener(evt, resumeOnFirstInteraction, { capture: true, once: true });
+					});
+				}
 				return;
 			}
 			await recoverFromSourceError();

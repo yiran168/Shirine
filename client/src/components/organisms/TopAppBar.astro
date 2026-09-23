@@ -35,6 +35,7 @@ if (dynamicPages && dynamicPages.length > 0) {
 			const existingChild = moreLink.children.find((c) => c.pageKey === p.slug);
 			if (existingChild) {
 				if (p.title) existingChild.name = p.title;
+				if (p.icon) existingChild.icon = p.icon;
 			} else {
 				nonPresetPages.push(p);
 			}
@@ -42,7 +43,7 @@ if (dynamicPages && dynamicPages.length > 0) {
 		const customPageLinks = nonPresetPages.map((p) => ({
 			name: p.title,
 			url: `/pages/${p.slug}/`,
-			icon: "material-symbols:article-outline-rounded",
+			icon: p.icon || "material-symbols:article-outline-rounded",
 			pageKey: `page-${p.slug}`,
 		}));
 		const aboutIndex = moreLink.children.findIndex((c) => c.pageKey === "about" || c.pageKey === "github");

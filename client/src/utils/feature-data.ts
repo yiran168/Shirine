@@ -76,7 +76,7 @@ export function resolveProjectsData(
 		config.disabledKeys,
 		(item) => item.key,
 	);
-	return filtered.map((item) => ({
+	const mapped = filtered.map((item) => ({
 		...item,
 		cover: item.cover
 			? item.cover.startsWith("/")
@@ -84,6 +84,12 @@ export function resolveProjectsData(
 				: item.cover
 			: undefined,
 	}));
+	return mapped.sort((a, b) => {
+		if (Boolean(a.pinned) !== Boolean(b.pinned)) {
+			return a.pinned ? -1 : 1;
+		}
+		return 0;
+	});
 }
 
 /**

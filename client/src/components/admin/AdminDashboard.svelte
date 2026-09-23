@@ -10,6 +10,8 @@
     pagesApi,
     friendsApi,
     configApi,
+    mediaApi,
+    aiApi,
     uploadFile,
     setToken,
   } from "../../services/api";
@@ -20,8 +22,9 @@
   import { projectsData } from "../../data/projects";
   import { devicesData } from "../../data/devices";
   import { skillsData } from "../../data/skills";
+  import { timelineData } from "../../data/timeline";
 
-  type TabType = "overview" | "posts" | "albums" | "moments" | "pages" | "friends" | "projects" | "devices" | "skills" | "compass" | "anime" | "users" | "settings";
+  type TabType = "overview" | "posts" | "albums" | "moments" | "pages" | "friends" | "projects" | "devices" | "skills" | "compass" | "anime" | "timeline" | "media" | "guide" | "users" | "settings";
 
   let currentTab = $state<TabType>("overview");
   let loading = $state(true);
@@ -157,6 +160,7 @@
     passwordHint: "",
     photosText: "", // JSON or newline separated URLs
   });
+  let lastUploadedAlbumPhotoUrl = $state("");
 
   // Derived Categories and Tags for posts
   const DEFAULT_CATEGORIES = ["随笔", "生活", "技术", "设计"];
@@ -294,6 +298,7 @@
     musicTracks: [] as any[],
     compass: JSON.parse(JSON.stringify(compassData)) as any[],
     anime: JSON.parse(JSON.stringify(animeData)) as any[],
+    timeline: JSON.parse(JSON.stringify(timelineData)) as any[],
     projects: JSON.parse(JSON.stringify(projectsData)) as any[],
     devices: JSON.parse(JSON.stringify(devicesData)) as any[],
     skills: JSON.parse(JSON.stringify(skillsData)) as any[],
@@ -316,7 +321,79 @@
     live2dGuestEnable: true,
     live2dAdminEnable: true,
     live2dModel: "/pio/models/NOIR/noir.model3.json",
+    live2dLang: "zh_CN",
+    live2dModels: [
+      { name: "NOIR (默认)", url: "/pio/models/NOIR/noir.model3.json" },
+      { name: "Hiyori", url: "https://fastly.jsdelivr.net/gh/evpt/live2d-models/hiyori/hiyori.model3.json" },
+    ] as Array<{ name: string; url: string }>,
+    aiApiUrl: "https://api.openai.com/v1",
+    aiApiKey: "",
+    aiModel: "gpt-4o-mini",
   });
+
+  // Distinct categories for instant click-and-reuse
+  const distinctProjectCategories = $derived(
+    Array.from(new Set(siteConfigState.projects.map((p: any) => p.category?.trim()).filter(Boolean))) as string[]
+  );
+  const distinctDeviceCategories = $derived(
+    Array.from(new Set([
+      "desk", "mobile", "audio", "peripheral", "other",
+      ...siteConfigState.devices.map((d: any) => d.category?.trim()).filter(Boolean)
+    ])) as string[]
+  );
+  const distinctSkillCategories = $derived(
+    Array.from(new Set([
+      "frontend", "backend", "tooling", "design", "other",
+      ...siteConfigState.skills.map((s: any) => s.category?.trim()).filter(Boolean)
+    ])) as string[]
+  );
+
+  const distinctTimelineCategories = $derived(
+    Array.from(new Set([
+      "milestone", "career", "project", "education", "life",
+      ...siteConfigState.timeline.map((t: any) => t.category?.trim()).filter(Boolean)
+    ])) as string[]
+  );
+
+  // Drag and Drop reordering states
+  let draggedProjectIndex = $state<number | null>(null);
+  let draggedDeviceIndex = $state<number | null>(null);
+  let draggedSkillIndex = $state<number | null>(null);
+  let draggedTimelineIndex = $state<number | null>(null);
+
+  // Media Library state
+  let mediaFiles = $state<Array<{ key: string; size: number; uploaded: string; url: string; httpMetadata?: any }>>([]);
+  let mediaFilter = $state<"all" | "image" | "audio">("all");
+  let mediaSearch = $state("");
+  let mediaUploading = $state(false);
+
+  const filteredMediaFiles = $derived.by(() => {
+    let list = mediaFiles || [];
+    if (mediaFilter === "image") {
+      list = list.filter((f) => /\.(png|jpe?g|webp|gif|svg|avif|ico)$/i.test(f.key) || f.httpMetadata?.contentType?.startsWith("image/"));
+    } else if (mediaFilter === "audio") {
+      list = list.filter((f) => /\.(mp3|flac|wav|ogg|m4a|aac)$/i.test(f.key) || f.httpMetadata?.contentType?.startsWith("audio/"));
+    }
+    if (mediaSearch.trim()) {
+      const q = mediaSearch.trim().toLowerCase();
+      list = list.filter((f) => f.key.toLowerCase().includes(q) || (f.url && f.url.toLowerCase().includes(q)));
+    }
+    return list;
+  });
+
+  const totalMediaStorageBytes = $derived(
+    mediaFiles.reduce((acc, f) => acc + (f.size || 0), 0)
+  );
+
+  // AI Writing Assistant state
+  let aiModalOpen = $state(false);
+  let aiTarget = $state<"post" | "moment">("post");
+  let aiPrompt = $state("");
+  let aiInstruction = $state("");
+  let aiGenerating = $state(false);
+  let aiResult = $state("");
+  let aiAvailableModels = $state<string[]>([]);
+  let aiFetchingModels = $state(false);
 
   function showMessage(msg: string, isError = false) {
     if (isError) {
@@ -418,7 +495,9 @@
       } else if (tab === "users") {
         const res = await adminApi.getUsers({ pageSize: 100 });
         if (res.success) users = res.data || [];
-      } else if (tab === "settings" || tab === "compass" || tab === "anime" || tab === "projects" || tab === "devices" || tab === "skills") {
+      } else if (tab === "media") {
+        await loadMediaLibrary();
+      } else if (tab === "settings" || tab === "compass" || tab === "anime" || tab === "projects" || tab === "devices" || tab === "skills" || tab === "timeline") {
         const [siteRes, sysRes] = await Promise.all([
           configApi.getSite(),
           configApi.getAdminSystem(),
@@ -466,11 +545,12 @@
             musicMetingServer: m.meting?.server ?? siteConfigState.musicMetingServer,
             musicMetingId: m.meting?.id ?? siteConfigState.musicMetingId,
             musicTracks: Array.isArray(m.tracks) ? m.tracks : siteConfigState.musicTracks,
-            compass: Array.isArray(siteRes.data.compass) ? siteRes.data.compass : siteConfigState.compass,
-            anime: Array.isArray(siteRes.data.anime) ? siteRes.data.anime : siteConfigState.anime,
-            projects: Array.isArray(siteRes.data.projects) ? siteRes.data.projects : siteConfigState.projects,
-            devices: Array.isArray(siteRes.data.devices) ? siteRes.data.devices : siteConfigState.devices,
-            skills: Array.isArray(siteRes.data.skills) ? siteRes.data.skills : siteConfigState.skills,
+            timeline: Array.isArray(siteRes.data.timeline) && siteRes.data.timeline.length > 0 ? siteRes.data.timeline : (siteConfigState.timeline?.length ? siteConfigState.timeline : JSON.parse(JSON.stringify(timelineData))),
+            compass: Array.isArray(siteRes.data.compass) && siteRes.data.compass.length > 0 ? siteRes.data.compass : (siteConfigState.compass?.length ? siteConfigState.compass : JSON.parse(JSON.stringify(compassData))),
+            anime: Array.isArray(siteRes.data.anime) && siteRes.data.anime.length > 0 ? siteRes.data.anime : (siteConfigState.anime?.length ? siteConfigState.anime : JSON.parse(JSON.stringify(animeData))),
+            projects: Array.isArray(siteRes.data.projects) && siteRes.data.projects.length > 0 ? siteRes.data.projects : (siteConfigState.projects?.length ? siteConfigState.projects : JSON.parse(JSON.stringify(projectsData))),
+            devices: Array.isArray(siteRes.data.devices) && siteRes.data.devices.length > 0 ? siteRes.data.devices : (siteConfigState.devices?.length ? siteConfigState.devices : JSON.parse(JSON.stringify(devicesData))),
+            skills: Array.isArray(siteRes.data.skills) && siteRes.data.skills.length > 0 ? siteRes.data.skills : (siteConfigState.skills?.length ? siteConfigState.skills : JSON.parse(JSON.stringify(skillsData))),
             friendApplyInfo: siteRes.data.friendApplyInfo ?? siteConfigState.friendApplyInfo,
           };
         }
@@ -613,11 +693,13 @@
       passwordHint: "",
       photosText: "",
     };
+    lastUploadedAlbumPhotoUrl = "";
     albumModalOpen = true;
   }
 
   async function openEditAlbumModal(album: any) {
     editingAlbum = album;
+    lastUploadedAlbumPhotoUrl = "";
     try {
       const res = await albumsApi.get(album.id);
       const a = res.success && (res.data || res.album) ? res.data || res.album : album;
@@ -856,6 +938,7 @@
       id: 0,
       title: "",
       slug: "",
+      icon: "",
       content: "",
       status: "published",
     };
@@ -869,6 +952,7 @@
       id: page.id,
       title: page.title || "",
       slug: page.slug || "",
+      icon: page.icon || "",
       content: page.content || "",
       status: page.draft ? "draft" : (page.status || "published"),
     };
@@ -883,6 +967,7 @@
     const payload = {
       title: pageForm.title.trim(),
       slug: pageForm.slug.trim().toLowerCase(),
+      icon: pageForm.icon?.trim() || undefined,
       content: pageForm.content,
       draft: isDraft,
       status: pageForm.status,
@@ -1283,6 +1368,7 @@
         cover: "/assets/images/demo-avatar.webp",
         coverAlt: "项目封面预览",
         featured: false,
+        pinned: false,
         website: "",
         repository: "https://github.com",
         year: String(new Date().getFullYear()),
@@ -1423,6 +1509,299 @@
     }
   }
 
+  // --- Timeline Operations ---
+  function addTimelineItem() {
+    siteConfigState.timeline = [
+      {
+        title: "新事件节点",
+        date: new Date().toISOString().slice(0, 7).replace("-", "."),
+        category: "milestone",
+        subtitle: "自我突破",
+        location: "",
+        description: "记录新的事件、职位或项目成就...",
+        highlights: ["关键成就要点 1", "关键成就要点 2"],
+        tags: ["Astro", "Svelte"],
+        icon: "material-symbols:rocket-launch-rounded",
+        featured: false,
+        enable: true,
+      },
+      ...siteConfigState.timeline,
+    ];
+  }
+
+  function removeTimelineItem(index: number) {
+    siteConfigState.timeline = siteConfigState.timeline.filter((_, i) => i !== index);
+  }
+
+  function moveTimelineItem(index: number, direction: "up" | "down") {
+    const list = [...siteConfigState.timeline];
+    const targetIdx = direction === "up" ? index - 1 : index + 1;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+    const temp = list[index];
+    list[index] = list[targetIdx];
+    list[targetIdx] = temp;
+    siteConfigState.timeline = list;
+  }
+
+  async function saveTimelineSettings() {
+    try {
+      const res = await configApi.updateSite({ timeline: siteConfigState.timeline });
+      if (res.success) {
+        showMessage("时间线配置已保存成功！前台刷新即现");
+      } else {
+        showMessage(res.error || "保存时间线配置失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message, true);
+    }
+  }
+
+  // --- Drag and Drop Handlers ---
+  function handleProjectDrop(targetIdx: number) {
+    if (draggedProjectIndex === null || draggedProjectIndex === targetIdx) return;
+    const list = [...siteConfigState.projects];
+    const item = list.splice(draggedProjectIndex, 1)[0];
+    list.splice(targetIdx, 0, item);
+    siteConfigState.projects = list;
+    draggedProjectIndex = null;
+  }
+
+  function handleDeviceDrop(targetIdx: number) {
+    if (draggedDeviceIndex === null || draggedDeviceIndex === targetIdx) return;
+    const list = [...siteConfigState.devices];
+    const item = list.splice(draggedDeviceIndex, 1)[0];
+    list.splice(targetIdx, 0, item);
+    siteConfigState.devices = list;
+    draggedDeviceIndex = null;
+  }
+
+  function handleSkillDrop(targetIdx: number) {
+    if (draggedSkillIndex === null || draggedSkillIndex === targetIdx) return;
+    const list = [...siteConfigState.skills];
+    const item = list.splice(draggedSkillIndex, 1)[0];
+    list.splice(targetIdx, 0, item);
+    siteConfigState.skills = list;
+    draggedSkillIndex = null;
+  }
+
+  function handleTimelineDrop(targetIdx: number) {
+    if (draggedTimelineIndex === null || draggedTimelineIndex === targetIdx) return;
+    const list = [...siteConfigState.timeline];
+    const item = list.splice(draggedTimelineIndex, 1)[0];
+    list.splice(targetIdx, 0, item);
+    siteConfigState.timeline = list;
+    draggedTimelineIndex = null;
+  }
+
+  // --- Clipboard & Upload Helpers ---
+  async function copyToClipboard(text: string) {
+    if (!text) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      }
+      showMessage("已复制到剪贴板！");
+    } catch {
+      showMessage("复制失败，请手动选择复制", true);
+    }
+  }
+
+  async function handleGenericUpload(e: Event, onUploaded: (url: string) => void) {
+    const input = e.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    showMessage(`正在上传 ${file.name} 至 R2 存储...`);
+    try {
+      const res = await uploadFile(file);
+      if (res.success && res.url) {
+        showMessage("上传成功！");
+        onUploaded(res.url);
+      } else {
+        showMessage(res.error || "上传失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message || "上传异常", true);
+    } finally {
+      input.value = "";
+    }
+  }
+
+  // --- Media Library Operations ---
+  async function loadMediaLibrary() {
+    try {
+      const res = await mediaApi.list();
+      if (res.success) {
+        mediaFiles = res.objects || res.data || [];
+      }
+    } catch (err: any) {
+      console.error(err);
+    }
+  }
+
+  async function deleteMediaFile(key: string) {
+    if (!confirm(`确定要从 R2 存储彻底删除文件 "${key}" 吗？此操作不可恢复！`)) return;
+    try {
+      const res = await mediaApi.delete(key);
+      if (res.success) {
+        showMessage("文件已成功从 R2 删除！");
+        await loadMediaLibrary();
+      } else {
+        showMessage(res.error || "删除失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message || "删除异常", true);
+    }
+  }
+
+  function formatFileSize(bytes: number): string {
+    if (!bytes || bytes <= 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+  }
+
+  async function handleMediaLibraryUpload(e: Event) {
+    const input = e.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    mediaUploading = true;
+    try {
+      for (let i = 0; i < input.files.length; i++) {
+        const file = input.files[i];
+        showMessage(`正在上传 ${file.name} 至 R2 存储...`);
+        const res = await uploadFile(file);
+        if (!res.success) {
+          showMessage(res.error || `上传 ${file.name} 失败`, true);
+        }
+      }
+      showMessage("所有文件上传成功！");
+      await loadMediaLibrary();
+    } catch (err: any) {
+      showMessage(err.message || "上传异常", true);
+    } finally {
+      mediaUploading = false;
+      input.value = "";
+    }
+  }
+
+  // --- AI Writing Assistant Operations ---
+  async function fetchAiModels() {
+    aiFetchingModels = true;
+    try {
+      const res = await aiApi.getModels({
+        apiUrl: systemConfigState.aiApiUrl,
+        apiKey: systemConfigState.aiApiKey,
+      });
+      if (res.success && Array.isArray(res.models) && res.models.length > 0) {
+        aiAvailableModels = res.models;
+        showMessage(`成功获取 ${res.models.length} 个可用模型！`);
+      } else {
+        showMessage(res.error || "获取模型列表失败，请检查 API 配置", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message || "获取模型列表异常", true);
+    } finally {
+      aiFetchingModels = false;
+    }
+  }
+
+  function openAiAssistant(target: "post" | "moment") {
+    aiTarget = target;
+    aiPrompt = "";
+    aiInstruction = "";
+    aiResult = "";
+    aiModalOpen = true;
+  }
+
+  async function executeAiGeneration(customPrompt?: string) {
+    const promptToUse = customPrompt || aiInstruction || aiPrompt;
+    if (!promptToUse.trim()) {
+      return showMessage("请输入或选择提示词要求", true);
+    }
+    aiGenerating = true;
+    aiResult = "";
+    try {
+      const contextText = aiTarget === "post"
+        ? `文章标题: ${postForm.title}\n文章分类: ${postForm.category}\n已有正文:\n${postForm.content.slice(0, 2500)}`
+        : `已有动态内容:\n${(momentModalOpen ? editMomentForm.content : momentContent).slice(0, 1000)}`;
+
+      const res = await aiApi.generate({
+        apiUrl: systemConfigState.aiApiUrl,
+        apiKey: systemConfigState.aiApiKey,
+        model: systemConfigState.aiModel,
+        prompt: `【上下文】：\n${contextText}\n\n【用户指令】：\n${promptToUse}`,
+        systemPrompt: "你是一个专业的个人博客写作助手。根据用户指令帮助润色、续写或整理博客内容，直接输出 Markdown 格式，不要废话。",
+      });
+
+      if (res.success && res.content) {
+        aiResult = res.content;
+      } else {
+        showMessage(res.error || "AI 生成失败，请检查 API 配置", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message || "生成异常", true);
+    } finally {
+      aiGenerating = false;
+    }
+  }
+
+  function insertAiResultToEditor() {
+    if (!aiResult) return;
+    if (aiTarget === "post") {
+      postForm.content = postForm.content
+        ? `${postForm.content}\n\n${aiResult}`
+        : aiResult;
+      showMessage("已将 AI 内容追加到博文正文！");
+    } else {
+      if (momentModalOpen) {
+        editMomentForm.content = editMomentForm.content
+          ? `${editMomentForm.content}\n\n${aiResult}`
+          : aiResult;
+      } else {
+        momentContent = momentContent
+          ? `${momentContent}\n\n${aiResult}`
+          : aiResult;
+      }
+      showMessage("已将 AI 内容追加到动态正文！");
+    }
+    aiModalOpen = false;
+  }
+
+  // --- User Deletion Operation ---
+  async function handleDeleteUser(user: any) {
+    if (!confirm(`确定要彻底删除已封禁用户 "${user.nickname || user.username}" (ID: ${user.id}) 吗？此操作不可逆！`)) return;
+    try {
+      const res = await adminApi.deleteUser(user.id);
+      if (res.success) {
+        showMessage(`用户 ${user.username} 已成功删除！`);
+        loadTabData("users");
+      } else {
+        showMessage(res.error || "删除用户失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message || "请求异常", true);
+    }
+  }
+
+  // --- Live2D Model Operations ---
+  function addLive2dModelEntry() {
+    systemConfigState.live2dModels = [
+      ...systemConfigState.live2dModels,
+      { name: "新模型", url: "/pio/models/..." },
+    ];
+  }
+
+  function removeLive2dModelEntry(index: number) {
+    systemConfigState.live2dModels = systemConfigState.live2dModels.filter((_, i) => i !== index);
+  }
+
   // --- Moments Image URL Helper ---
   let momentImageUrlInput = $state("");
   let editMomentImageUrlInput = $state("");
@@ -1523,6 +1902,37 @@
       else if (targetField === "editMomentPhoto") editMomentForm.photos = [...editMomentForm.photos, res.url];
     } else {
       showMessage(res.error || "上传失败", true);
+    }
+  }
+
+  async function handleAlbumPhotoUpload(e: Event) {
+    const input = e.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const files = Array.from(input.files);
+    showMessage(`正在上传 ${files.length} 张相片至 R2 存储...`);
+    let count = 0;
+    try {
+      for (const file of files) {
+        const res = await uploadFile(file);
+        if (res.success && res.url) {
+          count++;
+          lastUploadedAlbumPhotoUrl = res.url;
+          if (albumForm.photosText && albumForm.photosText.trim()) {
+            albumForm.photosText += "\n" + res.url;
+          } else {
+            albumForm.photosText = res.url;
+          }
+        }
+      }
+      if (count > 0) {
+        showMessage(`成功上传 ${count} 张相片到 R2！`);
+      } else {
+        showMessage("上传失败", true);
+      }
+    } catch (err: any) {
+      showMessage(err.message || "上传异常", true);
+    } finally {
+      input.value = "";
     }
   }
 
@@ -1871,6 +2281,30 @@
         </button>
 
         <button
+          onclick={() => switchTab("timeline")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'timeline' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>⏳ {at.timeline}</span>
+        </button>
+
+        <button
+          onclick={() => switchTab("media")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'media' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <span>🖼️ {at.media}</span>
+        </button>
+
+        <button
+          onclick={() => switchTab("guide")}
+          class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'guide' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+          <span>📖 {at.guide}</span>
+        </button>
+
+        <button
           onclick={() => switchTab("users")}
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'users' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
         >
@@ -2127,21 +2561,31 @@
           <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm mb-8 max-w-2xl">
             <div class="flex items-center justify-between mb-2">
               <span class="text-xs font-semibold text-[var(--on-surface)]">撰写动态日记</span>
-              <div class="flex items-center rounded-xl bg-[var(--surface-container)] p-0.5 text-xs font-medium border border-[var(--outline-variant)]/20">
+              <div class="flex items-center gap-2">
                 <button
                   type="button"
-                  onclick={() => (momentEditorTab = "edit")}
-                  class="px-2.5 py-0.5 rounded-lg transition-colors {momentEditorTab === 'edit' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                  onclick={() => openAiAssistant("moment")}
+                  class="px-2.5 py-0.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium flex items-center gap-1 transition-colors"
+                  title="使用 AI 智能优化或续写动态"
                 >
-                  编辑源码
+                  <span>🤖 AI 写作助手</span>
                 </button>
-                <button
-                  type="button"
-                  onclick={() => (momentEditorTab = "preview")}
-                  class="px-2.5 py-0.5 rounded-lg transition-colors {momentEditorTab === 'preview' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
-                >
-                  实时预览
-                </button>
+                <div class="flex items-center rounded-xl bg-[var(--surface-container)] p-0.5 text-xs font-medium border border-[var(--outline-variant)]/20">
+                  <button
+                    type="button"
+                    onclick={() => (momentEditorTab = "edit")}
+                    class="px-2.5 py-0.5 rounded-lg transition-colors {momentEditorTab === 'edit' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                  >
+                    编辑源码
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => (momentEditorTab = "preview")}
+                    class="px-2.5 py-0.5 rounded-lg transition-colors {momentEditorTab === 'preview' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                  >
+                    实时预览
+                  </button>
+                </div>
               </div>
             </div>
             {#if momentEditorTab === "edit"}
@@ -2204,20 +2648,30 @@
               </button>
             </div>
             {#if momentPhotos.length > 0}
-              <div class="flex gap-2 mt-3 overflow-x-auto">
-                {#each momentPhotos as photo, pIdx}
-                  <div class="relative group w-14 h-14 shrink-0 rounded-xl overflow-hidden ring-1 ring-primary/30">
-                    <img src={photo} alt="Upload" class="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onclick={() => removeMomentPhoto(pIdx)}
-                      class="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/60 text-white hover:bg-error transition-colors"
-                      title="移除"
-                    >
-                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                  </div>
-                {/each}
+              <div class="mt-3 space-y-2">
+                <div class="flex gap-2 overflow-x-auto pb-1">
+                  {#each momentPhotos as photo, pIdx}
+                    <div class="relative group w-14 h-14 shrink-0 rounded-xl overflow-hidden ring-1 ring-primary/30">
+                      <img src={photo} alt="Upload" class="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onclick={() => removeMomentPhoto(pIdx)}
+                        class="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/60 text-white hover:bg-error transition-colors"
+                        title="移除"
+                      >
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  {/each}
+                </div>
+                <div class="space-y-1 max-h-32 overflow-y-auto pr-1">
+                  {#each momentPhotos as photo, pIdx}
+                    <div class="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-[var(--surface-container)] text-xs">
+                      <span class="truncate font-mono text-[11px] flex-1 text-[var(--on-surface-variant)]">{photo}</span>
+                      <button type="button" class="text-primary hover:underline text-[11px] shrink-0 font-medium" onclick={() => copyToClipboard(photo)}>复制链接</button>
+                    </div>
+                  {/each}
+                </div>
               </div>
             {/if}
           </div>
@@ -2287,7 +2741,12 @@
                 {#each pages as page}
                   <tr class="hover:bg-[var(--surface-container-lowest)] transition-colors">
                     <td class="px-6 py-4 font-semibold text-[var(--on-surface)]">
-                      {page.title}
+                      <div class="flex items-center gap-2">
+                        {#if page.icon}
+                          <span class="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-container-high)] text-primary font-mono">{page.icon}</span>
+                        {/if}
+                        <span>{page.title}</span>
+                      </div>
                     </td>
                     <td class="px-4 py-4 text-xs font-mono text-primary">
                       <a href={page.slug === 'about' ? '/about/' : `/pages/${page.slug}/`} target="_blank" class="hover:underline">
@@ -2509,6 +2968,11 @@
                           {user.status === 'banned' ? '解封' : '封禁'}
                         </button>
                       {/if}
+                      {#if user.status === 'banned' && user.role !== 'superadmin' && (authStore.user?.role === 'superadmin' || user.role !== 'admin')}
+                        <button onclick={() => handleDeleteUser(user)} class="text-rose-600 font-bold text-xs hover:underline">
+                          删除用户
+                        </button>
+                      {/if}
                     </td>
                   </tr>
                 {/each}
@@ -2561,12 +3025,20 @@
               {#if siteConfigState.projects && siteConfigState.projects.length > 0}
                 <div class="space-y-4">
                   {#each siteConfigState.projects as item, idx}
-                    <div class="p-5 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3">
+                    <div
+                      draggable="true"
+                      ondragstart={() => (draggedProjectIndex = idx)}
+                      ondragover={(e) => { e.preventDefault(); }}
+                      ondrop={() => handleProjectDrop(idx)}
+                      class="p-5 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3 transition-shadow {draggedProjectIndex === idx ? 'opacity-50 border-primary' : ''}"
+                    >
                       <div class="flex items-center justify-between gap-3 pb-2 border-b border-[var(--outline-variant)]/10">
                         <div class="flex items-center gap-2">
+                          <span class="cursor-grab text-[var(--on-surface-variant)] hover:text-primary select-none text-xs font-mono" title="按住拖拽排序">⋮⋮</span>
                           <span class="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center">#{idx + 1}</span>
                           <span class="font-bold text-sm text-[var(--on-surface)]">{item.title || "未命名项目"}</span>
-                          {#if item.featured}<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 font-semibold">推荐</span>{/if}
+                          {#if item.pinned}<span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-semibold flex items-center gap-1">📌 置顶</span>{/if}
+                          {#if item.featured}<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 font-semibold flex items-center gap-1">⭐ 精选</span>{/if}
                           {#if item.enable === false}<span class="text-[10px] px-2 py-0.5 rounded-full bg-error/15 text-error font-semibold">已禁用</span>{/if}
                         </div>
                         <div class="flex items-center gap-1">
@@ -2622,10 +3094,29 @@
                           <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">所属分类 (Category)</label>
                           <input
                             type="text"
+                            list="project-categories-list"
                             bind:value={item.category}
                             placeholder="如 theme / android / web"
                             class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
                           />
+                          <datalist id="project-categories-list">
+                            {#each distinctProjectCategories as cat}
+                              <option value={cat}>{cat}</option>
+                            {/each}
+                          </datalist>
+                          {#if distinctProjectCategories.length > 0}
+                            <div class="flex flex-wrap gap-1 mt-1.5">
+                              {#each distinctProjectCategories as cat}
+                                <button
+                                  type="button"
+                                  onclick={() => (item.category = cat)}
+                                  class="text-[9px] px-2 py-0.5 rounded-md transition-colors {item.category === cat ? 'bg-primary text-on-primary font-bold' : 'bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] hover:bg-primary/20 hover:text-primary'}"
+                                >
+                                  {cat}
+                                </button>
+                              {/each}
+                            </div>
+                          {/if}
                         </div>
                         <div>
                           <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">研发阶段 (Phase)</label>
@@ -2721,8 +3212,12 @@
 
                       <div class="flex items-center gap-6 pt-1 text-xs">
                         <label class="flex items-center gap-2 cursor-pointer font-medium">
-                          <input type="checkbox" bind:checked={item.featured} class="w-4 h-4 text-primary rounded" />
-                          <span>设为精选推荐</span>
+                          <input type="checkbox" bind:checked={item.pinned} class="w-4 h-4 text-primary rounded" />
+                          <span>📌 置顶排序 (Pinned)</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer font-medium">
+                          <input type="checkbox" bind:checked={item.featured} class="w-4 h-4 text-amber-500 rounded" />
+                          <span>⭐ 设为精选 (Featured)</span>
                         </label>
                         <label class="flex items-center gap-2 cursor-pointer font-medium">
                           <input
@@ -2797,9 +3292,16 @@
               {#if siteConfigState.devices && siteConfigState.devices.length > 0}
                 <div class="space-y-4">
                   {#each siteConfigState.devices as item, idx}
-                    <div class="p-5 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3">
+                    <div
+                      draggable="true"
+                      ondragstart={() => (draggedDeviceIndex = idx)}
+                      ondragover={(e) => { e.preventDefault(); }}
+                      ondrop={() => handleDeviceDrop(idx)}
+                      class="p-5 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3 transition-shadow {draggedDeviceIndex === idx ? 'opacity-50 border-primary' : ''}"
+                    >
                       <div class="flex items-center justify-between gap-3 pb-2 border-b border-[var(--outline-variant)]/10">
                         <div class="flex items-center gap-2">
+                          <span class="cursor-grab text-[var(--on-surface-variant)] hover:text-primary select-none text-xs font-mono" title="按住拖拽排序">⋮⋮</span>
                           <span class="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center">#{idx + 1}</span>
                           <span class="font-bold text-sm text-[var(--on-surface)]">{item.name || "未命名设备"}</span>
                           {#if item.brand}<span class="text-xs text-[var(--on-surface-variant)]">({item.brand})</span>{/if}
@@ -2866,16 +3368,31 @@
                         </div>
                         <div>
                           <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">类别 (Category)</label>
-                          <select
+                          <input
+                            type="text"
+                            list="device-categories-list"
                             bind:value={item.category}
+                            placeholder="如 desk / mobile / audio / peripheral"
                             class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
-                          >
-                            <option value="desk">工作台/电脑 (desk)</option>
-                            <option value="mobile">移动设备 (mobile)</option>
-                            <option value="audio">影音娱乐 (audio)</option>
-                            <option value="peripheral">外设配件 (peripheral)</option>
-                            <option value="other">其它装备 (other)</option>
-                          </select>
+                          />
+                          <datalist id="device-categories-list">
+                            {#each distinctDeviceCategories as cat}
+                              <option value={cat}>{cat}</option>
+                            {/each}
+                          </datalist>
+                          {#if distinctDeviceCategories.length > 0}
+                            <div class="flex flex-wrap gap-1 mt-1.5">
+                              {#each distinctDeviceCategories as cat}
+                                <button
+                                  type="button"
+                                  onclick={() => (item.category = cat)}
+                                  class="text-[9px] px-2 py-0.5 rounded-md transition-colors {item.category === cat ? 'bg-primary text-on-primary font-bold' : 'bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] hover:bg-primary/20 hover:text-primary'}"
+                                >
+                                  {cat}
+                                </button>
+                              {/each}
+                            </div>
+                          {/if}
                         </div>
                       </div>
 
@@ -3029,9 +3546,16 @@
               {#if siteConfigState.skills && siteConfigState.skills.length > 0}
                 <div class="space-y-3">
                   {#each siteConfigState.skills as item, idx}
-                    <div class="p-4 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-2">
+                    <div
+                      draggable="true"
+                      ondragstart={() => (draggedSkillIndex = idx)}
+                      ondragover={(e) => { e.preventDefault(); }}
+                      ondrop={() => handleSkillDrop(idx)}
+                      class="p-4 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-2 transition-shadow {draggedSkillIndex === idx ? 'opacity-50 border-primary' : ''}"
+                    >
                       <div class="flex items-center justify-between gap-3 pb-2 border-b border-[var(--outline-variant)]/10">
                         <div class="flex items-center gap-2">
+                          <span class="cursor-grab text-[var(--on-surface-variant)] hover:text-primary select-none text-xs font-mono" title="按住拖拽排序">⋮⋮</span>
                           <span class="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center">#{idx + 1}</span>
                           <span class="font-bold text-sm text-[var(--on-surface)]">{item.name || "未命名技能"}</span>
                           {#if item.level}<span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-semibold">{item.level}</span>{/if}
@@ -3079,16 +3603,31 @@
                         </div>
                         <div>
                           <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">所属技术类别 (Category)</label>
-                          <select
+                          <input
+                            type="text"
+                            list="skill-categories-list"
                             bind:value={item.category}
+                            placeholder="如 frontend / backend / tooling / design"
                             class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
-                          >
-                            <option value="frontend">前端技术 (frontend)</option>
-                            <option value="backend">后端架构 (backend)</option>
-                            <option value="tooling">工具与运维 (tooling)</option>
-                            <option value="design">设计与创意 (design)</option>
-                            <option value="other">其它能力 (other)</option>
-                          </select>
+                          />
+                          <datalist id="skill-categories-list">
+                            {#each distinctSkillCategories as cat}
+                              <option value={cat}>{cat}</option>
+                            {/each}
+                          </datalist>
+                          {#if distinctSkillCategories.length > 0}
+                            <div class="flex flex-wrap gap-1 mt-1.5">
+                              {#each distinctSkillCategories as cat}
+                                <button
+                                  type="button"
+                                  onclick={() => (item.category = cat)}
+                                  class="text-[9px] px-2 py-0.5 rounded-md transition-colors {item.category === cat ? 'bg-primary text-on-primary font-bold' : 'bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] hover:bg-primary/20 hover:text-primary'}"
+                                >
+                                  {cat}
+                                </button>
+                              {/each}
+                            </div>
+                          {/if}
                         </div>
                         <div>
                           <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">熟练程度 (Level)</label>
@@ -3645,7 +4184,7 @@
                 <span>🐱 看板娘 (Live2D Widget) 配置</span>
               </h2>
               <p class="text-xs text-[var(--on-surface-variant)] mb-4">
-                独立控制访客端与管理员后台看板娘的显示与沙箱挂载。
+                独立控制看板娘显示、互动多语言支持与多模型切换管理。
               </p>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <label class="flex items-center gap-3 p-3 rounded-2xl border border-[var(--outline-variant)]/20 cursor-pointer">
@@ -3658,18 +4197,166 @@
                 </label>
               </div>
 
-              <div>
-                <label class="text-xs font-semibold block mb-1.5">Live2D 模型配置文件路径 (Model JSON URL / Path)</label>
-                <input
-                  type="text"
-                  bind:value={systemConfigState.live2dModel}
-                  placeholder="/pio/models/NOIR/noir.model3.json"
-                  class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono"
-                />
-                <p class="text-[11px] text-[var(--on-surface-variant)] mt-1.5">
-                  默认内置看板娘模型路径为 <code>/pio/models/NOIR/noir.model3.json</code>，亦支持配置其他自建静态路径或合法外部 CDN 链接。
-                </p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label class="text-xs font-semibold block mb-1.5">看板娘互动台词语言 (Interaction Language)</label>
+                  <select
+                    bind:value={systemConfigState.live2dLang}
+                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                  >
+                    <option value="zh_CN">简体中文 (zh_CN)</option>
+                    <option value="zh_TW">繁體中文 (zh_TW)</option>
+                    <option value="en">English (en)</option>
+                    <option value="ja">日本語 (ja)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs font-semibold block mb-1.5">当前启用模型路径 (Active Model JSON)</label>
+                  <input
+                    type="text"
+                    bind:value={systemConfigState.live2dModel}
+                    placeholder="/pio/models/NOIR/noir.model3.json"
+                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono"
+                  />
+                </div>
               </div>
+
+              <!-- Multi-Model Manager -->
+              <div class="p-4 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-primary">Live2D 多模型库管理</span>
+                  <div class="flex items-center gap-2">
+                    <label class="cursor-pointer px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors flex items-center gap-1">
+                      <span>📤 上传模型文件</span>
+                      <input type="file" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => {
+                        systemConfigState.live2dModels = [...systemConfigState.live2dModels, { name: "上传模型", url }];
+                      })} />
+                    </label>
+                    <button
+                      type="button"
+                      onclick={addLive2dModelEntry}
+                      class="px-2.5 py-1 rounded-lg bg-[var(--surface-container-high)] text-xs font-semibold hover:bg-[var(--surface-container-highest)] transition-colors"
+                    >
+                      + 新增模型地址
+                    </button>
+                  </div>
+                </div>
+
+                <div class="space-y-2">
+                  {#each systemConfigState.live2dModels as model, idx}
+                    <div class="flex items-center gap-2 p-2 rounded-xl bg-[var(--surface)] border border-[var(--outline-variant)]/20 text-xs">
+                      <label class="flex items-center gap-1.5 cursor-pointer shrink-0" title="设为当前生效模型">
+                        <input
+                          type="radio"
+                          name="activeLive2dModel"
+                          checked={systemConfigState.live2dModel === model.url}
+                          onchange={() => { systemConfigState.live2dModel = model.url; }}
+                          class="text-primary"
+                        />
+                        <span class="text-[10px] font-bold {systemConfigState.live2dModel === model.url ? 'text-primary' : 'text-[var(--on-surface-variant)]'}">
+                          {systemConfigState.live2dModel === model.url ? '使用中' : '选用'}
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        bind:value={model.name}
+                        placeholder="模型名称"
+                        class="w-28 px-2 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-xs outline-none"
+                      />
+                      <input
+                        type="text"
+                        bind:value={model.url}
+                        placeholder="模型 JSON 地址 (如 /pio/models/... 或 https://...)"
+                        class="flex-1 px-2 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-xs font-mono outline-none"
+                      />
+                      <button
+                        type="button"
+                        onclick={() => removeLive2dModelEntry(idx)}
+                        class="p-1 text-error hover:bg-error/10 rounded-md transition-colors shrink-0"
+                        title="删除此模型"
+                      >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                      </button>
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            </div>
+
+            <!-- AI Writing Assistant Settings -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <div class="flex items-center justify-between mb-1">
+                <h2 class="text-lg font-bold flex items-center gap-2">
+                  <span>🤖 AI 写作助手模型与接口配置</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={fetchAiModels}
+                  disabled={aiFetchingModels}
+                  class="px-3.5 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                >
+                  {#if aiFetchingModels}
+                    <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                    <span>正在获取模型...</span>
+                  {:else}
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span>获取可用模型列表</span>
+                  {/if}
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">
+                支持 OpenAI 或任何兼容 OpenAI 协议的自建/第三方大语言模型接口（如 DeepSeek, Moonshot, Ollama, SiliconFlow 等）。
+              </p>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label class="text-xs font-semibold block mb-1.5">API 端点 (Base URL)</label>
+                  <input
+                    type="text"
+                    bind:value={systemConfigState.aiApiUrl}
+                    placeholder="https://api.openai.com/v1"
+                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label class="text-xs font-semibold block mb-1.5">API Key (密钥)</label>
+                  <input
+                    type="password"
+                    bind:value={systemConfigState.aiApiKey}
+                    placeholder="sk-..."
+                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label class="text-xs font-semibold block mb-1.5">模型标识 (Model ID)</label>
+                <div class="flex items-center gap-2">
+                  <input
+                    type="text"
+                    bind:value={systemConfigState.aiModel}
+                    placeholder="例如: gpt-4o-mini, deepseek-chat, claude-3-haiku"
+                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              {#if aiAvailableModels.length > 0}
+                <div class="mt-3">
+                  <label class="text-[11px] text-[var(--on-surface-variant)] block mb-1">接口返回的可用模型（点击直接选择）：</label>
+                  <div class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 rounded-xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20">
+                    {#each aiAvailableModels as mod}
+                      <button
+                        type="button"
+                        onclick={() => (systemConfigState.aiModel = mod)}
+                        class="text-[10px] px-2.5 py-1 rounded-lg transition-colors font-mono {systemConfigState.aiModel === mod ? 'bg-primary text-on-primary font-bold' : 'bg-[var(--surface)] text-[var(--on-surface-variant)] hover:bg-primary/20 hover:text-primary'}"
+                      >
+                        {mod}
+                      </button>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
             </div>
 
             <!-- Site Core Settings -->
@@ -3743,7 +4430,15 @@
               <div class="space-y-4">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label class="text-xs font-semibold block mb-1.5">桌面端横幅图片 URL（支持多图，每行一张）</label>
+                    <div class="flex items-center justify-between mb-1.5">
+                      <label class="text-xs font-semibold block">桌面端横幅图片 URL（支持多图，每行一张）</label>
+                      <label class="cursor-pointer text-[10px] px-2 py-0.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium flex items-center gap-1">
+                        <span>📤 上传到 R2</span>
+                        <input type="file" accept="image/*" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => {
+                          siteConfigState.bannerDesktop = siteConfigState.bannerDesktop ? `${siteConfigState.bannerDesktop}\n${url}` : url;
+                        })} />
+                      </label>
+                    </div>
                     <textarea
                       bind:value={siteConfigState.bannerDesktop}
                       rows="3"
@@ -3752,7 +4447,15 @@
                     ></textarea>
                   </div>
                   <div>
-                    <label class="text-xs font-semibold block mb-1.5">移动端横幅图片 URL（支持多图，每行一张）</label>
+                    <div class="flex items-center justify-between mb-1.5">
+                      <label class="text-xs font-semibold block">移动端横幅图片 URL（支持多图，每行一张）</label>
+                      <label class="cursor-pointer text-[10px] px-2 py-0.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium flex items-center gap-1">
+                        <span>📤 上传到 R2</span>
+                        <input type="file" accept="image/*" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => {
+                          siteConfigState.bannerMobile = siteConfigState.bannerMobile ? `${siteConfigState.bannerMobile}\n${url}` : url;
+                        })} />
+                      </label>
+                    </div>
                     <textarea
                       bind:value={siteConfigState.bannerMobile}
                       rows="3"
@@ -3828,12 +4531,30 @@
                   />
                 </div>
                 <div>
-                  <label class="text-xs font-semibold block mb-1.5">头像图片 URL</label>
-                  <input
-                    type="text"
-                    bind:value={siteConfigState.avatar}
-                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
-                  />
+                  <div class="flex items-center justify-between mb-1.5">
+                    <label class="text-xs font-semibold block">头像图片 URL</label>
+                    <label class="cursor-pointer text-[10px] px-2 py-0.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium flex items-center gap-1">
+                      <span>📤 上传新头像</span>
+                      <input type="file" accept="image/*" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => { siteConfigState.avatar = url; })} />
+                    </label>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <input
+                      type="text"
+                      bind:value={siteConfigState.avatar}
+                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                    />
+                    {#if siteConfigState.avatar}
+                      <button
+                        type="button"
+                        onclick={() => copyToClipboard(siteConfigState.avatar)}
+                        class="p-2.5 rounded-xl border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] shrink-0"
+                        title="复制头像链接"
+                      >
+                        📋
+                      </button>
+                    {/if}
+                  </div>
                 </div>
               </div>
 
@@ -4169,18 +4890,40 @@
                                 placeholder="艺术家 / 歌手"
                                 class="px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/20 bg-[var(--surface)] text-xs outline-none"
                               />
-                              <input
-                                type="text"
-                                bind:value={track.source}
-                                placeholder="音频 URL (/assets/music/... 或 https://...)"
-                                class="px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/20 bg-[var(--surface)] text-xs outline-none font-mono"
-                              />
-                              <input
-                                type="text"
-                                bind:value={track.cover}
-                                placeholder="封面图片 URL"
-                                class="px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/20 bg-[var(--surface)] text-xs outline-none font-mono"
-                              />
+                              <div class="flex items-center gap-1">
+                                <input
+                                  type="text"
+                                  bind:value={track.source}
+                                  placeholder="音频 URL (/assets/music/... 或 https://...)"
+                                  class="flex-1 px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/20 bg-[var(--surface)] text-xs outline-none font-mono"
+                                />
+                                <label class="cursor-pointer p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-[10px] shrink-0 font-medium" title="上传音频文件 (.mp3, .flac, .wav, .ogg, .m4a)">
+                                  <span>🎵 上传</span>
+                                  <input type="file" accept="audio/*,.mp3,.flac,.wav,.ogg,.m4a,.aac" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => { track.source = url; })} />
+                                </label>
+                                {#if track.source}
+                                  <button type="button" onclick={() => copyToClipboard(track.source)} class="p-1.5 rounded-lg border border-[var(--outline-variant)]/20 hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] text-[10px] shrink-0" title="复制音频链接">
+                                    📋
+                                  </button>
+                                {/if}
+                              </div>
+                              <div class="flex items-center gap-1">
+                                <input
+                                  type="text"
+                                  bind:value={track.cover}
+                                  placeholder="封面图片 URL"
+                                  class="flex-1 px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/20 bg-[var(--surface)] text-xs outline-none font-mono"
+                                />
+                                <label class="cursor-pointer p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-[10px] shrink-0 font-medium" title="上传封面图片">
+                                  <span>🖼️ 上传</span>
+                                  <input type="file" accept="image/*" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => { track.cover = url; })} />
+                                </label>
+                                {#if track.cover}
+                                  <button type="button" onclick={() => copyToClipboard(track.cover)} class="p-1.5 rounded-lg border border-[var(--outline-variant)]/20 hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] text-[10px] shrink-0" title="复制封面链接">
+                                    📋
+                                  </button>
+                                {/if}
+                              </div>
                             </div>
                             <button
                               onclick={() => removeMusicTrack(idx)}
@@ -4235,6 +4978,598 @@
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
               <span>保存所有外观与系统设定</span>
             </button>
+          </div>
+
+        {:else if currentTab === "timeline"}
+          <!-- Timeline Management Panel -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl font-bold">⏳ 时间线事件管理 (Timeline)</h1>
+              <p class="text-xs text-[var(--on-surface-variant)] mt-1">管理前台 /timeline/ 发展历程与里程碑节点，支持拖拽排序、分类标签、亮点成就及实时增删</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <a
+                href="/timeline/"
+                target="_blank"
+                class="px-4 py-2 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] text-xs font-semibold transition-all"
+              >
+                预览前台时间线 ↗
+              </a>
+              <button
+                type="button"
+                onclick={saveTimelineSettings}
+                class="px-6 py-2.5 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105 active:scale-98 transition-all flex items-center gap-1.5"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span>保存时间线设置</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-6">
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
+              <div class="flex items-center justify-between mb-2">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>时间线节点列表 ({siteConfigState.timeline.length} 个)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={addTimelineItem}
+                  class="px-4 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-all flex items-center gap-1"
+                >
+                  + 新增事件节点
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">前台采用精致轴线设计，按时间倒序清晰展示个人经历、项目发布及关键突破。</p>
+
+              {#if siteConfigState.timeline && siteConfigState.timeline.length > 0}
+                <div class="space-y-4">
+                  {#each siteConfigState.timeline as item, idx}
+                    <div
+                      draggable="true"
+                      ondragstart={() => (draggedTimelineIndex = idx)}
+                      ondragover={(e) => { e.preventDefault(); }}
+                      ondrop={() => handleTimelineDrop(idx)}
+                      class="p-5 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3 transition-shadow {draggedTimelineIndex === idx ? 'opacity-50 border-primary' : ''}"
+                    >
+                      <div class="flex items-center justify-between gap-3 pb-2 border-b border-[var(--outline-variant)]/10">
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <span class="cursor-grab text-[var(--on-surface-variant)] hover:text-primary select-none text-xs font-mono" title="按住拖拽排序">⋮⋮</span>
+                          <span class="w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center">#{idx + 1}</span>
+                          <span class="font-bold text-sm text-[var(--on-surface)]">{item.title || "未命名节点"}</span>
+                          {#if item.date}<span class="text-xs text-primary font-mono font-semibold">({item.date})</span>{/if}
+                          {#if item.category}<span class="text-[10px] px-2 py-0.5 rounded-full bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] font-medium">{item.category}</span>{/if}
+                          {#if item.featured}<span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 font-semibold">精选高亮</span>{/if}
+                          {#if item.enable === false}<span class="text-[10px] px-2 py-0.5 rounded-full bg-error/15 text-error font-semibold">已禁用</span>{/if}
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onclick={() => moveTimelineItem(idx, "up")}
+                            disabled={idx === 0}
+                            class="p-1.5 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] rounded-lg transition-colors disabled:opacity-30"
+                            title="上移"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                          </button>
+                          <button
+                            type="button"
+                            onclick={() => moveTimelineItem(idx, "down")}
+                            disabled={idx === siteConfigState.timeline.length - 1}
+                            class="p-1.5 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container)] rounded-lg transition-colors disabled:opacity-30"
+                            title="下移"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                          </button>
+                          <button
+                            type="button"
+                            onclick={() => removeTimelineItem(idx)}
+                            class="p-1.5 text-error hover:bg-error/10 rounded-lg transition-colors"
+                            title="删除此节点"
+                          >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">事件标题 (Title) *</label>
+                          <input
+                            type="text"
+                            bind:value={item.title}
+                            placeholder="如 Architecture Upgrade"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">发生时间 (Date) *</label>
+                          <input
+                            type="text"
+                            bind:value={item.date}
+                            placeholder="如 2026.08 或 2025.03 – 至今"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">副标题/机构 (Subtitle)</label>
+                          <input
+                            type="text"
+                            bind:value={item.subtitle}
+                            placeholder="如 Technology Lab 或 开源项目"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">地点/坐标 (Location)</label>
+                          <input
+                            type="text"
+                            bind:value={item.location}
+                            placeholder="如 Tokyo, Japan"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">事件分类 (Category)</label>
+                          <input
+                            type="text"
+                            list="timeline-category-list"
+                            bind:value={item.category}
+                            placeholder="milestone / career / project / education / life"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                          <datalist id="timeline-category-list">
+                            {#each distinctTimelineCategories as cat}
+                              <option value={cat}></option>
+                            {/each}
+                          </datalist>
+                          {#if distinctTimelineCategories.length > 0}
+                            <div class="flex flex-wrap gap-1 mt-1.5">
+                              {#each distinctTimelineCategories as cat}
+                                <button
+                                  type="button"
+                                  onclick={() => (item.category = cat)}
+                                  class="text-[9px] px-2 py-0.5 rounded-md transition-colors {item.category === cat ? 'bg-primary text-on-primary font-bold' : 'bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] hover:bg-primary/20 hover:text-primary'}"
+                                >
+                                  {cat}
+                                </button>
+                              {/each}
+                            </div>
+                          {/if}
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">图标 (Iconify)</label>
+                          <input
+                            type="text"
+                            bind:value={item.icon}
+                            placeholder="material-symbols:rocket-launch-rounded"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">技术或标签 (Tags，以英文逗号分隔)</label>
+                          <input
+                            type="text"
+                            value={Array.isArray(item.tags) ? item.tags.join(", ") : (item.tags || "")}
+                            oninput={(e) => {
+                              item.tags = (e.target as HTMLInputElement).value
+                                .split(/[,，]/)
+                                .map((s) => s.trim())
+                                .filter(Boolean);
+                            }}
+                            placeholder="Astro, Svelte 5, M3E, Tailwind"
+                            class="w-full px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">详细描述 (Description)</label>
+                          <textarea
+                            bind:value={item.description}
+                            rows="3"
+                            placeholder="记录该事件节点的详细内容、心得感悟与历程背景..."
+                            class="w-full p-2.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none resize-none"
+                          ></textarea>
+                        </div>
+                        <div>
+                          <label class="text-[10px] text-[var(--on-surface-variant)] block font-medium">成就有利点/核心亮点 (Highlights，每行一条)</label>
+                          <textarea
+                            value={Array.isArray(item.highlights) ? item.highlights.join("\n") : (item.highlights || "")}
+                            oninput={(e) => {
+                              item.highlights = (e.target as HTMLTextAreaElement).value
+                                .split("\n")
+                                .map((s) => s.trim())
+                                .filter(Boolean);
+                            }}
+                            rows="3"
+                            placeholder="亮点 1: 升级了全新核心架构&#10;亮点 2: 提高了运行效率 40%"
+                            class="w-full p-2.5 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] outline-none font-mono"
+                          ></textarea>
+                        </div>
+                      </div>
+
+                      <div class="flex items-center gap-6 pt-1 text-xs">
+                        <label class="flex items-center gap-2 cursor-pointer font-medium">
+                          <input type="checkbox" bind:checked={item.featured} class="w-4 h-4 text-amber-500 rounded" />
+                          <span>⭐ 设为重要里程碑高亮 (Featured)</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer font-medium">
+                          <input
+                            type="checkbox"
+                            checked={item.enable !== false}
+                            onchange={(e) => { item.enable = (e.target as HTMLInputElement).checked; }}
+                            class="w-4 h-4 text-primary rounded"
+                          />
+                          <span>在前台展示此时间线节点</span>
+                        </label>
+                      </div>
+                    </div>
+                  {/each}
+                </div>
+              {:else}
+                <p class="text-xs text-[var(--on-surface-variant)] italic py-2">暂无时间线节点，请点击右上角「+ 新增事件节点」</p>
+              {/if}
+            </div>
+
+            <button
+              type="button"
+              onclick={saveTimelineSettings}
+              class="px-8 py-3 rounded-full bg-primary text-on-primary font-bold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all flex items-center gap-2"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span>保存时间线设置</span>
+            </button>
+          </div>
+
+        {:else if currentTab === "media"}
+          <!-- Media Library Panel -->
+          <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <div>
+              <h1 class="text-2xl font-bold">🖼️ 媒体库 (R2 Cloud Storage)</h1>
+              <p class="text-xs text-[var(--on-surface-variant)] mt-1">查看并管理存储在 Cloudflare R2 中的图片、音频与附件资源，支持一键上传、复制 URL 及彻底删除</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                onclick={loadMediaLibrary}
+                class="px-4 py-2 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] text-xs font-semibold flex items-center gap-1.5 transition-all"
+              >
+                <span>🔄 刷新</span>
+              </button>
+              <label class="px-5 py-2.5 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105 cursor-pointer flex items-center gap-1.5 transition-all active:scale-98">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                <span>{mediaUploading ? "正在上传中..." : "📤 上传文件到 R2"}</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,audio/*,.mp3,.flac,.wav,.ogg,.m4a,.aac,.pdf"
+                  disabled={mediaUploading}
+                  class="hidden"
+                  onchange={handleMediaLibraryUpload}
+                />
+              </label>
+            </div>
+          </div>
+
+          <!-- Stats & Filter Bar -->
+          <div class="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+              <span class="text-xs font-semibold text-[var(--on-surface)]">
+                总文件数: <strong class="text-primary">{mediaFiles.length}</strong>
+              </span>
+              <span class="text-xs font-semibold text-[var(--on-surface-variant)]">
+                占用存储: <strong class="text-[var(--on-surface)]">{formatFileSize(totalMediaStorageBytes)}</strong>
+              </span>
+            </div>
+
+            <div class="flex items-center gap-3 flex-1 sm:flex-initial justify-end">
+              <!-- Filter tabs -->
+              <div class="flex items-center rounded-xl bg-[var(--surface-container)] p-0.5 text-xs font-medium border border-[var(--outline-variant)]/20">
+                <button
+                  type="button"
+                  onclick={() => (mediaFilter = "all")}
+                  class="px-3 py-1 rounded-lg transition-colors {mediaFilter === 'all' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                >
+                  全部 ({mediaFiles.length})
+                </button>
+                <button
+                  type="button"
+                  onclick={() => (mediaFilter = "image")}
+                  class="px-3 py-1 rounded-lg transition-colors {mediaFilter === 'image' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                >
+                  图片
+                </button>
+                <button
+                  type="button"
+                  onclick={() => (mediaFilter = "audio")}
+                  class="px-3 py-1 rounded-lg transition-colors {mediaFilter === 'audio' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                >
+                  音频
+                </button>
+              </div>
+
+              <!-- Search -->
+              <div class="relative w-48 sm:w-64">
+                <input
+                  type="text"
+                  bind:value={mediaSearch}
+                  placeholder="搜索文件名或路径..."
+                  class="w-full px-3 py-1.5 pl-8 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-xs outline-none focus:border-primary"
+                />
+                <svg class="w-3.5 h-3.5 text-[var(--on-surface-variant)] absolute left-2.5 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Media Files Grid -->
+          {#if filteredMediaFiles.length > 0}
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {#each filteredMediaFiles as file}
+                {@const isImage = /\.(png|jpe?g|webp|gif|svg|avif|ico)$/i.test(file.key) || file.httpMetadata?.contentType?.startsWith("image/")}
+                {@const isAudio = /\.(mp3|flac|wav|ogg|m4a|aac)$/i.test(file.key) || file.httpMetadata?.contentType?.startsWith("audio/")}
+                <div class="rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface)] overflow-hidden shadow-sm flex flex-col group hover:shadow-md transition-shadow">
+                  <div class="h-32 bg-[var(--surface-container)] relative overflow-hidden flex items-center justify-center">
+                    {#if isImage}
+                      <img src={file.url} alt={file.key} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+                    {:else if isAudio}
+                      <div class="flex flex-col items-center gap-1.5 text-primary p-2">
+                        <span class="text-3xl">🎵</span>
+                        <span class="text-[10px] font-mono text-[var(--on-surface-variant)] truncate max-w-[100px]">{file.key.split('.').pop()?.toUpperCase()}</span>
+                      </div>
+                    {:else}
+                      <div class="flex flex-col items-center gap-1 text-[var(--on-surface-variant)]">
+                        <span class="text-3xl">📄</span>
+                        <span class="text-[10px] font-mono uppercase">{file.key.split('.').pop()}</span>
+                      </div>
+                    {/if}
+                    <span class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/60 text-white text-[9px] font-mono backdrop-blur-xs">
+                      {formatFileSize(file.size)}
+                    </span>
+                  </div>
+
+                  <div class="p-3 flex-1 flex flex-col justify-between">
+                    <div>
+                      <p class="text-xs font-semibold text-[var(--on-surface)] truncate" title={file.key}>{file.key.split("/").pop() || file.key}</p>
+                      <p class="text-[10px] text-[var(--on-surface-variant)] font-mono truncate mt-0.5" title={file.url}>{file.url}</p>
+                    </div>
+
+                    <div class="mt-3 pt-2 border-t border-[var(--outline-variant)]/10 flex items-center justify-between text-xs">
+                      <button
+                        type="button"
+                        onclick={() => copyToClipboard(file.url)}
+                        class="text-primary hover:underline text-[11px] font-medium flex items-center gap-1"
+                        title="复制外链"
+                      >
+                        <span>📋 复制</span>
+                      </button>
+                      <button
+                        type="button"
+                        onclick={() => deleteMediaFile(file.key)}
+                        class="text-error hover:underline text-[11px] font-medium"
+                        title="从 R2 彻底删除"
+                      >
+                        删除
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {:else}
+            <div class="p-12 text-center rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 space-y-3">
+              <span class="text-4xl block">🖼️</span>
+              <p class="text-sm font-semibold text-[var(--on-surface)]">暂无匹配的媒体文件</p>
+              <p class="text-xs text-[var(--on-surface-variant)]">点击右上角「上传文件到 R2」，可上传图片、音频及媒体素材</p>
+            </div>
+          {/if}
+
+        {:else if currentTab === "guide"}
+          <!-- Markdown Syntax Guide Panel -->
+          <div class="mb-6 flex items-center justify-between">
+            <div>
+              <h1 class="text-2xl font-bold">📖 写作语法指南 (Markdown Cheat Sheet)</h1>
+              <p class="text-xs text-[var(--on-surface-variant)] mt-1">Shirine 原生支持丰富的 Material 3 Expressive 扩展语法。点击任一代码块右上角即可直接复制模板使用！</p>
+            </div>
+          </div>
+
+          <div class="space-y-6 max-w-4xl">
+            <!-- Basic Formatting -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>🖋️ 基础文本排版 (Headings, Bold, Lists, Tables)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard(`## 二级标题\n### 三级标题\n\n**加粗文字**，*斜体文字*，~~删除线~~，==高亮标记==。\n\n> 这是一个经典引用段落。\n\n- 无序列表项 A\n- 无序列表项 B\n  - 嵌套列表项\n\n1. 有序编号 1\n2. 有序编号 2\n\n- [x] 已完成的任务\n- [ ] 待完成的任务清单`)}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制基础语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">支持标准 GFM（GitHub Flavored Markdown）所有排版特性，包括表格、任务清单与脚注。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>## 二级标题
+### 三级标题
+
+**加粗文字**，*斜体文字*，~~删除线~~，==高亮标记==。
+
+> 这是一个经典引用段落。
+
+- 无序列表项 A
+- 无序列表项 B
+  - 嵌套列表项
+
+1. 有序编号 1
+2. 有序编号 2
+
+- [x] 已完成的任务
+- [ ] 待完成的任务清单
+
+| 表头一 | 表头二 | 表头三 |
+| :--- | :---: | ---: |
+| 左对齐 | 居中对齐 | 右对齐 |</code></pre>
+            </div>
+
+            <!-- Admonitions -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>💡 警告与提示卡片 (Admonitions)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard(`:::note[说明标注]\n这是一个通用的说明信息标注卡片。\n:::\n\n:::tip[实用技巧]\n推荐在编写教程时使用此提示框，突出核心操作秘诀。\n:::\n\n:::important[重要提醒]\n特别关键的注意要点，提醒读者切勿遗漏。\n:::\n\n:::warning[警示信息]\n操作过程中可能出现的意外隐患与警告。\n:::\n\n:::caution[危险操作]\n可能导致数据丢失或严重异常的高危操作提醒。\n:::`)}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制全套卡片语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">采用 Directive 风格三冒号包裹，内置 note, tip, important, warning, caution 5 大语义配色及 Material 3 图标。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::note[说明标注]
+这是一个通用的说明信息标注卡片。
+:::
+
+:::tip[实用技巧]
+推荐在编写教程时使用此提示框，突出核心操作秘诀。
+:::
+
+:::important[重要提醒]
+特别关键的注意要点，提醒读者切勿遗漏。
+:::
+
+:::warning[警示信息]
+操作过程中可能出现的意外隐患与警告。
+:::
+
+:::caution[危险操作]
+可能导致数据丢失或严重异常的高危操作提醒。
+:::</code></pre>
+            </div>
+
+            <!-- Expressive Code -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>💻 增强代码块 (Expressive Code)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard('```ts title="src/utils/demo.ts" {2,4-5}\nexport function greeting(name: string): string {\n  // 这一行将被高亮标注\n  const message = `Hello, ${name}!`;\n  console.log(message);\n  return message;\n}\n```')}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制代码块语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">支持文件名标题栏 <code>title="..."</code>、指定行高亮 <code>&#123;1,3-5&#125;</code>、差异标记 <code>// [!code ++]</code> 与终端命令复制。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>```ts title="src/utils/demo.ts" &#123;2,4-5&#125;
+export function greeting(name: string): string &#123;
+  // 这一行将被高亮标注
+  const message = `Hello, $&#123;name&#125;!`;
+  console.log(message);
+  return message;
+&#125;
+```</code></pre>
+            </div>
+
+            <!-- Math & Mermaid -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>📐 数学公式与 Mermaid 流程图 (KaTeX & Diagrams)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard('行内公式如质能方程：$E = mc^2$\n\n块级复杂公式：\n$$\n\\sum_{n=1}^{\\infty} \\frac{1}{n^2} = \\frac{\\pi^2}{6}\n$$\n\n```mermaid\ngraph TD;\n    A[编写文章] --> B(实时渲染预览);\n    B --> C{是否发布?};\n    C -- 是 --> D[前台访客浏览];\n    C -- 否 --> E[存为草稿];\n```')}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制公式图表语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">原生内置 KaTeX 渲染引擎与 Mermaid 图表引擎，无须手动引入任何额外外部脚本。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>行内公式如质能方程：$E = mc^2$
+
+块级复杂公式：
+$$
+\sum_&#123;n=1&#125;^\infty \frac&#123;1&#125;&#123;n^2&#125; = \frac&#123;\pi^2&#125;&#123;6&#125;
+$$
+
+```mermaid
+graph TD;
+    A[编写文章] --> B(实时渲染预览);
+    B --> C&#123;是否发布?&#125;;
+    C -- 是 --> D[前台访客浏览];
+    C -- 否 --> E[存为草稿];
+```</code></pre>
+            </div>
+
+            <!-- Collapse Panels & Tabs -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>📂 折叠面板与分栏选项卡 (Collapse & Tabs)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard(':::collapse[点击展开阅读详情与配置说明]\n这里是折叠内部的详细长文本内容，默认收起，保持页面清爽。\n:::\n\n:::tabs\n== pnpm\n```bash\npnpm install\n```\n== bun\n```bash\nbun install\n```\n== npm\n```bash\nnpm install\n```\n:::')}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制折叠分栏语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">用于长篇内容折叠隐藏、以及多包管理器命令对比切换。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::collapse[点击展开阅读详情与配置说明]
+这里是折叠内部的详细长文本内容，默认收起，保持页面清爽。
+:::
+
+:::tabs
+== pnpm
+```bash
+pnpm install
+```
+== bun
+```bash
+bun install
+```
+== npm
+```bash
+npm install
+```
+:::</code></pre>
+            </div>
+
+            <!-- Video & Audio Embeds -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>🎬 视频、音频与画廊组件 (Media Embeds)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard('::bilibili[BV1GJ411x7h7]\n\n::youtube[dQw4w9WgXcQ]\n\n::audio[https://example.com/song.mp3]{title="曲目名" artist="歌手"}\n\n:::image-grid{cols=2}\n![示例 1](https://example.com/image1.webp)\n![示例 2](https://example.com/image2.webp)\n:::\n\n::spoiler[这是一段鼠标滑过才显示的剧透遮罩文字]')}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制多媒体语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">支持一行嵌入 B 站、YouTube 响应式视频，以及双列画廊和剧透刮刮乐。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>::bilibili[BV1GJ411x7h7]
+
+::youtube[dQw4w9WgXcQ]
+
+::audio[https://example.com/song.mp3]&#123;title="曲目名" artist="歌手"&#125;
+
+:::image-grid&#123;cols=2&#125;
+![示例 1](https://example.com/image1.webp)
+![示例 2](https://example.com/image2.webp)
+:::
+
+::spoiler[这是一段鼠标滑过才显示的剧透遮罩文字]</code></pre>
+            </div>
           </div>
         {/if}
       </main>
@@ -4374,26 +5709,42 @@
                 <input type="file" accept="image/*" class="hidden" onchange={(e) => handleFileUpload(e, "postCover")} />
               </label>
             </div>
+            {#if postForm.image}
+              <div class="mt-1 flex items-center gap-2 text-xs text-[var(--on-surface-variant)]">
+                <span class="truncate">封面链接: {postForm.image}</span>
+                <button type="button" class="text-primary hover:underline shrink-0" onclick={() => copyToClipboard(postForm.image)}>复制链接</button>
+              </div>
+            {/if}
           </div>
 
           <div>
             <div class="flex items-center justify-between mb-1">
               <label class="text-xs font-semibold">Markdown 正文内容 *</label>
-              <div class="flex items-center rounded-xl bg-[var(--surface-container)] p-0.5 text-xs font-medium border border-[var(--outline-variant)]/20">
+              <div class="flex items-center gap-2">
                 <button
                   type="button"
-                  onclick={() => (postEditorTab = "edit")}
-                  class="px-3 py-1 rounded-lg transition-colors {postEditorTab === 'edit' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                  onclick={() => openAiAssistant("post")}
+                  class="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium flex items-center gap-1 transition-colors"
+                  title="使用 AI 智能优化、续写或生成文章大纲"
                 >
-                  编辑源码
+                  <span>🤖 AI 写作助手</span>
                 </button>
-                <button
-                  type="button"
-                  onclick={() => (postEditorTab = "preview")}
-                  class="px-3 py-1 rounded-lg transition-colors {postEditorTab === 'preview' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
-                >
-                  实时预览
-                </button>
+                <div class="flex items-center rounded-xl bg-[var(--surface-container)] p-0.5 text-xs font-medium border border-[var(--outline-variant)]/20">
+                  <button
+                    type="button"
+                    onclick={() => (postEditorTab = "edit")}
+                    class="px-3 py-1 rounded-lg transition-colors {postEditorTab === 'edit' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                  >
+                    编辑源码
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => (postEditorTab = "preview")}
+                    class="px-3 py-1 rounded-lg transition-colors {postEditorTab === 'preview' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                  >
+                    实时预览
+                  </button>
+                </div>
               </div>
             </div>
             {#if postEditorTab === "edit"}
@@ -4465,6 +5816,12 @@
                 <input type="file" accept="image/*" class="hidden" onchange={(e) => handleFileUpload(e, "albumCover")} />
               </label>
             </div>
+            {#if albumForm.cover}
+              <div class="mt-1 flex items-center gap-2 text-xs text-[var(--on-surface-variant)]">
+                <span class="truncate">封面链接: {albumForm.cover}</span>
+                <button type="button" class="text-primary hover:underline shrink-0" onclick={() => copyToClipboard(albumForm.cover)}>复制链接</button>
+              </div>
+            {/if}
           </div>
 
           <div class="grid grid-cols-2 gap-4">
@@ -4509,13 +5866,26 @@
           {/if}
 
           <div>
-            <label class="text-xs font-semibold block mb-1">照片地址列表 (每行一张图片 URL)</label>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-semibold block">照片地址列表 (每行一张图片 URL)</label>
+              <label class="px-3 py-1.5 rounded-xl bg-[var(--surface-container)] hover:bg-[var(--surface-container-high)] text-xs font-medium cursor-pointer flex items-center gap-1.5 transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                <span>上传相片到 R2</span>
+                <input type="file" accept="image/*" multiple class="hidden" onchange={handleAlbumPhotoUpload} />
+              </label>
+            </div>
             <textarea
               bind:value={albumForm.photosText}
               rows="6"
               placeholder="https://example.com/photo1.webp&#10;https://example.com/photo2.webp"
               class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] font-mono text-sm focus:border-primary outline-none"
             ></textarea>
+            {#if lastUploadedAlbumPhotoUrl}
+              <div class="mt-1.5 flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-xl">
+                <span class="truncate">最近上传成功: {lastUploadedAlbumPhotoUrl}</span>
+                <button type="button" class="font-bold hover:underline shrink-0" onclick={() => copyToClipboard(lastUploadedAlbumPhotoUrl)}>复制链接</button>
+              </div>
+            {/if}
           </div>
         </div>
 
@@ -4546,21 +5916,31 @@
           <div>
             <div class="flex items-center justify-between mb-1">
               <label class="text-xs font-semibold">动态正文内容 *</label>
-              <div class="flex items-center rounded-xl bg-[var(--surface-container)] p-0.5 text-xs font-medium border border-[var(--outline-variant)]/20">
+              <div class="flex items-center gap-2">
                 <button
                   type="button"
-                  onclick={() => (editMomentEditorTab = "edit")}
-                  class="px-3 py-1 rounded-lg transition-colors {editMomentEditorTab === 'edit' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                  onclick={() => openAiAssistant("moment")}
+                  class="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium flex items-center gap-1 transition-colors"
+                  title="使用 AI 智能优化或续写动态"
                 >
-                  编辑源码
+                  <span>🤖 AI 写作助手</span>
                 </button>
-                <button
-                  type="button"
-                  onclick={() => (editMomentEditorTab = "preview")}
-                  class="px-3 py-1 rounded-lg transition-colors {editMomentEditorTab === 'preview' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
-                >
-                  实时预览
-                </button>
+                <div class="flex items-center rounded-xl bg-[var(--surface-container)] p-0.5 text-xs font-medium border border-[var(--outline-variant)]/20">
+                  <button
+                    type="button"
+                    onclick={() => (editMomentEditorTab = "edit")}
+                    class="px-3 py-1 rounded-lg transition-colors {editMomentEditorTab === 'edit' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                  >
+                    编辑源码
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => (editMomentEditorTab = "preview")}
+                    class="px-3 py-1 rounded-lg transition-colors {editMomentEditorTab === 'preview' ? 'bg-primary text-on-primary font-bold shadow-xs' : 'text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]'}"
+                  >
+                    实时预览
+                  </button>
+                </div>
               </div>
             </div>
             {#if editMomentEditorTab === "edit"}
@@ -4644,6 +6024,14 @@
                   </div>
                 {/each}
               </div>
+              <div class="mt-2 space-y-1 max-h-32 overflow-y-auto pr-1">
+                {#each editMomentForm.photos as photo, idx}
+                  <div class="flex items-center gap-2 px-2.5 py-1 rounded-xl bg-[var(--surface-container)] text-xs">
+                    <span class="truncate font-mono text-[11px] flex-1 text-[var(--on-surface-variant)]">{photo}</span>
+                    <button type="button" class="text-primary hover:underline text-[11px] shrink-0 font-medium" onclick={() => copyToClipboard(photo)}>复制链接</button>
+                  </div>
+                {/each}
+              </div>
             {/if}
           </div>
 
@@ -4683,7 +6071,7 @@
         </div>
 
         <div class="flex-1 overflow-y-auto py-4 space-y-4 pr-2">
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label class="text-xs font-semibold block mb-1">页面标题 *</label>
               <input type="text" bind:value={pageForm.title} placeholder="例如：关于我们" class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none" />
@@ -4691,6 +6079,10 @@
             <div>
               <label class="text-xs font-semibold block mb-1">访问路径 (Slug) *</label>
               <input type="text" bind:value={pageForm.slug} placeholder="例如：about" class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold block mb-1">导航图标 (Iconify)</label>
+              <input type="text" bind:value={pageForm.icon} placeholder="material-symbols:article-outline-rounded" class="w-full px-3.5 py-2 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-mono" />
             </div>
           </div>
 
@@ -4962,6 +6354,187 @@
 
         <div class="pt-4 border-t border-[var(--outline-variant)]/20 flex items-center justify-end">
           <button onclick={() => (tagManagerModalOpen = false)} class="px-5 py-2 rounded-full border border-[var(--outline-variant)]/40 text-xs font-medium hover:bg-[var(--surface-container)]">关闭</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- AI Assistant Modal -->
+  {#if aiModalOpen}
+    <div
+      class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onclick={(e) => { if (e.target === e.currentTarget) aiModalOpen = false; }}
+      role="dialog"
+    >
+      <div class="bg-white dark:bg-zinc-900 bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+        <!-- Header -->
+        <div class="flex items-center justify-between pb-4 border-b border-[var(--outline-variant)]/20">
+          <div class="flex items-center gap-2.5">
+            <span class="w-9 h-9 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-lg font-bold">🤖</span>
+            <div>
+              <h2 class="text-lg font-bold">AI 智能写作助手</h2>
+              <p class="text-xs text-[var(--on-surface-variant)]">
+                当前协助：<strong class="text-primary">{aiTarget === "post" ? "博文撰写" : "动态日记"}</strong> · 模型：<code class="px-1.5 py-0.5 rounded bg-[var(--surface-container)] font-mono text-[11px]">{systemConfigState.aiModel}</code>
+              </p>
+            </div>
+          </div>
+          <button onclick={() => (aiModalOpen = false)} class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="flex-1 overflow-y-auto py-4 space-y-4 pr-1">
+          <!-- Quick Prompt Chips -->
+          <div>
+            <label class="text-xs font-semibold text-[var(--on-surface)] block mb-1.5">快捷写作指令预设 (点击即可快速填入并生成)：</label>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onclick={() => executeAiGeneration("请根据上方上下文内容继续往下续写，行文保持同一语调与深度，逻辑自然递进。")}
+                disabled={aiGenerating}
+                class="px-2.5 py-1 rounded-lg bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] hover:bg-primary/20 hover:text-primary text-xs font-medium transition-colors cursor-pointer"
+              >
+                ✨ 续写文章 / 下文展开
+              </button>
+              <button
+                type="button"
+                onclick={() => executeAiGeneration("请对已有内容进行润色优化，修饰措辞与语句通顺度，提升文字美感并修正错别字，保持原意。")}
+                disabled={aiGenerating}
+                class="px-2.5 py-1 rounded-lg bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] hover:bg-primary/20 hover:text-primary text-xs font-medium transition-colors cursor-pointer"
+              >
+                🎨 文笔润色 / 语句通顺
+              </button>
+              <button
+                type="button"
+                onclick={() => executeAiGeneration("请根据当前内容生成 150 字以内的精炼摘要与核心看点提要。")}
+                disabled={aiGenerating}
+                class="px-2.5 py-1 rounded-lg bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] hover:bg-primary/20 hover:text-primary text-xs font-medium transition-colors cursor-pointer"
+              >
+                📋 提炼摘要 / 核心看点
+              </button>
+              <button
+                type="button"
+                onclick={() => executeAiGeneration("请围绕当前主题为我设计一份详尽清晰的 Markdown 结构大纲（包含多级标题与小结）。")}
+                disabled={aiGenerating}
+                class="px-2.5 py-1 rounded-lg bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] hover:bg-primary/20 hover:text-primary text-xs font-medium transition-colors cursor-pointer"
+              >
+                📐 生成文章大纲结构
+              </button>
+              <button
+                type="button"
+                onclick={() => executeAiGeneration("请将以上正文流畅地翻译为地道优美的英文。")}
+                disabled={aiGenerating}
+                class="px-2.5 py-1 rounded-lg bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] hover:bg-primary/20 hover:text-primary text-xs font-medium transition-colors cursor-pointer"
+              >
+                🌐 翻译为地道英文
+              </button>
+              <button
+                type="button"
+                onclick={() => executeAiGeneration("请为当前文字优化 Markdown 排版格式，合理添加重点加粗、引用与分段。")}
+                disabled={aiGenerating}
+                class="px-2.5 py-1 rounded-lg bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] hover:bg-primary/20 hover:text-primary text-xs font-medium transition-colors cursor-pointer"
+              >
+                💡 优化排版与格式
+              </button>
+            </div>
+          </div>
+
+          <!-- Instruction Textarea -->
+          <div>
+            <label class="text-xs font-semibold text-[var(--on-surface)] block mb-1">自定义指令要求</label>
+            <textarea
+              bind:value={aiInstruction}
+              rows="3"
+              placeholder="输入给 AI 的具体要求，例如：'以幽默风趣的技术博主口吻为本段写一个生动的开场白'..."
+              class="w-full p-3 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none focus:border-primary resize-none"
+            ></textarea>
+          </div>
+
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              {#if aiAvailableModels.length > 0}
+                <label class="text-[11px] text-[var(--on-surface-variant)]">模型：</label>
+                <select
+                  bind:value={systemConfigState.aiModel}
+                  class="px-2.5 py-1 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs outline-none font-mono"
+                >
+                  {#each aiAvailableModels as mod}
+                    <option value={mod}>{mod}</option>
+                  {/each}
+                </select>
+              {:else}
+                <button
+                  type="button"
+                  onclick={fetchAiModels}
+                  disabled={aiFetchingModels}
+                  class="text-[11px] text-primary hover:underline flex items-center gap-1"
+                >
+                  <span>{aiFetchingModels ? "正在获取模型..." : "🔄 刷新可用模型列表"}</span>
+                </button>
+              {/if}
+            </div>
+
+            <button
+              type="button"
+              onclick={() => executeAiGeneration()}
+              disabled={aiGenerating}
+              class="px-5 py-2 rounded-xl bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105 transition-all flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {#if aiGenerating}
+                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                <span>AI 正在思考生成中...</span>
+              {:else}
+                <span>🚀 开始生成</span>
+              {/if}
+            </button>
+          </div>
+
+          <!-- Result Area -->
+          {#if aiGenerating}
+            <div class="p-6 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 text-center space-y-2 animate-pulse">
+              <span class="text-2xl">✨</span>
+              <p class="text-xs text-[var(--on-surface-variant)]">AI 正在根据您的上下文与指令进行创作，请稍候...</p>
+            </div>
+          {:else if aiResult}
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-[var(--on-surface)]">生成结果预览 (Markdown)</span>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard(aiResult)}
+                    class="px-2.5 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-[var(--on-surface-variant)] transition-colors"
+                  >
+                    📋 复制内容
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => { aiResult = ""; }}
+                    class="px-2 py-1 rounded-lg hover:bg-error/10 text-error text-xs transition-colors"
+                  >
+                    清空
+                  </button>
+                </div>
+              </div>
+              <div class="w-full p-4 rounded-2xl border border-primary/30 bg-[var(--surface-container-low)] max-h-[260px] overflow-y-auto text-sm leading-relaxed whitespace-pre-wrap font-mono">
+                {aiResult}
+              </div>
+            </div>
+          {/if}
+        </div>
+
+        <!-- Footer -->
+        <div class="pt-4 border-t border-[var(--outline-variant)]/20 flex items-center justify-between gap-3">
+          <button onclick={() => (aiModalOpen = false)} class="px-5 py-2 rounded-full border border-[var(--outline-variant)]/40 text-xs font-medium hover:bg-[var(--surface-container)]">关闭</button>
+          {#if aiResult}
+            <button
+              onclick={insertAiResultToEditor}
+              class="px-6 py-2 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105 active:scale-98 transition-all flex items-center gap-1.5"
+            >
+              <span>📥 追加插入到当前编辑器正文</span>
+            </button>
+          {/if}
         </div>
       </div>
     </div>

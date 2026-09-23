@@ -284,8 +284,28 @@ export const adminApi = {
     request(`/admin/users/${id}/role`, { method: "PUT", body: JSON.stringify({ role }) }),
   updateUserStatus: (id: number, status: "active" | "banned") =>
     request(`/admin/users/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
+  deleteUser: (id: number) =>
+    request(`/admin/users/${id}`, { method: "DELETE" }),
   seedPresets: (overwrite = false) =>
     request("/admin/seed", { method: "POST", body: JSON.stringify({ overwrite }) }),
+};
+
+// -------------------------------------------------------------
+// Media Library API (R2)
+// -------------------------------------------------------------
+export const mediaApi = {
+  list: () => request("/upload"),
+  delete: (key: string) => request(`/upload/${encodeURIComponent(key)}`, { method: "DELETE" }),
+};
+
+// -------------------------------------------------------------
+// AI Assistant API
+// -------------------------------------------------------------
+export const aiApi = {
+  getModels: (body?: { apiUrl?: string; apiKey?: string }) =>
+    request("/admin/ai/models", { method: "POST", body: JSON.stringify(body || {}) }),
+  generate: (body: { prompt: string; systemPrompt?: string; model?: string; apiUrl?: string; apiKey?: string }) =>
+    request("/admin/ai/generate", { method: "POST", body: JSON.stringify(body) }),
 };
 
 // -------------------------------------------------------------

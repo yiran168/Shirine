@@ -56,6 +56,9 @@ export const adminI18n = {
     live2d: "Live2D 看板娘设置",
     defaultLang: "站点默认语言",
     languageSwitched: "界面语言已切换",
+    timeline: "时间线管理",
+    media: "媒体库管理",
+    guide: "写作语法指南",
   },
   zh_TW: {
     adminTitle: "Shirine Admin",
@@ -96,6 +99,9 @@ export const adminI18n = {
     live2d: "Live2D 看板娘設置",
     defaultLang: "站點默認語言",
     languageSwitched: "介面語言已切換",
+    timeline: "時間線管理",
+    media: "媒體庫管理",
+    guide: "寫作語法指南",
   },
   en: {
     adminTitle: "Shirine Admin",
@@ -136,6 +142,9 @@ export const adminI18n = {
     live2d: "Live2D Widget",
     defaultLang: "Default Site Language",
     languageSwitched: "Language switched",
+    timeline: "Timeline",
+    media: "Media Library",
+    guide: "Writing Guide",
   },
   ja: {
     adminTitle: "Shirine Admin",
@@ -176,6 +185,9 @@ export const adminI18n = {
     live2d: "Live2D 看板娘",
     defaultLang: "サイト既定言語",
     languageSwitched: "言語を変更しました",
+    timeline: "タイムライン",
+    media: "メディア管理",
+    guide: "執筆ガイド",
   },
 } as const;
 

@@ -20,7 +20,7 @@ interface Props {
 
 const { currentPostCategory } = Astro.props;
 
-const categories = await getCategoryList();
+const categories = await getCategoryList(Astro.request);
 const homeUrl = url("/");
 const archiveUrl = url("/archive/");
 

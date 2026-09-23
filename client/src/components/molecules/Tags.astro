@@ -14,7 +14,7 @@ import { getTagList } from "../../utils/content-utils";
 import { getTagUrl, url } from "../../utils/url-utils";
 import WidgetLayout from "./WidgetLayout.astro";
 
-const tags = await getTagList();
+const tags = await getTagList(Astro.request);
 
 interface Props {
 	class?: string;

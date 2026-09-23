@@ -12,6 +12,7 @@ export async function ensureD1Schema(d1?: D1Database, db?: ReturnType<typeof get
       slug TEXT NOT NULL UNIQUE,
       title TEXT NOT NULL,
       content TEXT NOT NULL,
+      icon TEXT DEFAULT '',
       draft INTEGER NOT NULL DEFAULT 0,
       uid INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
@@ -125,6 +126,7 @@ export async function ensureD1Schema(d1?: D1Database, db?: ReturnType<typeof get
     `ALTER TABLE friends ADD COLUMN uid INTEGER REFERENCES users(id) ON DELETE SET NULL;`,
 
     // pages
+    `ALTER TABLE pages ADD COLUMN icon TEXT DEFAULT '';`,
     `ALTER TABLE pages ADD COLUMN draft INTEGER NOT NULL DEFAULT 0;`,
     `ALTER TABLE pages ADD COLUMN uid INTEGER REFERENCES users(id) ON DELETE SET NULL;`,
   ];
@@ -140,4 +142,24 @@ export async function ensureD1Schema(d1?: D1Database, db?: ReturnType<typeof get
       // Ignored: column already exists
     }
   }
+
+  // Ensure EncryptedExample album is not marked as draft and has password configured
+  try {
+    const fixEncryptedAlbum = `UPDATE albums SET draft = 0, permission_type = 'password', encrypted = 1, password = CASE WHEN password IS NULL OR password = '' THEN '123456' ELSE password END, password_hint = CASE WHEN password_hint IS NULL OR password_hint = '' THEN 'Six digits' ELSE password_hint END WHERE slug = 'EncryptedExample';`;
+    if (d1) {
+      await d1.prepare(fixEncryptedAlbum).run();
+    } else if (db) {
+      await db.run(sql.raw(fixEncryptedAlbum));
+    }
+  } catch {}
+
+  // Ensure encrypted-demo post is not draft and has default password
+  try {
+    const fixEncryptedPost = `UPDATE posts SET draft = 0, encrypted = 1, password = CASE WHEN password IS NULL OR password = '' THEN 'shirine-secret' ELSE password END, password_hint = CASE WHEN password_hint IS NULL OR password_hint = '' THEN 'Hint: the demo unlock password is shirine-secret' ELSE password_hint END WHERE slug = 'encrypted-demo';`;
+    if (d1) {
+      await d1.prepare(fixEncryptedPost).run();
+    } else if (db) {
+      await db.run(sql.raw(fixEncryptedPost));
+    }
+  } catch {}
 }

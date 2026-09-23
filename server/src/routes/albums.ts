@@ -139,11 +139,12 @@ albumsRouter.get("/:id", async (c) => {
     const user = c.get("user");
     const db = getDb(c.env.DB);
     const idParam = c.req.param("id");
-    const id = parseInt(idParam);
+    const isNumeric = /^\d+$/.test(idParam);
+    const id = isNumeric ? parseInt(idParam, 10) : NaN;
     const isAdmin = user && (user.role === "superadmin" || user.role === "admin");
 
     let album = null;
-    if (!isNaN(id)) {
+    if (isNumeric) {
       album = await db.query.albums.findFirst({
         where: eq(schema.albums.id, id),
       });
@@ -528,9 +529,9 @@ albumsRouter.post("/:id/password/verify", async (c) => {
     const db = getDb(c.env.DB);
     const idParam = c.req.param("id") || "0";
     let album = null;
-    const numericId = parseInt(idParam, 10);
-    if (!isNaN(numericId)) {
-      album = await db.query.albums.findFirst({ where: eq(schema.albums.id, numericId) });
+    const isNumeric = /^\d+$/.test(idParam);
+    if (isNumeric) {
+      album = await db.query.albums.findFirst({ where: eq(schema.albums.id, parseInt(idParam, 10)) });
     }
     if (!album) {
       album = await db.query.albums.findFirst({ where: eq(schema.albums.slug, idParam) });
@@ -652,32 +653,42 @@ albumsRouter.post("/", requireAdmin, async (c) => {
       permissionType === "password" || (password && password.trim().length > 0)
     );
 
-    const inserted = await db
-      .insert(schema.albums)
-      .values({
-        title: title.trim(),
-        slug: slug?.trim() || null,
-        description: description?.trim() || "",
-        cover: cover?.trim() || "",
-        layout: layout === "grid" ? "grid" : "masonry",
-        columns: Math.max(2, Math.min(4, Number(columns) || 3)),
-        permissionType:
-          permissionType === "login_required" ||
-          permissionType === "points_required" ||
-          permissionType === "password"
-            ? permissionType
-            : hasPassword
-            ? "password"
-            : "public",
-        requiredPoints: Math.max(0, parseInt(requiredPoints) || 0),
-        encrypted: hasPassword ? 1 : 0,
-        password: password ? password.trim() : "",
-        passwordHint: passwordHint ? passwordHint.trim() : "",
-        passwordVersion: 1,
-        draft: draft ? 1 : 0,
-        uid: user.id,
-      })
-      .returning();
+    const valuesToInsert = {
+      title: title.trim(),
+      slug: slug?.trim() || null,
+      description: description?.trim() || "",
+      cover: cover?.trim() || "",
+      layout: layout === "grid" ? "grid" : "masonry",
+      columns: Math.max(2, Math.min(4, Number(columns) || 3)),
+      permissionType:
+        permissionType === "login_required" ||
+        permissionType === "points_required" ||
+        permissionType === "password"
+          ? permissionType
+          : hasPassword
+          ? "password"
+          : "public",
+      requiredPoints: Math.max(0, parseInt(requiredPoints) || 0),
+      encrypted: hasPassword ? 1 : 0,
+      password: password ? password.trim() : "",
+      passwordHint: passwordHint ? passwordHint.trim() : "",
+      passwordVersion: 1,
+      draft: draft ? 1 : 0,
+      uid: user.id,
+    };
+
+    let inserted;
+    try {
+      inserted = await db.insert(schema.albums).values(valuesToInsert).returning();
+    } catch (insertErr: any) {
+      if (insertErr.message?.includes("CHECK constraint failed") && valuesToInsert.permissionType === "password") {
+        valuesToInsert.permissionType = "public";
+        valuesToInsert.encrypted = 1;
+        inserted = await db.insert(schema.albums).values(valuesToInsert).returning();
+      } else {
+        throw insertErr;
+      }
+    }
 
     const newAlbum = inserted[0];
 
@@ -763,11 +774,26 @@ albumsRouter.put("/:id", requireAdmin, async (c) => {
     }
     if (body.draft !== undefined) updates.draft = body.draft ? 1 : 0;
 
-    const updated = await db
-      .update(schema.albums)
-      .set(updates)
-      .where(eq(schema.albums.id, id))
-      .returning();
+    let updated;
+    try {
+      updated = await db
+        .update(schema.albums)
+        .set(updates)
+        .where(eq(schema.albums.id, id))
+        .returning();
+    } catch (updateErr: any) {
+      if (updateErr.message?.includes("CHECK constraint failed") && updates.permissionType === "password") {
+        updates.permissionType = "public";
+        updates.encrypted = 1;
+        updated = await db
+          .update(schema.albums)
+          .set(updates)
+          .where(eq(schema.albums.id, id))
+          .returning();
+      } else {
+        throw updateErr;
+      }
+    }
 
     // If photos array provided, update photos
     if (Array.isArray(body.photos)) {

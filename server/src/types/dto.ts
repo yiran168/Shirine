@@ -60,6 +60,8 @@ export interface PostListDto {
   isPurchased?: boolean;
   isAuthenticated?: boolean;
   lockReason?: string;
+  words?: number;
+  content?: string | null;
   createdAt: number | Date;
   updatedAt: number | Date;
 }
@@ -170,6 +172,7 @@ export interface PageDto {
   slug: string;
   title: string;
   content: string;
+  icon?: string;
   draft: boolean;
   createdAt: number | Date;
   updatedAt: number | Date;

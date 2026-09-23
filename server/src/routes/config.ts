@@ -444,6 +444,91 @@ export const defaultSiteConfig = {
     { name: "C", description: "Low-level systems work close to the runtime.", icon: "simple-icons:c", category: "backend", level: "beginner", enable: true },
     { name: "Playwright", description: "User-facing regression and accessibility testing.", icon: "simple-icons:playwright", category: "tooling", level: "advanced", enable: true },
   ],
+  timeline: [
+    {
+      title: "Shirine Theme M3E Major Architecture Upgrade",
+      date: "2026.08",
+      category: "milestone",
+      subtitle: "Open Source Project",
+      description:
+        "Refactored the entire blog theme into a Material 3 Expressive atomic component system with token-driven styling, complete keyboard navigation, and full accessibility compliance.",
+      highlights: [
+        "Implemented dynamic HCT palette calculation and state layer tokens",
+        "Added multi-page capabilities: Timeline, Skills, Projects, and Protected Albums",
+        "Zero-error strict type-checking and automated visual regression locks",
+      ],
+      tags: ["Astro", "Svelte 5", "M3E", "Tailwind 4"],
+      links: [
+        {
+          label: "GitHub Repository",
+          url: "https://github.com/yiran168/Shirine",
+          icon: "fa6-brands:github",
+        },
+      ],
+      icon: "material-symbols:rocket-launch-rounded",
+      featured: true,
+      enable: true,
+    },
+    {
+      title: "Senior Frontend Engineer",
+      date: "2025.03 – Present",
+      category: "career",
+      subtitle: "Technology Lab",
+      location: "Tokyo, Japan",
+      description:
+        "Leading frontend architecture, web performance optimization, and interactive design system development for modern web platforms.",
+      highlights: [
+        "Spearheaded design system unification across web products",
+        "Reduced core bundle load times by 40% using modern SSR and asset pipelines",
+      ],
+      tags: ["TypeScript", "Architecture", "Performance", "Design System"],
+      icon: "material-symbols:work-rounded",
+      featured: true,
+      enable: true,
+    },
+    {
+      title: "Full-Stack Web Application Launch",
+      date: "2024.11",
+      category: "project",
+      subtitle: "Independent Creation",
+      description:
+        "Designed and built an end-to-end creative workflow application with real-time collaboration and cloud synchronization.",
+      highlights: [
+        "Designed intuitive fluid canvas interface with low-latency interaction",
+        "Built serverless backend APIs with edge caching and relational persistence",
+      ],
+      tags: ["Svelte", "Node.js", "PostgreSQL", "Cloudflare"],
+      icon: "material-symbols:deployed-code-outline-rounded",
+      enable: true,
+    },
+    {
+      title: "Computer Science & Engineering Degree",
+      date: "2020.09 – 2024.06",
+      category: "education",
+      subtitle: "University of Technology",
+      location: "Hangzhou, China",
+      description:
+        "Focused on computer systems, software engineering, human-computer interaction, and distributed architectures.",
+      highlights: [
+        "Graduated with honors and outstanding graduate thesis award",
+        "Led university open source student community and hackathons",
+      ],
+      tags: ["Computer Science", "Algorithms", "Software Engineering"],
+      icon: "material-symbols:school-rounded",
+      enable: true,
+    },
+    {
+      title: "Started Personal Blog & Tech Notes",
+      date: "2022.04",
+      category: "life",
+      subtitle: "First Step into Tech Writing",
+      description:
+        "Published my first article online and began documenting frontend exploration, creative coding, and personal reflections.",
+      tags: ["Blogging", "Writing", "Open Web"],
+      icon: "material-symbols:edit-note-rounded",
+      enable: true,
+    },
+  ],
   friendApplyInfo: {
     name: "Shirine",
     url: "https://github.com/yiran168/Shirine",
@@ -471,7 +556,18 @@ export const defaultSystemConfig = {
   live2d: {
     guestEnabled: true,
     adminEnabled: true,
+    lang: "zh_CN",
     model: "/pio/models/NOIR/noir.model3.json",
+    models: [
+      { name: "NOIR", url: "/pio/models/NOIR/noir.model3.json" },
+      { name: "Shizuku", url: "https://cdn.jsdelivr.net/gh/fghrsh/live2d_api/model/shizuku/index.json" },
+      { name: "Koharu", url: "https://cdn.jsdelivr.net/gh/fghrsh/live2d_api/model/koharu/index.json" },
+    ],
+  },
+  ai_config: {
+    apiUrl: "https://api.openai.com/v1",
+    apiKey: "",
+    model: "gpt-4o-mini",
   },
 };
 
@@ -911,6 +1007,21 @@ configRouter.put("/site", requireAdmin, async (c) => {
         });
     }
 
+    // 11. Timeline updates
+    if ("timeline" in body && Array.isArray(body.timeline)) {
+      await db
+        .insert(schema.siteConfigs)
+        .values({
+          key: "timeline",
+          value: JSON.stringify(body.timeline),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.siteConfigs.key,
+          set: { value: JSON.stringify(body.timeline), updatedAt: new Date() },
+        });
+    }
+
     // 5. Domain updates: { domain: "...", config: {...} }
     if (typeof body.domain === "string" && "config" in body) {
       const domainKey = body.domain;
@@ -991,6 +1102,8 @@ configRouter.get("/system", async (c) => {
       defaultLang: sys.i18n.defaultLang,
       live2dGuestEnabled: sys.live2d.guestEnabled,
       live2dModel: sys.live2d?.model || defaultSystemConfig.live2d.model,
+      live2dLang: sys.live2d?.lang || "zh_CN",
+      live2dModels: sys.live2d?.models || defaultSystemConfig.live2d.models,
     };
 
     return c.json({
@@ -1025,6 +1138,9 @@ configRouter.get("/system/admin", requireAdmin, async (c) => {
     }
 
     const hasTurnstileSecret = Boolean(c.env.CF_TURNSTILE_SECRET || sys.turnstile.secretKey);
+    const aiConfig = (sys as any).ai_config || defaultSystemConfig.ai_config;
+    const hasAiSecret = Boolean(aiConfig.apiKey);
+
     const adminSys = {
       checkin_rule: sys.checkin_rule,
       turnstile: {
@@ -1036,6 +1152,11 @@ configRouter.get("/system/admin", requireAdmin, async (c) => {
       },
       i18n: sys.i18n,
       live2d: sys.live2d,
+      ai_config: {
+        apiUrl: aiConfig.apiUrl,
+        apiKey: hasAiSecret ? "••••••••" : "",
+        model: aiConfig.model,
+      },
       // Flat fields matching AdminDashboard.svelte systemConfigState
       checkinMode: sys.checkin_rule?.mode || "fixed",
       checkinFixedPoints: sys.checkin_rule?.fixedPoints ?? 10,
@@ -1047,6 +1168,11 @@ configRouter.get("/system/admin", requireAdmin, async (c) => {
       live2dGuestEnable: sys.live2d?.guestEnabled ?? true,
       live2dAdminEnable: sys.live2d?.adminEnabled ?? true,
       live2dModel: sys.live2d?.model || defaultSystemConfig.live2d.model,
+      live2dLang: sys.live2d?.lang || "zh_CN",
+      live2dModels: sys.live2d?.models || defaultSystemConfig.live2d.models,
+      aiApiUrl: aiConfig.apiUrl || "https://api.openai.com/v1",
+      aiApiKey: hasAiSecret ? "••••••••" : "",
+      aiModel: aiConfig.model || "gpt-4o-mini",
       defaultLang: sys.i18n?.defaultLang || "zh_CN",
     };
 
@@ -1155,7 +1281,9 @@ configRouter.put("/system", requireAdmin, async (c) => {
     const hasLive2d =
       "live2dGuestEnable" in body ||
       "live2dAdminEnable" in body ||
-      "live2dModel" in body;
+      "live2dModel" in body ||
+      "live2dLang" in body ||
+      "live2dModels" in body;
     if (hasLive2d) {
       const existingLive2dRow = await db.query.systemConfigs.findFirst({
         where: eq(schema.systemConfigs.key, "live2d"),
@@ -1180,6 +1308,8 @@ configRouter.put("/system", requireAdmin, async (c) => {
             ? Boolean(body.live2dAdminEnable)
             : baseLive2d.adminEnabled,
         model: live2dModel,
+        lang: body.live2dLang || baseLive2d.lang || "zh_CN",
+        models: Array.isArray(body.live2dModels) ? body.live2dModels : baseLive2d.models,
       };
       await db
         .insert(schema.systemConfigs)
@@ -1212,7 +1342,50 @@ configRouter.put("/system", requireAdmin, async (c) => {
         });
     }
 
-    if (hasCheckin || hasTurnstile || hasLive2d || ("defaultLang" in body)) {
+    // 5. ai_config: only if AI fields appear in payload
+    const hasAi =
+      "aiApiUrl" in body ||
+      "aiApiKey" in body ||
+      "aiModel" in body ||
+      "ai_config" in body;
+    if (hasAi) {
+      const existingAiRow = await db.query.systemConfigs.findFirst({
+        where: eq(schema.systemConfigs.key, "ai_config"),
+      });
+      let baseAi = defaultSystemConfig.ai_config;
+      if (existingAiRow) {
+        try {
+          baseAi = { ...baseAi, ...JSON.parse(existingAiRow.value) };
+        } catch {}
+      }
+
+      let apiKeyToSave = baseAi.apiKey || "";
+      if (body.aiApiKey && body.aiApiKey !== "••••••••") {
+        apiKeyToSave = body.aiApiKey.trim();
+      } else if (body.ai_config?.apiKey && body.ai_config.apiKey !== "••••••••") {
+        apiKeyToSave = body.ai_config.apiKey.trim();
+      }
+
+      const aiConfig = {
+        apiUrl: body.aiApiUrl !== undefined ? body.aiApiUrl.trim() : (body.ai_config?.apiUrl || baseAi.apiUrl),
+        apiKey: apiKeyToSave,
+        model: body.aiModel !== undefined ? body.aiModel.trim() : (body.ai_config?.model || baseAi.model),
+      };
+
+      await db
+        .insert(schema.systemConfigs)
+        .values({
+          key: "ai_config",
+          value: JSON.stringify(aiConfig),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.systemConfigs.key,
+          set: { value: JSON.stringify(aiConfig), updatedAt: new Date() },
+        });
+    }
+
+    if (hasCheckin || hasTurnstile || hasLive2d || ("defaultLang" in body) || hasAi) {
       return c.json({ success: true, message: "System configuration saved successfully" });
     }
 

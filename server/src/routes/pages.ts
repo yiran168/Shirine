@@ -81,6 +81,7 @@ pagesRouter.get("/", async (c) => {
       slug: p.slug,
       title: p.title,
       content: p.content,
+      icon: p.icon || "",
       draft: p.draft === 1,
       status: p.draft === 1 ? "draft" : "published",
       createdAt: p.createdAt,
@@ -118,6 +119,7 @@ pagesRouter.get("/:slug", async (c) => {
       slug: page.slug,
       title: page.title,
       content: page.content,
+      icon: page.icon || "",
       draft: page.draft === 1,
       createdAt: page.createdAt,
       updatedAt: page.updatedAt,
@@ -140,7 +142,7 @@ pagesRouter.post("/", requireAdmin, async (c) => {
     const db = getDb(c.env.DB);
     await ensureD1Schema(c.env.DB, db);
     const body = await c.req.json();
-    const { slug, title, content } = body;
+    const { slug, title, content, icon = "" } = body;
     const isDraft = body.draft !== undefined ? Boolean(body.draft) : body.status === "draft";
 
     if (!slug || typeof slug !== "string" || !slug.trim()) {
@@ -178,6 +180,7 @@ pagesRouter.post("/", requireAdmin, async (c) => {
         slug: cleanSlug,
         title: title.trim(),
         content,
+        icon: typeof icon === "string" ? icon.trim() : "",
         draft: isDraft ? 1 : 0,
         uid: user.id,
       })
@@ -229,6 +232,7 @@ pagesRouter.put("/:idOrSlug", requireAdmin, async (c) => {
 
     if (body.title !== undefined) updates.title = body.title.trim();
     if (body.content !== undefined) updates.content = body.content;
+    if (body.icon !== undefined) updates.icon = typeof body.icon === "string" ? body.icon.trim() : "";
     if (body.draft !== undefined) {
       updates.draft = body.draft ? 1 : 0;
     } else if (body.status !== undefined) {

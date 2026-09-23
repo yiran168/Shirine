@@ -24,6 +24,7 @@
   let dragStartY = 0;
   let initialPosX = 0;
   let initialPosY = 0;
+  let live2dLang = $state("zh_CN");
 
   onMount(async () => {
     if (typeof window === "undefined") return;
@@ -52,12 +53,18 @@
         if (conf?.live2dModel || conf?.live2d?.model) {
           modelPath = conf.live2dModel || conf.live2d?.model;
         }
+        if (conf?.live2dLang) {
+          live2dLang = conf.live2dLang;
+        }
       } else {
         const res = await configApi.getSystem();
         const conf = res.data || res.config;
         enabledByBackend = Boolean(conf?.live2dGuestEnable ?? conf?.live2dGuestEnabled ?? conf?.live2d?.guestEnabled ?? true);
         if (conf?.live2dModel || conf?.live2d?.model) {
           modelPath = conf.live2dModel || conf.live2d?.model;
+        }
+        if (conf?.live2dLang) {
+          live2dLang = conf.live2dLang;
         }
       }
     } catch {
@@ -156,7 +163,7 @@
       },
     };
 
-    iframeEl.contentWindow.postMessage({ type: "l2d-init", config: widgetConfig }, "*");
+    iframeEl.contentWindow.postMessage({ type: "l2d-init", config: widgetConfig, lang: live2dLang }, "*");
   }
 
   function handleIframeLoad() {
