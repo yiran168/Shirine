@@ -19,6 +19,15 @@ describe("Tier 2 - Boundary: Cloudflare R2 Public Domain / Custom Domain Persist
     // env.PUBLIC_R2_URL is "http://localhost/api/blob" in test-env
     expect(res.data.objects[0].url).toBe("http://localhost/api/blob/uploads/test-image.png");
 
+    // Initial GET /api/config/system/admin should have empty publicR2Url and reflect fallback
+    const sysAdminRes = await env.requestJson("/api/config/system/admin", {
+      headers: { Authorization: `Bearer ${admin.token}` },
+    });
+    expect(sysAdminRes.status).toBe(200);
+    expect(sysAdminRes.data.data.publicR2Url).toBe("");
+    expect(sysAdminRes.data.data.fallbackR2Url).toBe("http://localhost/api/blob");
+    expect(sysAdminRes.data.data.effectivePublicR2Url).toBe("http://localhost/api/blob");
+
     env.close();
   });
 
@@ -48,6 +57,7 @@ describe("Tier 2 - Boundary: Cloudflare R2 Public Domain / Custom Domain Persist
     const siteRes = await env.requestJson("/api/config/site");
     expect(siteRes.status).toBe(200);
     expect(siteRes.data.data.publicR2Url).toBe("https://assets.shirine.moe");
+    expect(siteRes.data.data.effectivePublicR2Url).toBe("https://assets.shirine.moe");
 
     // 4. GET /api/config/system/admin reflects publicR2Url
     const sysAdminRes = await env.requestJson("/api/config/system/admin", {
@@ -144,6 +154,102 @@ describe("Tier 2 - Boundary: Cloudflare R2 Public Domain / Custom Domain Persist
     expect(uploadData.success).toBe(true);
     expect(uploadData.url.startsWith("https://media.shirine.moe/uploads/")).toBe(true);
     expect(uploadData.url.endsWith(".png")).toBe(true);
+
+    env.close();
+  });
+
+  it("allows clearing publicR2Url back to empty string, cleanly reverting settings and upload URLs to fallback", async () => {
+    const env = createTestEnv();
+    const admin = await env.createSuperadmin("r2_admin5", "adminpass123");
+
+    // 1. Set a custom domain
+    await env.requestJson("/api/config/site", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${admin.token}`,
+      },
+      body: JSON.stringify({
+        title: "My Blog",
+        publicR2Url: "https://custom.shirine.moe",
+      }),
+    });
+
+    const configuredSite = await env.requestJson("/api/config/site");
+    expect(configuredSite.data.data.publicR2Url).toBe("https://custom.shirine.moe");
+
+    // 2. Clear custom domain via PUT /api/config/system
+    const clearRes = await env.requestJson("/api/config/system", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${admin.token}`,
+      },
+      body: JSON.stringify({
+        publicR2Url: "",
+      }),
+    });
+    expect(clearRes.status).toBe(200);
+
+    // 3. GET /api/config/system/admin must reflect empty string (not fallback)
+    const sysAdminRes = await env.requestJson("/api/config/system/admin", {
+      headers: { Authorization: `Bearer ${admin.token}` },
+    });
+    expect(sysAdminRes.data.data.publicR2Url).toBe("");
+    expect(sysAdminRes.data.data.fallbackR2Url).toBe("http://localhost/api/blob");
+    expect(sysAdminRes.data.data.effectivePublicR2Url).toBe("http://localhost/api/blob");
+
+    // 4. GET /api/upload must fall back to env.PUBLIC_R2_URL
+    await env.storage.put("uploads/reverted.png", new Uint8Array([1, 2, 3]));
+    const listRes = await env.requestJson("/api/upload", {
+      headers: { Authorization: `Bearer ${admin.token}` },
+    });
+    expect(listRes.status).toBe(200);
+    const revertedObj = listRes.data.objects.find((o: any) => o.key === "uploads/reverted.png");
+    expect(revertedObj).toBeDefined();
+    expect(revertedObj.url).toBe("http://localhost/api/blob/uploads/reverted.png");
+
+    env.close();
+  });
+
+  it("sanitizes dangerous schemes and auto-prefixes scheme-less domains", async () => {
+    const env = createTestEnv();
+    const admin = await env.createSuperadmin("r2_admin6", "adminpass123");
+
+    // 1. Submit scheme-less domain
+    const autoPrefixRes = await env.requestJson("/api/config/site", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${admin.token}`,
+      },
+      body: JSON.stringify({
+        publicR2Url: "assets.shirine.moe/subpath/",
+      }),
+    });
+    expect(autoPrefixRes.status).toBe(200);
+
+    const siteRes = await env.requestJson("/api/config/site");
+    expect(siteRes.data.data.publicR2Url).toBe("https://assets.shirine.moe/subpath");
+
+    // 2. Submit dangerous scheme javascript:
+    const xssRes = await env.requestJson("/api/config/system", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${admin.token}`,
+      },
+      body: JSON.stringify({
+        publicR2Url: "javascript:alert(document.cookie)",
+      }),
+    });
+    expect(xssRes.status).toBe(200);
+
+    const sysAdminRes = await env.requestJson("/api/config/system/admin", {
+      headers: { Authorization: `Bearer ${admin.token}` },
+    });
+    // Dangerous scheme normalized to empty string
+    expect(sysAdminRes.data.data.publicR2Url).toBe("");
 
     env.close();
   });

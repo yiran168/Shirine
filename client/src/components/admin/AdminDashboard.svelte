@@ -390,6 +390,8 @@
 
   // Media Library state
   const R2_PUBLIC_BASE = "https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev";
+  let fallbackR2Url = $state(R2_PUBLIC_BASE);
+  let effectiveR2Base = $state(R2_PUBLIC_BASE);
 
   const PRESET_MEDIA: Array<{ key: string; size: number; uploaded: string; url: string; fallbackUrl?: string; isPreset?: boolean }> = [
     // Audio Presets
@@ -609,8 +611,9 @@
             friendApplyInfo: siteRes.data.friendApplyInfo ?? siteConfigState.friendApplyInfo,
             publicR2Url: siteRes.data.publicR2Url ?? siteConfigState.publicR2Url,
           };
-          if (siteRes.data.publicR2Url) {
-            systemConfigState.publicR2Url = siteRes.data.publicR2Url;
+          if (siteRes.data.fallbackR2Url) {
+            fallbackR2Url = siteRes.data.fallbackR2Url;
+            effectiveR2Base = siteRes.data.fallbackR2Url;
           }
         }
         if (sysRes.success && sysRes.data) {
@@ -618,14 +621,17 @@
           const formattedQuotes = Array.isArray(loadedQuotes)
             ? loadedQuotes.join("\n")
             : (typeof loadedQuotes === "string" ? loadedQuotes : systemConfigState.live2dQuotes);
+          const customR2 = typeof sysRes.data.publicR2Url === "string" ? sysRes.data.publicR2Url : "";
           systemConfigState = {
             ...systemConfigState,
             ...sysRes.data,
             live2dQuotes: formattedQuotes,
-            publicR2Url: sysRes.data.publicR2Url || systemConfigState.publicR2Url,
+            publicR2Url: customR2,
           };
-          if (sysRes.data.publicR2Url) {
-            siteConfigState.publicR2Url = sysRes.data.publicR2Url;
+          siteConfigState.publicR2Url = customR2;
+          if (sysRes.data.fallbackR2Url) {
+            fallbackR2Url = sysRes.data.fallbackR2Url;
+            effectiveR2Base = sysRes.data.fallbackR2Url;
           }
         }
       }
@@ -1706,24 +1712,28 @@
 
   function getR2Base(): string {
     const custom = (systemConfigState.publicR2Url || siteConfigState.publicR2Url || "").trim().replace(/\/$/, "");
-    return custom || R2_PUBLIC_BASE;
+    return custom || effectiveR2Base || fallbackR2Url || R2_PUBLIC_BASE;
   }
 
   // --- Media Library Operations ---
   async function loadMediaLibrary() {
     try {
-      if (!systemConfigState.publicR2Url && !siteConfigState.publicR2Url) {
-        try {
-          const siteRes = await configApi.getSite();
-          if (siteRes.success && siteRes.data) {
-            const publicR2 = siteRes.data.publicR2Url || siteRes.data.site?.publicR2Url || "";
-            if (publicR2) {
-              systemConfigState.publicR2Url = publicR2;
-              siteConfigState.publicR2Url = publicR2;
-            }
+      try {
+        const siteRes = await configApi.getSite();
+        if (siteRes.success && siteRes.data) {
+          const customUrl = siteRes.data.publicR2Url || "";
+          if (customUrl) {
+            systemConfigState.publicR2Url = customUrl;
+            siteConfigState.publicR2Url = customUrl;
           }
-        } catch {}
-      }
+          if (siteRes.data.fallbackR2Url) {
+            fallbackR2Url = siteRes.data.fallbackR2Url;
+            effectiveR2Base = siteRes.data.fallbackR2Url;
+          } else if (siteRes.data.effectivePublicR2Url) {
+            effectiveR2Base = siteRes.data.effectivePublicR2Url;
+          }
+        }
+      } catch {}
       const r2Base = getR2Base();
       const res = await mediaApi.list();
       const rawList = res.success ? (res.objects || res.data || []) : [];
@@ -1995,7 +2005,8 @@
         .split("\n")
         .map((s: string) => s.trim())
         .filter(Boolean);
-      const publicR2 = (systemConfigState.publicR2Url || siteConfigState.publicR2Url || "").trim();
+      const publicR2 = (systemConfigState.publicR2Url ?? "").trim();
+      siteConfigState.publicR2Url = publicR2;
       const sitePayload = {
         ...siteConfigState,
         publicR2Url: publicR2,
@@ -2028,7 +2039,9 @@
 
   async function saveR2Settings() {
     try {
-      const publicR2 = (systemConfigState.publicR2Url || siteConfigState.publicR2Url || "").trim();
+      const publicR2 = (systemConfigState.publicR2Url ?? "").trim();
+      siteConfigState.publicR2Url = publicR2;
+      systemConfigState.publicR2Url = publicR2;
       const [siteRes, sysRes] = await Promise.all([
         configApi.updateSite({ publicR2Url: publicR2 }),
         configApi.updateSystem({ publicR2Url: publicR2 }),
@@ -4381,6 +4394,11 @@
                 <p class="text-[11px] text-[var(--on-surface-variant)] mt-1.5 leading-relaxed">
                   指定已绑定的 Cloudflare R2 自定义域名或公开 R2.dev 链接（例如 <code>https://assets.yourdomain.com</code>）。留空时将自动回退至 Worker 环境变量 <code>PUBLIC_R2_URL</code> 或默认 R2 节点。保存生效后，所有新上传的图片、音频多媒体文件及媒体库预览将立即全量应用此自定义域名。
                 </p>
+                {#if !systemConfigState.publicR2Url && fallbackR2Url}
+                  <p class="text-[11px] text-[var(--on-surface-variant)] opacity-75 mt-1 font-mono">
+                    当前生效回退节点: {fallbackR2Url}
+                  </p>
+                {/if}
               </div>
             </div>
 

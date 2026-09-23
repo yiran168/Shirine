@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
 import { requireAdmin } from "../core/middleware";
+import { sanitizeR2Url } from "../utils/url";
 
 export const configRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -628,26 +629,31 @@ configRouter.get("/site", async (c) => {
     const r2Row = await db.query.siteConfigs.findFirst({
       where: eq(schema.siteConfigs.key, "publicR2Url"),
     });
-    let publicR2Url = "";
-    if (r2Row && r2Row.value) {
+    let customPublicR2Url = "";
+    if (r2Row && r2Row.value !== undefined && r2Row.value !== null) {
       try {
         const parsed = JSON.parse(r2Row.value);
-        publicR2Url = typeof parsed === "string" ? parsed : (parsed?.url || parsed?.publicR2Url || r2Row.value);
+        customPublicR2Url = typeof parsed === "string" ? parsed : (parsed?.url || parsed?.publicR2Url || String(r2Row.value));
       } catch {
-        publicR2Url = r2Row.value;
+        customPublicR2Url = String(r2Row.value);
       }
+      customPublicR2Url = sanitizeR2Url(customPublicR2Url);
+    } else {
+      const candidate =
+        (typeof (merged as any).publicR2Url === "string" ? (merged as any).publicR2Url : "") ||
+        (typeof flatSite.publicR2Url === "string" ? flatSite.publicR2Url : "");
+      customPublicR2Url = sanitizeR2Url(candidate);
     }
-    const effectivePublicR2Url =
-      (typeof publicR2Url === "string" && publicR2Url ? publicR2Url : "") ||
-      (typeof (merged as any).publicR2Url === "string" ? (merged as any).publicR2Url : "") ||
-      (typeof flatSite.publicR2Url === "string" ? flatSite.publicR2Url : "") ||
-      c.env.PUBLIC_R2_URL ||
-      "";
+
+    const fallbackR2Url = (c.env.PUBLIC_R2_URL || "https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev").trim().replace(/\/+$/, "");
+    const effectivePublicR2Url = customPublicR2Url || fallbackR2Url;
 
     const responseData = {
       ...flatSite,
       ...merged,
-      publicR2Url: effectivePublicR2Url,
+      publicR2Url: customPublicR2Url,
+      effectivePublicR2Url,
+      fallbackR2Url,
       title: flatSite.title,
       subtitle: flatSite.subtitle,
     };
@@ -728,7 +734,8 @@ configRouter.put("/site", requireAdmin, async (c) => {
       "textureAllowMotion" in body ||
       "bannerDesktop" in body ||
       "bannerMobile" in body ||
-      "bannerSubtitles" in body
+      "bannerSubtitles" in body ||
+      "publicR2Url" in body
     ) {
       const existingRow = await db.query.siteConfigs.findFirst({
         where: eq(schema.siteConfigs.key, "site"),
@@ -789,8 +796,7 @@ configRouter.put("/site", requireAdmin, async (c) => {
       }
 
       if (body.publicR2Url !== undefined) {
-        const rawUrl = typeof body.publicR2Url === "string" ? body.publicR2Url.trim() : "";
-        siteUpdates.publicR2Url = rawUrl ? sanitizeUrl(rawUrl).replace(/\/$/, "") : "";
+        siteUpdates.publicR2Url = sanitizeR2Url(body.publicR2Url);
       }
 
       const updatedSite = deepMerge(baseSite, siteUpdates);
@@ -807,10 +813,9 @@ configRouter.put("/site", requireAdmin, async (c) => {
         });
     }
 
-    // 1.5 publicR2Url standalone update (persisted directly to D1 site_configs)
+    // 1.5 publicR2Url standalone update (persisted directly to D1 site_configs and system_configs)
     if ("publicR2Url" in body) {
-      const rawUrl = typeof body.publicR2Url === "string" ? body.publicR2Url.trim() : "";
-      const publicR2Url = rawUrl ? sanitizeUrl(rawUrl).replace(/\/$/, "") : "";
+      const publicR2Url = sanitizeR2Url(body.publicR2Url);
       await db
         .insert(schema.siteConfigs)
         .values({
@@ -820,6 +825,18 @@ configRouter.put("/site", requireAdmin, async (c) => {
         })
         .onConflictDoUpdate({
           target: schema.siteConfigs.key,
+          set: { value: JSON.stringify(publicR2Url), updatedAt: new Date() },
+        });
+
+      await db
+        .insert(schema.systemConfigs)
+        .values({
+          key: "publicR2Url",
+          value: JSON.stringify(publicR2Url),
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: schema.systemConfigs.key,
           set: { value: JSON.stringify(publicR2Url), updatedAt: new Date() },
         });
     }
@@ -1198,18 +1215,22 @@ configRouter.get("/system/admin", requireAdmin, async (c) => {
     const r2Row = await db.query.siteConfigs.findFirst({
       where: eq(schema.siteConfigs.key, "publicR2Url"),
     });
-    let publicR2Url = "";
-    if (r2Row && r2Row.value) {
+    let customPublicR2Url = "";
+    if (r2Row && r2Row.value !== undefined && r2Row.value !== null) {
       try {
         const parsed = JSON.parse(r2Row.value);
-        publicR2Url = typeof parsed === "string" ? parsed : (parsed?.url || parsed?.publicR2Url || r2Row.value);
+        customPublicR2Url = typeof parsed === "string" ? parsed : (parsed?.url || parsed?.publicR2Url || String(r2Row.value));
       } catch {
-        publicR2Url = r2Row.value;
+        customPublicR2Url = String(r2Row.value);
       }
+      customPublicR2Url = sanitizeR2Url(customPublicR2Url);
+    } else {
+      const candidate = (sys as any).publicR2Url || "";
+      customPublicR2Url = sanitizeR2Url(candidate);
     }
-    if (!publicR2Url) {
-      publicR2Url = (sys as any).publicR2Url || c.env.PUBLIC_R2_URL || "";
-    }
+
+    const fallbackR2Url = (c.env.PUBLIC_R2_URL || "https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev").trim().replace(/\/+$/, "");
+    const effectivePublicR2Url = customPublicR2Url || fallbackR2Url;
 
     const adminSys = {
       checkin_rule: sys.checkin_rule,
@@ -1245,7 +1266,9 @@ configRouter.get("/system/admin", requireAdmin, async (c) => {
       aiApiKey: hasAiSecret ? "••••••••" : "",
       aiModel: aiConfig.model || "gpt-4o-mini",
       defaultLang: sys.i18n?.defaultLang || "zh_CN",
-      publicR2Url: publicR2Url || "",
+      publicR2Url: customPublicR2Url,
+      effectivePublicR2Url,
+      fallbackR2Url,
     };
 
     return c.json({
@@ -1467,8 +1490,7 @@ configRouter.put("/system", requireAdmin, async (c) => {
 
     // 6. publicR2Url: persist custom R2 public domain to D1 site_configs and system_configs
     if ("publicR2Url" in body) {
-      const rawUrl = typeof body.publicR2Url === "string" ? body.publicR2Url.trim() : "";
-      const publicR2Url = rawUrl ? sanitizeUrl(rawUrl).replace(/\/$/, "") : "";
+      const publicR2Url = sanitizeR2Url(body.publicR2Url);
       await db
         .insert(schema.siteConfigs)
         .values({
@@ -1492,6 +1514,21 @@ configRouter.put("/system", requireAdmin, async (c) => {
           target: schema.systemConfigs.key,
           set: { value: JSON.stringify(publicR2Url), updatedAt: new Date() },
         });
+
+      // Synchronize siteConfigs 'site' row as well if it exists
+      const existingSiteRow = await db.query.siteConfigs.findFirst({
+        where: eq(schema.siteConfigs.key, "site"),
+      });
+      if (existingSiteRow) {
+        try {
+          const parsed = JSON.parse(existingSiteRow.value);
+          parsed.publicR2Url = publicR2Url;
+          await db
+            .update(schema.siteConfigs)
+            .set({ value: JSON.stringify(parsed), updatedAt: new Date() })
+            .where(eq(schema.siteConfigs.key, "site"));
+        } catch {}
+      }
     }
 
     if (hasCheckin || hasTurnstile || hasLive2d || ("defaultLang" in body) || hasAi || ("publicR2Url" in body)) {
