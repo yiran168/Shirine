@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { authStore } from "../../stores/auth";
   import { getPermissionText } from "../../i18n/permission";
   import { siteConfig } from "../../config/siteConfig";
 
@@ -25,6 +26,7 @@
 
   const permissionType = $derived(pType || type || "public");
   const requiredPoints = $derived(rPoints ?? points ?? 0);
+  const isAdmin = $derived(authStore.user?.role === "admin" || authStore.user?.role === "superadmin");
 
   let currentLang = $state(propLang || siteConfig.lang || "zh_CN");
 
@@ -56,7 +58,7 @@
   const pointsText = $derived(t.overlayPointsRequired.replace("{points}", String(requiredPoints)));
 </script>
 
-{#if !isUnlocked}
+{#if !isUnlocked && !isAdmin}
   <div class="absolute inset-0 z-10 flex flex-col items-center justify-center p-4 bg-black/45 backdrop-blur-md rounded-2xl transition-all duration-300 group-hover:bg-black/55 select-none {className}">
     {#if permissionType === "login_required"}
       <div class="w-12 h-12 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center mb-2 shadow-lg ring-1 ring-amber-400/30">
@@ -72,6 +74,13 @@
         </svg>
       </div>
       <span class="text-white text-xs md:text-sm font-medium tracking-wide drop-shadow">{pointsText}</span>
+    {:else}
+      <div class="w-12 h-12 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center mb-2 shadow-lg ring-1 ring-amber-400/30">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </div>
+      <span class="text-white text-xs md:text-sm font-medium tracking-wide drop-shadow">{t.overlayPasswordRequired || "密码保护"}</span>
     {/if}
   </div>
 {/if}

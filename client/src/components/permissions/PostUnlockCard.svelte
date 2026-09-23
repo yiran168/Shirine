@@ -1,6 +1,7 @@
 <script lang="ts">
   import { authStore } from "../../stores/auth";
   import { postsApi, albumsApi } from "../../services/api";
+  import { renderDynamicMarkdown } from "../../utils/dynamic-markdown";
 
   interface Props {
     postId: number | string;
@@ -27,6 +28,7 @@
   let loading = $state(false);
   let errorMsg = $state("");
   let inputPassword = $state("");
+  let unlockedHtml = $state("");
 
   const effectiveReason = $derived(
     lockReason ||
@@ -38,6 +40,49 @@
       ? "points_required"
       : "password_required")
   );
+
+  const isAdmin = $derived(
+    authStore.user?.role === "admin" || authStore.user?.role === "superadmin"
+  );
+
+  let adminAttempted = $state(false);
+
+  $effect(() => {
+    if (isAdmin && !adminAttempted && !loading) {
+      adminAttempted = true;
+      handleAdminDirectUnlock();
+    }
+  });
+
+  async function handleAdminDirectUnlock() {
+    loading = true;
+    errorMsg = "";
+    try {
+      if (itemType === "album") {
+        const res = await albumsApi.get(Number(postId) || postId as any);
+        if (res.success && res.data?.isUnlocked) {
+          window.location.reload();
+        }
+      } else {
+        const res = await postsApi.get(postId);
+        if (res.success) {
+          const content = res.data?.content || res.post?.content;
+          if (content) {
+            unlockedHtml = renderDynamicMarkdown(content);
+            if (onUnlocked) {
+              onUnlocked(content);
+            }
+          } else {
+            window.location.reload();
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error("Admin auto unlock exception:", err);
+    } finally {
+      loading = false;
+    }
+  }
 
   async function handleVerifyPassword(e?: Event) {
     if (e) e.preventDefault();
@@ -61,8 +106,12 @@
             confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
           } catch {}
         }
-        if (onUnlocked && (res.content || res.data?.content)) {
-          onUnlocked(res.content || res.data?.content);
+        const content = res.content || res.data?.content;
+        if (content) {
+          unlockedHtml = renderDynamicMarkdown(content);
+          if (onUnlocked) {
+            onUnlocked(content);
+          }
         } else {
           window.location.reload();
         }
@@ -98,8 +147,12 @@
           authStore.user.points = res.remainingPoints;
           authStore.notify();
         }
-        if (onUnlocked && (res.content || res.data?.content)) {
-          onUnlocked(res.content || res.data?.content);
+        const content = res.content || res.data?.content;
+        if (content) {
+          unlockedHtml = renderDynamicMarkdown(content);
+          if (onUnlocked) {
+            onUnlocked(content);
+          }
         } else {
           window.location.reload();
         }
@@ -114,8 +167,31 @@
   }
 </script>
 
-<div class="my-8 p-8 rounded-3xl border border-amber-500/20 bg-gradient-to-b from-amber-500/5 via-surface/40 to-surface/80 backdrop-blur-xl shadow-xl flex flex-col items-center text-center max-w-xl mx-auto transition-all">
-  {#if effectiveReason === "password_required"}
+{#if unlockedHtml}
+  <div class="my-6 w-full onload-animation prose prose-neutral dark:prose-invert max-w-none text-[var(--on-surface)] leading-relaxed">
+    {@html unlockedHtml}
+  </div>
+{:else}
+  <div class="my-8 p-8 rounded-3xl border border-amber-500/20 bg-gradient-to-b from-amber-500/5 via-surface/40 to-surface/80 backdrop-blur-xl shadow-xl flex flex-col items-center text-center max-w-xl mx-auto transition-all">
+    {#if isAdmin}
+      <div class="w-16 h-16 rounded-2xl bg-primary/15 text-primary flex items-center justify-center mb-4 ring-1 ring-primary/30 shadow-inner animate-pulse">
+        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      </div>
+    <h3 class="text-xl font-bold text-on-surface mb-2">👑 管理员特权访问</h3>
+    <p class="text-sm text-on-surface-variant max-w-md mb-6 leading-relaxed">
+      已识别管理员身份（{authStore.user?.role}），享有免密、免积分直接查看全站受限内容权限。正在为您呈现正文...
+    </p>
+    <button
+      type="button"
+      disabled={loading}
+      onclick={handleAdminDirectUnlock}
+      class="px-8 py-3 rounded-full bg-primary text-on-primary font-medium text-sm shadow-md hover:shadow-lg hover:brightness-105 active:scale-95 transition-all disabled:opacity-50"
+    >
+      {loading ? "正在加载内容..." : "立即直接查看（免密免积分）"}
+    </button>
+  {:else if effectiveReason === "password_required"}
     <div class="w-16 h-16 rounded-2xl bg-amber-500/15 text-amber-500 flex items-center justify-center mb-4 ring-1 ring-amber-500/30 shadow-inner">
       <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -237,3 +313,4 @@
     {/if}
   {/if}
 </div>
+{/if}

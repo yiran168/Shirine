@@ -19,18 +19,7 @@ export const ALL: APIRoute = async ({ request, params, locals }) => {
   const cleanPath = (params.path || "").replace(/^\/+|\/+$/g, "");
   const incomingUrl = new URL(request.url);
 
-  let bodyBuffer: ArrayBuffer | null = null;
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    try {
-      bodyBuffer = await request.clone().arrayBuffer();
-    } catch {
-      try {
-        bodyBuffer = await request.arrayBuffer();
-      } catch {
-        // Body may already be read or not available
-      }
-    }
-  }
+  const hasBody = request.method !== "GET" && request.method !== "HEAD";
 
   // 1. Service Binding proxy fallback on Cloudflare Pages
   const serviceBinding = runtimeEnv.SHIRINE_SERVER || runtimeEnv.BACKEND || runtimeEnv.API;
@@ -46,8 +35,8 @@ export const ALL: APIRoute = async ({ request, params, locals }) => {
       headers: forwardHeaders,
       redirect: "manual",
     };
-    if (bodyBuffer) {
-      init.body = bodyBuffer;
+    if (hasBody) {
+      init.body = request.body;
       // @ts-ignore Node/Cloudflare duplex streaming support
       init.duplex = "half";
     }
@@ -100,8 +89,8 @@ export const ALL: APIRoute = async ({ request, params, locals }) => {
     redirect: "manual",
   };
 
-  if (bodyBuffer) {
-    init.body = bodyBuffer;
+  if (hasBody) {
+    init.body = request.body;
     // @ts-ignore Node/Cloudflare duplex streaming support
     init.duplex = "half";
   }

@@ -12,7 +12,6 @@ import PostMetadata from "@components/molecules/PostMeta.astro";
 import ArticleDiscovery from "@components/organisms/ArticleDiscovery.astro";
 import ArticleShare from "@components/organisms/ArticleShare.svelte";
 import CommentSection from "@components/organisms/comment/CommentSection.astro";
-import EncryptedContent from "@components/organisms/EncryptedContent.astro";
 import UmamiStats from "@components/organisms/UmamiStats.astro";
 import PermissionBadge from "@components/permissions/PermissionBadge.svelte";
 import CoverLockOverlay from "@components/permissions/CoverLockOverlay.svelte";
@@ -108,77 +107,70 @@ if (isDynamicProd && (!dynamicDetail || apiPostNotFound)) {
 	return Astro.redirect("/404");
 }
 
+const blogEntries = await getSortedPosts();
+initPostIdMap(blogEntries);
+const localEntry = blogEntries.find((cand) => {
+	if (hasCustomPermalink(cand)) {
+		const custom = cand.data.permalink?.replace(/^\/+/, "").replace(/\/+$/, "");
+		if (custom === permalink) return true;
+	}
+	if (permalinkConfig.enable) {
+		const generated = generatePermalinkSlug(cand);
+		if (generated === permalink) return true;
+	}
+	if (cand.data.alias) {
+		let alias = cand.data.alias.replace(/^\/+/, "").replace(/\/+$/, "");
+		if (alias === permalink) return true;
+	}
+	const defaultSlug = removeFileExtension(cand.id);
+	return defaultSlug === permalink || cand.id === permalink;
+});
+
 let entry: any = null;
 let discoveryCandidates: any[] = [];
 const discoveryOptions = resolveArticleDiscoveryOptions(articleConfig);
 
 if (dynamicDetail) {
-	entry = {
-		id: dynamicDetail.slug || String(dynamicDetail.id),
-		body: dynamicDetail.content || "",
-		collection: "posts" as const,
-		data: {
-			title: dynamicDetail.title,
-			published: new Date(dynamicDetail.createdAt),
-			updated: dynamicDetail.updatedAt ? new Date(dynamicDetail.updatedAt) : undefined,
-			description: dynamicDetail.description || "",
-			image: dynamicDetail.image || "",
-			category: dynamicDetail.category || "",
-			tags: Array.isArray(dynamicDetail.tags) ? dynamicDetail.tags : [],
-			pinned: Boolean(dynamicDetail.pinned),
-			draft: Boolean(dynamicDetail.draft),
-			comment: Boolean(dynamicDetail.commentEnabled ?? true),
-			encrypted: Boolean(dynamicDetail.requiresPassword || dynamicDetail.encrypted || dynamicDetail.permissionType === "password"),
-			permissionType: dynamicDetail.permissionType || "public",
-			requiredPoints: dynamicDetail.requiredPoints || 0,
-			isUnlocked: Boolean(dynamicDetail.isUnlocked),
-			password: dynamicDetail.password,
-			passwordHint: dynamicDetail.passwordHint,
-			words: dynamicDetail.words,
-			alias: dynamicDetail.alias,
-			permalink: dynamicDetail.permalink,
-			prevTitle: dynamicDetail.prev?.title || "",
-			prevSlug: dynamicDetail.prev?.slug || "",
-			nextTitle: dynamicDetail.next?.title || "",
-			nextSlug: dynamicDetail.next?.slug || "",
-			dbId: dynamicDetail.id,
-		},
-	};
+	const resolvedContent = (dynamicDetail.content && dynamicDetail.content.trim())
+		? dynamicDetail.content
+		: (localEntry?.body || "");
 
-	// Fast cached candidates for article discovery (only 10 posts, not 500)
-	discoveryCandidates = await getDiscoveryCandidates(Astro.request);
-} else {
-	// Fallback to local static markdown entries only if API did not provide post
-	const blogEntries = await getSortedPosts();
-	initPostIdMap(blogEntries);
-	discoveryCandidates = blogEntries.map((e) => ({
-		slug: e.id,
-		data: e.data,
-	}));
-	entry = blogEntries.find((cand) => {
-		if (hasCustomPermalink(cand)) {
-			const custom = cand.data.permalink?.replace(/^\/+/, "").replace(/\/+$/, "");
-			if (custom === permalink) return true;
-		}
-		if (permalinkConfig.enable) {
-			const generated = generatePermalinkSlug(cand);
-			if (generated === permalink) return true;
-		}
-		if (cand.data.alias) {
-			let alias = cand.data.alias.replace(/^\/+/, "").replace(/\/+$/, "");
-			if (alias === permalink) return true;
-		}
-		const defaultSlug = removeFileExtension(cand.id);
-		return defaultSlug === permalink || cand.id === permalink;
-	});
-}
+	if (localEntry && (!dynamicDetail.content || dynamicDetail.content.trim() === (localEntry.body || "").trim())) {
+		entry = localEntry;
+	} else {
+		entry = {
+			id: dynamicDetail.slug || String(dynamicDetail.id),
+			body: resolvedContent,
+			collection: "posts" as const,
+			data: {
+				title: dynamicDetail.title || localEntry?.data.title || permalink,
+				published: new Date(dynamicDetail.createdAt || (localEntry?.data.published ?? Date.now())),
+				updated: dynamicDetail.updatedAt ? new Date(dynamicDetail.updatedAt) : localEntry?.data.updated,
+				description: dynamicDetail.description || localEntry?.data.description || "",
+				image: dynamicDetail.image || localEntry?.data.image || "",
+				category: dynamicDetail.category || localEntry?.data.category || "",
+				tags: Array.isArray(dynamicDetail.tags) ? dynamicDetail.tags : (localEntry?.data.tags || []),
+				pinned: Boolean(dynamicDetail.pinned ?? localEntry?.data.pinned),
+				draft: Boolean(dynamicDetail.draft ?? localEntry?.data.draft),
+				comment: Boolean(dynamicDetail.commentEnabled ?? (localEntry?.data.comment ?? true)),
+				encrypted: Boolean(dynamicDetail.requiresPassword || dynamicDetail.encrypted || dynamicDetail.permissionType === "password"),
+				permissionType: dynamicDetail.permissionType || "public",
+				requiredPoints: dynamicDetail.requiredPoints || 0,
+				isUnlocked: Boolean(dynamicDetail.isUnlocked),
+				password: dynamicDetail.password,
+				passwordHint: dynamicDetail.passwordHint,
+				words: dynamicDetail.words,
+				alias: dynamicDetail.alias,
+				permalink: dynamicDetail.permalink,
+				prevTitle: dynamicDetail.prev?.title || "",
+				prevSlug: dynamicDetail.prev?.slug || "",
+				nextTitle: dynamicDetail.next?.title || "",
+				nextSlug: dynamicDetail.next?.slug || "",
+				dbId: dynamicDetail.id,
+			},
+		};
+	}
 
-if (!entry) {
-	return Astro.redirect("/404");
-}
-
-// Update permission and content from authoritative backend detail
-if (dynamicDetail) {
 	(entry.data as any).isUnlocked = Boolean(dynamicDetail.isUnlocked);
 	(entry.data as any).permissionType = dynamicDetail.permissionType;
 	(entry.data as any).requiredPoints = dynamicDetail.requiredPoints;
@@ -199,7 +191,18 @@ if (dynamicDetail) {
 		entry.data.nextTitle = dynamicDetail.next.title;
 		entry.data.nextUrl = getPostUrlBySlug(dynamicDetail.next.slug);
 	}
-	entry.body = dynamicDetail.content ?? "";
+
+	discoveryCandidates = await getDiscoveryCandidates(Astro.request);
+} else {
+	discoveryCandidates = blogEntries.map((e) => ({
+		slug: e.id,
+		data: e.data,
+	}));
+	entry = localEntry;
+}
+
+if (!entry) {
+	return Astro.redirect("/404");
 }
 
 const isEncrypted = Boolean(
@@ -241,7 +244,6 @@ const discovery =
 				discoveryOptions.randomCount,
 			)
 		: { related: [], random: [] };
-const scope = `post:${entry.id}`;
 
 let Content: any = null;
 let headings: any[] = [];

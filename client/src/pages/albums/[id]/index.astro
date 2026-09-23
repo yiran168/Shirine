@@ -3,17 +3,14 @@ export const prerender = false;
 
 import PageHeader from "@components/atoms/display/PageHeader.astro";
 import AlbumGallery from "@components/organisms/AlbumGallery.svelte";
-import ProtectedAlbum from "@components/organisms/ProtectedAlbum.svelte";
 import PermissionBadge from "@components/permissions/PermissionBadge.svelte";
 import PostUnlockCard from "@components/permissions/PostUnlockCard.svelte";
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import MainGridLayout from "@layouts/MainGridLayout.astro";
 import { findAlbum } from "@utils/album-scanner";
-import { encryptProtectedContent } from "@utils/password-protection";
 import { url } from "@utils/url-utils";
 import { Icon } from "astro-icon/components";
-import type { ProtectedPayload } from "@/types/protectedContent";
 import { resolveApiBase } from "@utils/content-utils";
 
 const id = Astro.params.id ?? "";
@@ -26,12 +23,14 @@ if (apiBase) {
 		const cookieToken = Astro.cookies.get("shirine_token")?.value;
 		const rawCookie = Astro.request.headers.get("cookie") || "";
 		const cookieHeader = rawCookie || (cookieToken ? `shirine_token=${cookieToken}` : "");
-		if (cookieHeader) headers["cookie"] = cookieHeader;
 		let authHeader = Astro.request.headers.get("authorization") || "";
 		if (!authHeader && cookieToken) {
 			authHeader = `Bearer ${cookieToken}`;
 		}
-		if (authHeader) headers["authorization"] = authHeader;
+		const headers: Record<string, string> = {
+			...(cookieHeader ? { cookie: cookieHeader } : {}),
+			...(authHeader ? { authorization: authHeader } : {}),
+		};
 
 		const res = await fetch(`${apiBase}/albums/${id}`, {
 			headers,
@@ -96,17 +95,6 @@ const isLocked = apiConnected
 // Never leak photo arrays in HTML or client props when locked
 if (isLocked) {
 	resolvedAlbum.photos = [];
-}
-
-const scope = `album:${resolvedAlbum.id}`;
-let payload: ProtectedPayload | null = null;
-if (resolvedAlbum.password) {
-	payload = await encryptProtectedContent(
-		JSON.stringify(resolvedAlbum.photos),
-		resolvedAlbum.password,
-		scope,
-		"application/json",
-	);
 }
 ---
 

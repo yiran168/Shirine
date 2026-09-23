@@ -38,6 +38,10 @@ class StoreManager {
   async init() {
     if (typeof window === "undefined") return;
     try {
+      const token = localStorage.getItem("shirine_token");
+      if (token && !document.cookie.includes("shirine_token=")) {
+        document.cookie = `shirine_token=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
+      }
       const res = await authApi.me();
       if (res.success && res.user) {
         this.user = res.user as UserState;

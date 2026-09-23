@@ -83,12 +83,8 @@ function collectPosts() {
         }
 
         const isEncrypted = Boolean(frontmatter.encrypted || frontmatter.password);
-        const draft = isEncrypted ? 1 : (frontmatter.draft ? 1 : 0);
-        const permissionType = isEncrypted
-          ? "login_required"
-          : (frontmatter.permissionType === "login_required" || frontmatter.permissionType === "points_required"
-              ? frontmatter.permissionType
-              : "public");
+        const draft = frontmatter.draft ? 1 : 0;
+        const permissionType = frontmatter.permissionType || (isEncrypted ? "password" : "public");
 
         posts.push({
           slug,
@@ -107,7 +103,7 @@ function collectPosts() {
           permissionType,
           requiredPoints: frontmatter.requiredPoints || 0,
           encrypted: isEncrypted ? 1 : 0,
-          password: "", // V10: Never export plain text passwords into seeds
+          password: frontmatter.password || "",
           passwordHint: frontmatter.passwordHint || "",
           hideHomeContent: frontmatter.hideHomeContent === false ? 0 : 1,
           createdAt: frontmatter.published ? new Date(frontmatter.published).getTime() : Date.now(),
@@ -212,13 +208,9 @@ function collectAlbums() {
       });
     }
 
-    const isEncrypted = Boolean(info.password);
-    const draft = isEncrypted ? 1 : (info.draft ? 1 : 0);
-    const permissionType = isEncrypted
-      ? "login_required"
-      : (info.permissionType === "login_required" || info.permissionType === "points_required"
-          ? info.permissionType
-          : "public");
+    const isEncrypted = Boolean(info.encrypted || info.password);
+    const draft = info.draft ? 1 : 0;
+    const permissionType = info.permissionType || (isEncrypted ? "password" : "public");
 
     // Determine cover
     let cover = info.cover || "";
@@ -242,6 +234,9 @@ function collectAlbums() {
       hidden: info.hidden ? 1 : 0,
       permissionType,
       requiredPoints: info.requiredPoints || 0,
+      encrypted: isEncrypted ? 1 : 0,
+      password: info.password || "",
+      passwordHint: info.passwordHint || "",
       draft,
       photos,
     });
@@ -305,7 +300,7 @@ export interface SeedPost {
   pinned: number;
   draft: number;
   commentEnabled: number;
-  permissionType: "public" | "login_required" | "points_required";
+  permissionType: "public" | "login_required" | "points_required" | "password";
   requiredPoints: number;
   encrypted?: number;
   password?: string;
@@ -342,8 +337,11 @@ export interface SeedAlbum {
   columns: number;
   tags: string[];
   hidden: number;
-  permissionType: "public" | "login_required" | "points_required";
+  permissionType: "public" | "login_required" | "points_required" | "password";
   requiredPoints: number;
+  encrypted?: number;
+  password?: string;
+  passwordHint?: string;
   draft: number;
   photos: SeedAlbumPhoto[];
 }
@@ -397,9 +395,9 @@ ON CONFLICT(content) DO NOTHING;\n`;
 
 sql += `\n-- 3. Albums & Photos\n`;
 for (const a of albums) {
-  sql += `INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, draft, uid)
-VALUES (${escapeSql(a.slug)}, ${escapeSql(a.title)}, ${escapeSql(a.description)}, ${escapeSql(a.cover)}, ${escapeSql(a.layout)}, ${a.columns}, ${escapeSql(JSON.stringify(a.tags))}, ${a.hidden}, ${escapeSql(a.permissionType)}, ${a.requiredPoints}, ${a.draft}, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(slug) DO NOTHING;\n`;
+  sql += `INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, encrypted, password, password_hint, draft, uid)
+VALUES (${escapeSql(a.slug)}, ${escapeSql(a.title)}, ${escapeSql(a.description)}, ${escapeSql(a.cover)}, ${escapeSql(a.layout)}, ${a.columns}, ${escapeSql(JSON.stringify(a.tags))}, ${a.hidden}, ${escapeSql(a.permissionType)}, ${a.requiredPoints}, ${a.encrypted || 0}, ${escapeSql(a.password || "")}, ${escapeSql(a.passwordHint || "")}, ${a.draft}, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
+ON CONFLICT(slug) DO UPDATE SET permission_type = excluded.permission_type, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint, draft = excluded.draft;\n`;
 
   for (const p of a.photos) {
     sql += `INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
@@ -413,7 +411,7 @@ sql += `\n-- 4. Posts\n`;
 for (const p of posts) {
   sql += `INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES (${escapeSql(p.slug)}, ${escapeSql(p.alias)}, ${escapeSql(p.permalink)}, ${escapeSql(p.title)}, ${escapeSql(p.description)}, ${escapeSql(p.content)}, ${escapeSql(p.image)}, ${escapeSql(p.category)}, ${escapeSql(JSON.stringify(p.tags))}, ${escapeSql(p.lang)}, ${p.pinned}, ${p.draft}, ${p.commentEnabled}, ${escapeSql(p.permissionType)}, ${p.requiredPoints}, ${p.encrypted}, ${escapeSql(p.password)}, ${escapeSql(p.passwordHint)}, ${p.hideHomeContent}, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), ${Math.floor(p.createdAt / 1000)})
-ON CONFLICT(slug) DO NOTHING;\n`;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;\n`;
 }
 
 sql += `\n-- 5. Default Site Configurations\n`;
@@ -518,6 +516,235 @@ const defaultConfigs = {
     },
   },
   footer: { startYear: 2026, enableHtmlInject: false, links: [] },
+  compass: [
+    {
+      key: "dev",
+      name: "Development",
+      icon: "material-symbols:code-rounded",
+      blurb: "Sites I keep open while writing code",
+      entries: [
+        { label: "GitHub", href: "https://github.com", note: "Code hosting & collaboration", icon: "fa6-brands:github" },
+        { label: "MDN", href: "https://developer.mozilla.org", note: "Authoritative web docs", icon: "material-symbols:menu-book-rounded" },
+        { label: "Stack Overflow", href: "https://stackoverflow.com", note: "Q&A and debugging", icon: "fa6-brands:stack-overflow" }
+      ]
+    },
+    {
+      key: "design",
+      name: "Design",
+      icon: "material-symbols:palette-outline-rounded",
+      blurb: "Colors, icons and inspiration",
+      entries: [
+        { label: "Iconify", href: "https://icon-sets.iconify.design", note: "Searchable open-source icon sets" },
+        { label: "Material Symbols", href: "https://fonts.google.com/icons", note: "Official M3 icon set", icon: "material-symbols:star-rounded" },
+        { label: "Excalidraw", href: "https://excalidraw.com", note: "Hand-drawn whiteboard collaboration" }
+      ]
+    },
+    {
+      key: "tools",
+      name: "Tools",
+      icon: "material-symbols:build-outline-rounded",
+      entries: [
+        { label: "Squoosh", href: "https://squoosh.app", note: "Image compression & conversion" },
+        { label: "Regex101", href: "https://regex101.com", note: "Regex testing & debugging" }
+      ]
+    },
+    {
+      key: "reads",
+      name: "Reading",
+      icon: "material-symbols:auto-stories-outline-rounded",
+      entries: [
+        { label: "Hacker News", href: "https://news.ycombinator.com" },
+        { label: "V2EX", href: "https://www.v2ex.com" },
+        { label: "Solidot", href: "https://www.solidot.org", note: "Tech and culture news" }
+      ]
+    }
+  ],
+  anime: [
+    {
+      title: "Lycoris Recoil",
+      cover: "/assets/anime/lkls.webp",
+      link: "https://www.bilibili.com/bangumi/media/md28338623",
+      status: "completed",
+      rating: 9.8,
+      progress: { watched: 12, total: 12 },
+      description: "Girl's gunfight",
+      year: "2022",
+      studio: "A-1 Pictures",
+      genres: ["Action", "Slice of Life"],
+      period: { start: "2022-07", end: "2022-09" }
+    },
+    {
+      title: "Yowamushi Pedal",
+      cover: "/assets/anime/rynh.webp",
+      link: "https://www.bilibili.com/bangumi/media/md2590",
+      status: "watching",
+      rating: 9.5,
+      progress: { watched: 8, total: 12 },
+      description: "Girl's daily life, sweet and healing",
+      year: "2015",
+      studio: "Nexus",
+      genres: ["Daily life", "Healing"],
+      period: { start: "2015-07", end: "2015-09" }
+    },
+    {
+      title: "Asteroid in Love",
+      cover: "/assets/anime/laxxx.webp",
+      link: "https://www.bilibili.com/bangumi/media/md28224128",
+      status: "watching",
+      rating: 9.2,
+      progress: { watched: 5, total: 12 },
+      description: "Meeting girls among the stars, pure love and healing",
+      year: "2020",
+      studio: "Doga Kobo",
+      genres: ["Romance", "Healing"],
+      period: { start: "2020-01", end: "2020-03" }
+    },
+    {
+      title: "Is the Order a Rabbit?",
+      cover: "/assets/anime/tz1.webp",
+      link: "https://www.bilibili.com/bangumi/media/md2762",
+      status: "planned",
+      rating: 9.0,
+      progress: { watched: 12, total: 12 },
+      description: "A group of girls' warm daily life",
+      year: "2014",
+      studio: "White Fox",
+      genres: ["Daily life", "Healing"],
+      period: { start: "2014-04", end: "2014-06" }
+    },
+    {
+      title: "The Secret of the Magic Girl",
+      cover: "/assets/anime/cmmn.webp",
+      link: "https://www.bilibili.com/bangumi/media/md26625039",
+      status: "watching",
+      rating: 9.0,
+      progress: { watched: 8, total: 12 },
+      description: "Muli, Muli!",
+      year: "2024",
+      studio: "C2C",
+      genres: ["Daily life", "Healing", "Magic"],
+      period: { start: "2025-07", end: "2025-10" }
+    }
+  ],
+  projects: [
+    {
+      key: "shirine",
+      title: "Shirine",
+      summary: "An Astro blog theme shaped around an M3E component system, expressive content, and resilient client navigation.",
+      category: "theme",
+      phase: "building",
+      technologies: ["Astro", "Svelte", "TypeScript", "Tailwind CSS"],
+      icon: "material-symbols:deployed-code-outline-rounded",
+      cover: "/assets/projects/shirine.webp",
+      coverAlt: "Shirine theme homepage preview",
+      featured: true,
+      repository: "https://github.com/yiran168/Shirine",
+      year: "2026",
+      enable: true
+    },
+    {
+      key: "folkpatch",
+      title: "FolkPatch",
+      summary: "A kernel-level root solution for Android, built on APatch.",
+      category: "android",
+      phase: "building",
+      technologies: ["Kotlin", "APatch", "Android"],
+      icon: "material-symbols:terminal-rounded",
+      repository: "https://github.com/LyraVoid/FolkPatch",
+      year: "2025",
+      enable: true
+    },
+    {
+      key: "kernelpatch",
+      title: "KernelPatch",
+      summary: "A kernel patch framework that powers APatch-style root on Android by loading code into the running kernel.",
+      category: "android",
+      phase: "shipped",
+      technologies: ["C", "Linux Kernel", "Android"],
+      icon: "material-symbols:extension-outline-rounded",
+      repository: "https://github.com/lyravoid/KernelPatch",
+      year: "2024",
+      enable: true
+    }
+  ],
+  devices: [
+    {
+      id: "macbook-pro-16",
+      name: "MacBook Pro 16\"",
+      brand: "Apple",
+      category: "desk",
+      status: "active",
+      specs: "M3 Max / 64GB / 2TB",
+      description: "Primary workstation for development, design, and heavy rendering workloads.",
+      icon: "material-symbols:laptop-mac-rounded",
+      featured: true,
+      year: "2024",
+      link: "https://www.apple.com/macbook-pro/",
+      enable: true
+    },
+    {
+      id: "iphone-16-pro",
+      name: "iPhone 16 Pro",
+      brand: "Apple",
+      category: "mobile",
+      status: "active",
+      specs: "A18 Pro / 256GB / Natural Titanium",
+      description: "Daily mobile device, mobile photography and communication.",
+      icon: "material-symbols:smartphone-rounded",
+      featured: true,
+      year: "2024",
+      link: "https://www.apple.com/iphone/",
+      enable: true
+    }
+  ],
+  skills: [
+    { id: "astro", name: "Astro", category: "frontend", proficiency: 95, level: "expert", icon: "simple-icons:astro", description: "Content-first framework powering this blog", featured: true, enable: true },
+    { id: "svelte", name: "Svelte", category: "frontend", proficiency: 90, level: "advanced", icon: "simple-icons:svelte", description: "Reactive UI components and admin dashboard", featured: true, enable: true },
+    { id: "typescript", name: "TypeScript", category: "frontend", proficiency: 92, level: "expert", icon: "simple-icons:typescript", description: "Type-safe application development across full stack", featured: true, enable: true },
+    { id: "cloudflare", name: "Cloudflare Pages & Workers", category: "backend", proficiency: 90, level: "advanced", icon: "simple-icons:cloudflare", description: "Edge computing, D1 database, and R2 object storage", featured: true, enable: true }
+  ],
+  timeline: [
+    {
+      title: "Shirine 开源发布",
+      date: "2026.03",
+      category: "milestone",
+      subtitle: "从概念到全栈架构落地",
+      location: "GitHub",
+      description: "发布 Shirine 动态博客系统，整合 Material 3 Expressive 设计规范与 Cloudflare 全栈能力。",
+      highlights: [
+        "实现 Cloudflare D1 + R2 原生动态架构",
+        "引入 AES-256-GCM 本地离线文章与相册加密系统",
+        "深度支持 20+ 种 Material 增强写作语法"
+      ],
+      tags: ["Astro", "Svelte", "Cloudflare", "M3E"],
+      icon: "material-symbols:rocket-launch-rounded",
+      featured: true,
+      enable: true
+    }
+  ],
+  system: {
+    turnstile: { siteKey: "", secretKey: "" },
+    live2d: {
+      guestEnable: true,
+      adminEnable: true,
+      model: "/pio/models/NOIR/noir.model3.json",
+      lang: "zh_CN",
+      quotes: [
+        "欢迎来到 Shirine！",
+        "今天也是美好的一天～",
+        "有什么想和我聊聊的吗？",
+        "看文章累了就伸个懒腰吧！",
+        "点击右下角按钮可以返回顶部哦～",
+        "我会一直在这里陪着你的！"
+      ],
+      models: [
+        { name: "NOIR (默认)", url: "/pio/models/NOIR/noir.model3.json" },
+        { name: "Hiyori", url: "https://fastly.jsdelivr.net/gh/evpt/live2d-models/hiyori/hiyori.model3.json" }
+      ]
+    },
+    ai: { apiUrl: "https://api.openai.com/v1", apiKey: "", model: "gpt-4o-mini" },
+    checkin_rule: { enabled: true, fixedPoints: 10, rewardRange: 15 }
+  },
 };
 
 for (const [key, value] of Object.entries(defaultConfigs)) {

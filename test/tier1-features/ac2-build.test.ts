@@ -84,4 +84,38 @@ describe("Tier 1 - AC 2: Build Safety & SSR Architecture", () => {
 
     env.close();
   });
+
+  it("AC 2.6: 512x512 anime link preview loading animation asset and component exist with complete visual specs", () => {
+    const svgPath = resolve(PROJECT_ROOT, "client/public/assets/images/link-preview-loading.svg");
+    expect(existsSync(svgPath)).toBe(true);
+
+    const svgContent = readFileSync(svgPath, "utf-8");
+    expect(svgContent).toContain('viewBox="0 0 512 512"');
+    expect(svgContent).toContain('width="512"');
+    expect(svgContent).toContain('height="512"');
+
+    // Upper half mascot, cloud, stars, petals
+    expect(svgContent).toContain("floatCloud");
+    expect(svgContent).toContain("floatMascot");
+    expect(svgContent).toContain("waveArm");
+    expect(svgContent).toContain("blinkEye");
+    expect(svgContent).toContain("twinkle");
+    expect(svgContent).toContain("petalDrift");
+
+    // Lower half rounded pink-to-purple gradient progress bar and "加载中" with 3 glowing dots
+    expect(svgContent).toContain("progressBarAnim");
+    expect(svgContent).toContain("progressGrad");
+    expect(svgContent).toContain("dotPulse");
+    expect(svgContent).toContain("加载中");
+    expect(svgContent).toContain("dot-1");
+    expect(svgContent).toContain("dot-2");
+    expect(svgContent).toContain("dot-3");
+
+    // Svelte Component
+    const sveltePath = resolve(PROJECT_ROOT, "client/src/components/atoms/feedback/LinkPreviewLoading.svelte");
+    expect(existsSync(sveltePath)).toBe(true);
+    const svelteContent = readFileSync(sveltePath, "utf-8");
+    expect(svelteContent).toContain("/assets/images/link-preview-loading.svg");
+    expect(svelteContent).toContain("size");
+  });
 });

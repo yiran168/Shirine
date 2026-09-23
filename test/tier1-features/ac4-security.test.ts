@@ -263,4 +263,104 @@ describe("Tier 1 - AC 4: Security Standards & Content Protection", () => {
     expect(serialized).toContain("\\u003e");
     expect(serialized).toContain("\\u0026");
   });
+
+  it("AC 4.6: Admin automatically bypasses password, points, and login restrictions on posts and albums", async () => {
+    const env = createTestEnv();
+    const admin = await env.createSuperadmin("gate_admin", "adminpass123");
+
+    // 1. Password-protected post
+    const pwPost = await env.createPost({
+      slug: "pw-restricted-post",
+      title: "Password Secret Post",
+      content: "Super secret admin-viewable content",
+      permissionType: "password",
+      password: "secretpassword123",
+      encrypted: 1,
+    });
+
+    // Anonymous visitor gets locked
+    const anonPwRes = await env.requestJson(`/api/posts/${pwPost.id}`);
+    expect(anonPwRes.status).toBe(200);
+    expect(anonPwRes.data.data.isUnlocked).toBe(false);
+    expect(anonPwRes.data.data.content).toBeNull();
+
+    // Admin gets directly unlocked without entering password
+    const adminPwRes = await env.requestJson(`/api/posts/${pwPost.id}`, {
+      headers: { Authorization: `Bearer ${admin.token}` },
+    });
+    expect(adminPwRes.status).toBe(200);
+    expect(adminPwRes.data.data.isUnlocked).toBe(true);
+    expect(adminPwRes.data.data.content).toBe("Super secret admin-viewable content");
+    expect(adminPwRes.data.data.password).toBe("secretpassword123");
+
+    // 2. Points-required post
+    const pointsPost = await env.createPost({
+      slug: "points-restricted-post",
+      title: "Points Secret Post",
+      content: "Valuable points content",
+      permissionType: "points_required",
+      requiredPoints: 50,
+    });
+
+    // Anonymous visitor gets locked
+    const anonPtsRes = await env.requestJson(`/api/posts/${pointsPost.id}`);
+    expect(anonPtsRes.status).toBe(200);
+    expect(anonPtsRes.data.data.isUnlocked).toBe(false);
+    expect(anonPtsRes.data.data.content).toBeNull();
+
+    // Admin gets directly unlocked without spending points
+    const adminPtsRes = await env.requestJson(`/api/posts/${pointsPost.id}`, {
+      headers: { Authorization: `Bearer ${admin.token}` },
+    });
+    expect(adminPtsRes.status).toBe(200);
+    expect(adminPtsRes.data.data.isUnlocked).toBe(true);
+    expect(adminPtsRes.data.data.content).toBe("Valuable points content");
+
+    // 3. Login-required post
+    const loginPost = await env.createPost({
+      slug: "login-restricted-post",
+      title: "Member Secret Post",
+      content: "Member exclusive content",
+      permissionType: "login_required",
+    });
+
+    // Anonymous visitor gets locked
+    const anonLoginRes = await env.requestJson(`/api/posts/${loginPost.id}`);
+    expect(anonLoginRes.status).toBe(200);
+    expect(anonLoginRes.data.data.isUnlocked).toBe(false);
+    expect(anonLoginRes.data.data.content).toBeNull();
+
+    // Admin gets directly unlocked
+    const adminLoginRes = await env.requestJson(`/api/posts/${loginPost.id}`, {
+      headers: { Authorization: `Bearer ${admin.token}` },
+    });
+    expect(adminLoginRes.status).toBe(200);
+    expect(adminLoginRes.data.data.isUnlocked).toBe(true);
+    expect(adminLoginRes.data.data.content).toBe("Member exclusive content");
+
+    // 4. Password-protected album
+    const pwAlbum = await env.createAlbum({
+      slug: "pw-restricted-album",
+      title: "Secret Album",
+      permissionType: "password",
+      password: "albumpassword123",
+      photos: [{ url: "https://picsum.photos/seed/a1/800/600", alt: "Secret photo 1", sortOrder: 1 }],
+    });
+
+    // Anonymous gets locked
+    const anonAlbumRes = await env.requestJson(`/api/albums/${pwAlbum.id}`);
+    expect(anonAlbumRes.status).toBe(200);
+    expect(anonAlbumRes.data.data.isUnlocked).toBe(false);
+    expect(anonAlbumRes.data.data.photos.length).toBe(0);
+
+    // Admin gets directly unlocked
+    const adminAlbumRes = await env.requestJson(`/api/albums/${pwAlbum.id}`, {
+      headers: { Authorization: `Bearer ${admin.token}` },
+    });
+    expect(adminAlbumRes.status).toBe(200);
+    expect(adminAlbumRes.data.data.isUnlocked).toBe(true);
+    expect(adminAlbumRes.data.data.photos.length).toBe(1);
+
+    env.close();
+  });
 });

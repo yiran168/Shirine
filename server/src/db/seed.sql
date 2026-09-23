@@ -48,9 +48,9 @@ The next one is already queued up; feel free to reach out via the About page to 
 ON CONFLICT(content) DO NOTHING;
 
 -- 3. Albums & Photos
-INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, draft, uid)
-VALUES ('AcgExample', 'Some lovely pictures', 'A local album scanned from this directory.', '/images/albums/AcgExample/cover.webp', 'masonry', 3, '["local","webp","example"]', 0, 'public', 0, 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(slug) DO NOTHING;
+INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, encrypted, password, password_hint, draft, uid)
+VALUES ('AcgExample', 'Some lovely pictures', 'A local album scanned from this directory.', '/images/albums/AcgExample/cover.webp', 'masonry', 3, '["local","webp","example"]', 0, 'public', 0, 0, '', '', 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
+ON CONFLICT(slug) DO UPDATE SET permission_type = excluded.permission_type, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint, draft = excluded.draft;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/AcgExample/01.webp', 'Some lovely pictures 1', 'Some lovely pictures 1', '', '["local","webp","example"]', 1
 FROM albums WHERE slug = 'AcgExample'
@@ -141,7 +141,7 @@ FROM albums WHERE slug = 'AcgExample'
 ON CONFLICT(album_id, url) DO NOTHING;
 INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, encrypted, password, password_hint, draft, uid)
 VALUES ('EncryptedExample', 'Protected image set', 'A password-protected album backed by the reusable protected-content protocol.', 'https://picsum.photos/seed/shirine-protected-cover/800/600', 'masonry', 3, '["protected","password","example"]', 0, 'password', 0, 1, '123456', 'Six digits', 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(slug) DO UPDATE SET permission_type = 'password', encrypted = 1, password = '123456', password_hint = 'Six digits', draft = 0;
+ON CONFLICT(slug) DO UPDATE SET permission_type = excluded.permission_type, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint, draft = excluded.draft;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, 'https://picsum.photos/seed/shirine-protected-1/1200/800', 'A protected garden landscape', 'Private landscape', '', '["garden"]', 1
 FROM albums WHERE slug = 'EncryptedExample'
@@ -150,9 +150,9 @@ INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_ord
 SELECT id, 'https://picsum.photos/seed/shirine-protected-2/800/1200', 'A protected vertical photograph', 'Private memory', '', '["memory"]', 2
 FROM albums WHERE slug = 'EncryptedExample'
 ON CONFLICT(album_id, url) DO NOTHING;
-INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, draft, uid)
-VALUES ('ExternalExample', 'External image set', 'A remote album using explicit photo metadata and thumbnails.', 'https://picsum.photos/seed/shirine-cover/800/600', 'masonry', 3, '["external","remote","example"]', 0, 'public', 0, 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(slug) DO NOTHING;
+INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, encrypted, password, password_hint, draft, uid)
+VALUES ('ExternalExample', 'External image set', 'A remote album using explicit photo metadata and thumbnails.', 'https://picsum.photos/seed/shirine-cover/800/600', 'masonry', 3, '["external","remote","example"]', 0, 'public', 0, 0, '', '', 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
+ON CONFLICT(slug) DO UPDATE SET permission_type = excluded.permission_type, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint, draft = excluded.draft;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, 'https://picsum.photos/seed/shirine-remote-1/1200/800', 'A remote landscape photograph', 'Remote landscape', '', '["landscape","remote"]', 1
 FROM albums WHERE slug = 'ExternalExample'
@@ -161,9 +161,9 @@ INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_ord
 SELECT id, 'https://picsum.photos/seed/shirine-remote-2/800/1200', 'A remote portrait photograph', 'Vertical study', '', '["portrait","remote"]', 2
 FROM albums WHERE slug = 'ExternalExample'
 ON CONFLICT(album_id, url) DO NOTHING;
-INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, draft, uid)
-VALUES ('HiddenExample', 'Hidden album', 'This album is omitted from the index but remains available by direct URL.', '/images/albums/HiddenExample/cover.webp', 'grid', 3, '["hidden","example"]', 1, 'public', 0, 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
-ON CONFLICT(slug) DO NOTHING;
+INSERT INTO albums (slug, title, description, cover, layout, columns, tags, hidden, permission_type, required_points, encrypted, password, password_hint, draft, uid)
+VALUES ('HiddenExample', 'Hidden album', 'This album is omitted from the index but remains available by direct URL.', '/images/albums/HiddenExample/cover.webp', 'grid', 3, '["hidden","example"]', 1, 'public', 0, 0, '', '', 0, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
+ON CONFLICT(slug) DO UPDATE SET permission_type = excluded.permission_type, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint, draft = excluded.draft;
 INSERT INTO album_photos (album_id, url, alt, title, description, tags, sort_order)
 SELECT id, '/images/albums/HiddenExample/hidden_01.webp', 'Hidden album 1', 'Hidden album 1', '', '["hidden","example"]', 1
 FROM albums WHERE slug = 'HiddenExample'
@@ -235,7 +235,7 @@ Content
 Hidden until the reader opens it.
 :::
 ```', '', 'Guides', '["Demo","Markdown","Admonition","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787788800)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('audio-reader', NULL, NULL, 'Audio Reader: Japanese Anime Mystery Voices', 'A small collection of mysterious Japanese anime voice fragments, played on demand with Audio Reader.', 'These short Japanese voice fragments feel as though they were picked up from the edge of an anime scene: a teasing call, a bright greeting, a tiny laugh, and a few lines with no clear origin. They are mood samples rather than dialogue transcripts, so let the sound carry the meaning.
 
@@ -254,7 +254,7 @@ Audio Reader keeps them quiet until you choose to listen. Each speaker button lo
 - **Zako**: :audio-reader[雑魚じゃん、雑魚雑魚]{src="/assets/audio/Zako.wav"}
 
 `src` must use a site-root path or an HTTPS URL, and the directive label cannot be empty. Invalid or incomplete directives remain ordinary Markdown and do not load Audio Reader resources.', '', 'Examples', '["Example","Audio Reader"]', 'zh_CN', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787961600)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('collapse-panels', NULL, NULL, 'Markdown Collapse Panels', 'Group optional Markdown content into compact, accessible M3E disclosure panels.', 'Collapse panels keep related optional details in one compact group. Titles and bodies retain inline and block Markdown, while native disclosure semantics make every panel usable without client JavaScript.
 
@@ -316,7 +316,7 @@ Add `accordion` when only one answer should remain open. The browser groups the 
 ````
 
 The container must contain exactly one top-level unordered list. Every item needs a title paragraph, a blank line, and body content. Invalid or mixed input remains an ordinary readable Markdown list.', '', 'Guides', '["Demo","Markdown","Collapse","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787875200)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('content-annotations', NULL, NULL, 'Content Annotations', 'Add compact, accessible supporting notes to Shirine articles without interrupting the reading flow.', 'Content annotations keep supporting context close to a sentence without placing it directly in the reading flow. Activate the small note marker to reveal its content.
 
@@ -358,7 +358,7 @@ Reuse a label [+review] to present a short sequence of related notes behind one 
 [+review]: Remove details that belong in the main article instead of the annotation.
 
 Undefined references such as `[+missing]` remain ordinary text, so an unfinished definition never creates an empty control.', '', 'Guides', '["Demo","Markdown","Annotation","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787788800)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('draft', NULL, NULL, 'Draft Example', '', '# This Article is a Draft
 
@@ -374,7 +374,7 @@ tags: [Markdown, Blogging, Demo]
 category: Examples
 draft: false
 ---', '', 'Examples', '["Markdown","Blogging","Demo"]', 'zh_CN', 0, 1, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1656633600)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('encrypted-demo', NULL, NULL, 'Password Protection and Post Encryption Demo', 'A demonstration of client-side authenticated decryption, memory session persistence, and M3E design tokens in Shirine.', '# Password Protected Article
 
@@ -520,8 +520,8 @@ Static encryption has no centralized server database. If a password is forgotten
 
 ## 4. Summary
 
-This demo verifies the entire encryption lifecycle in Shirine: zero plaintext in static output, robust cryptographic verification, session persistence across navigation and page reloads, and dynamic runtime rehydration.', '', 'Examples', '["Demo","Security","Encryption","Markdown"]', 'en', 1, 0, 1, 'login_required', 0, 1, 'shirine-secret', 'Hint: the demo unlock password is shirine-secret', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787184000)
-ON CONFLICT(slug) DO UPDATE SET draft = 0, encrypted = 1, password = 'shirine-secret', password_hint = 'Hint: the demo unlock password is shirine-secret';
+This demo verifies the entire encryption lifecycle in Shirine: zero plaintext in static output, robust cryptographic verification, session persistence across navigation and page reloads, and dynamic runtime rehydration.', '', 'Examples', '["Demo","Security","Encryption","Markdown"]', 'en', 1, 0, 1, 'password', 0, 1, 'shirine-secret', 'Hint: the demo unlock password is shirine-secret', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787184000)
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('expressive-code', NULL, NULL, 'Expressive Code Example', 'How code blocks look in Markdown using Expressive Code.', 'Here, we''ll explore how code blocks look using [Expressive Code](https://expressive-code.com/). The provided examples are based on the official documentation, which you can refer to for further details.
 
@@ -825,7 +825,7 @@ console.log(''Sorry, do you know what line I am on?'')
 console.log(''Greetings from line 5!'')
 console.log(''I am on line 6'')
 ```', '', 'Examples', '["Markdown","Blogging","Demo"]', 'zh_CN', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1712707200)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('guide', NULL, NULL, 'Shirine Authoring & Usage Guide', 'A comprehensive guide to post authoring, frontmatter schema, Markdown extensions, encryption, and media in Shirine.', 'Welcome to **Shirine** (白音) — an expressive, anime-inspired blog theme crafted around **Astro 7**, **Svelte 5**, and the **Material 3 Expressive (M3E)** design system.
 
@@ -1029,7 +1029,7 @@ Images automatically integrate with Fancybox for lossless zoom, pan gestures, an
 - **Site Configuration**: Learn about global settings in `src/config/siteConfig.ts` and [`src/config/README.md`](https://github.com/yiran168/Shirine/blob/main/src/config/README.md).
 - **Design Tokens**: Explore tokens and color palettes in `DESIGN.md` and `docs/m3e-standard.md`.
 - **Feedback & Community**: Share your ideas and questions on [GitHub Issues](https://github.com/yiran168/Shirine/issues).', './cover.jpeg', 'Guides', '["Shirine","Guide","Markdown","M3E","Blogging"]', 'zh_CN', 1, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787702400)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('image-grid-demo', NULL, NULL, 'Image Gallery Grid: Syntax and Complete Examples', 'A complete guide to image gallery grid syntax, parameters, cropping, responsive behavior, captions, and lightbox navigation.', '`:::grid` is the blog''s image gallery container directive. It arranges ordinary Markdown images in a responsive grid with a consistent aspect ratio and automatically enables lightbox viewing. Use it for article images, screenshots, portfolios, or small albums.
 
@@ -1497,7 +1497,7 @@ Ordinary Markdown images in the same post continue to be handled separately; the
 4. Below 768px, grids use at most two columns; below 480px, they use one column.
 5. Portrait images in "Four Columns with `contain`" are fully visible with empty space and no cropping.
 6. Five- and six-column grids retain their specified column count on wide screens, then collapse to two or one column according to the responsive rules.', '', 'Examples', '["Markdown","Gallery","Image Grid","Demo"]', 'zh_CN', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1783900800)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('markdown-abbreviations', NULL, NULL, 'Markdown Abbreviations', 'Define common acronyms once and keep their full meaning available in normal article text.', 'Abbreviations keep technical writing compact while preserving the full term for readers who need it. A defined term renders as a native `abbr` element with its meaning available on hover and to assistive technology.
 
@@ -1526,7 +1526,7 @@ SSR makes an HTML response available before client code runs.
 ## Authoring boundaries
 
 Terms must begin with a letter or number and may contain letters, numbers, periods, underscores, plus signs, and hyphens. Each definition applies to the current article only; an invalid or duplicate definition remains ordinary Markdown instead of silently replacing another term.', '', 'Guides', '["Demo","Markdown","Typography","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787875200)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('markdown-enhancements', NULL, NULL, 'Shirine Markdown Enhancements', 'Explore Shirine''s custom Markdown extensions, expressive components, and authoring syntax.', 'Shirine provides a collection of theme-exclusive Markdown extensions and custom syntax containers. Built on top of our native unified AST processing pipeline, all extensions render into accessible, semantic HTML during site build time with **zero client JavaScript hydration overhead** and **100% M3E design token alignment**.
 
@@ -1699,7 +1699,7 @@ Point directly to any local directory path in the workspace to automatically sca
 ```
 
 @[code-tree title="Site Configuration" entry="siteConfig.ts"](/src/config)', '', 'Guides', '["Demo","Markdown","Extensions","Theme","Shirine"]', 'en', 1, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787097600)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('markdown-extended', NULL, NULL, 'Markdown Extended Features', 'Read more about Markdown features in Fuwari', '## GitHub Repository Cards
 You can add dynamic cards that link to GitHub repositories, on page load, the repository information is pulled from the GitHub API. 
@@ -1814,7 +1814,7 @@ Valid widths range from `w-1%` to `w-100%`; invalid tokens stay in the alt text.
 ![Album example image w-75%](/images/albums/AcgExample/08.webp)
 
 ![Album example image](/images/albums/AcgExample/09.webp "Caption without a width token")', '', 'Examples', '["Demo","Example","Markdown","Fuwari"]', 'zh_CN', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1714521600)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('markdown-fields', NULL, NULL, 'Markdown Field Cards', 'API and component parameter documentation cards.', 'Use `field-group` when several related options belong to the same API or component. Put the field name on the opening line, then add metadata tags before the description.
 
@@ -1919,7 +1919,7 @@ Controls how the result is formatted.
 - `@required`, `@optional`, and `@deprecated` add a status badge.
 - Any normal Markdown after the metadata becomes the field description.
 - Unknown `@tags` remain visible as description text instead of being discarded.', '', '', '[]', 'zh_CN', 0, 1, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1788048000)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('markdown-includes', NULL, NULL, 'Markdown File Includes', 'Build-time Markdown file and slice includes.', 'Shirine can include a local Markdown file or a safe slice of one.
 
@@ -1935,7 +1935,7 @@ The full file and line-range forms are also supported:
 ```
 
 Include comments inside fenced code remain literal.', '', 'Guides', '["Markdown","Shirine"]', 'zh_CN', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787875200)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('markdown-mermaid', NULL, NULL, 'Mermaid Diagram Gallery', 'A gallery of Mermaid diagrams for processes, interactions, data models, schedules, and project history.', 'Mermaid turns text descriptions in Markdown into diagrams. The examples below use Shirine''s content workflow to demonstrate diagram types commonly used in technical articles and project notes.
 
@@ -2217,7 +2217,7 @@ Reading,Outbound,140
 ```
 
 Each example uses a standard `mermaid` code fence. The server preserves readable source markup, and the browser enhances it into an SVG that follows the active theme. Diagrams render again when the theme changes or when Swup navigates to this article.', '', 'Examples', '["Demo","Example","Markdown","Mermaid"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1714608000)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('markdown', NULL, NULL, 'Markdown Example', 'A simple example of a Markdown blog post.', '# An h1 header
 
@@ -2385,7 +2385,7 @@ $$
 
 And note that you can backslash-escape any punctuation characters
 which you wish to be displayed literally, ex.: \`foo\`, \*bar\*, etc.', '', 'Examples', '["Markdown","Blogging","Demo"]', 'zh_CN', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1696118400)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('marker-highlights', NULL, NULL, 'Markdown Marker Highlights', 'Highlight key phrases with token-driven marker syntax in Shirine Markdown.', 'Marker highlights bring attention to a specific phrase without turning the surrounding paragraph into a separate component. They render as native `<mark>` elements during the build and inherit the active M3E color system.
 
@@ -2417,7 +2417,7 @@ Use a suffix when the meaning needs a different tonal role. The available varian
 ```
 
 Inline code such as `==literal marker syntax==` and fenced examples stay literal, so documentation can explain the syntax without triggering it.', '', 'Guides', '["Demo","Markdown","Typography","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787875200)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('option-groups', NULL, NULL, 'Markdown Option Groups', 'Present related Markdown alternatives in compact, synchronized M3E option groups.', 'Option groups keep equivalent instructions together without repeating the surrounding explanation. Each option accepts full block Markdown, while the selected value can synchronize with another group on the same page.
 
@@ -2524,7 +2524,7 @@ Use pnpm instructions here.
 ````
 
 Each group needs at least two `@tab` sections, and every section needs body content separated from its marker by a blank line. Invalid or incomplete groups remain readable as ordinary Markdown.', '', 'Guides', '["Demo","Markdown","Tabs","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787875200)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('spoilers', NULL, NULL, 'Markdown Spoilers', 'Hide inline answers while keeping spoiler content accessible in Shirine Markdown.', 'Spoilers conceal a short answer or plot detail without removing it from the document. Hover, focus, or activate the native control to reveal the content.
 
@@ -2541,7 +2541,7 @@ The answer is :spoiler[42].
 ```
 
 The generated HTML uses a native button with an `aria-expanded` state. Without JavaScript, hover and focus still reveal the text; the optional runtime adds click and keyboard toggling.', '', 'Guides', '["Demo","Markdown","Accessibility","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787875200)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('steps', NULL, NULL, 'Markdown Steps', 'Present sequential instructions as a compact, accessible step flow in Shirine.', 'Use Steps for procedures whose order matters. The component keeps the article reading flow intact: a quiet numbered rail provides orientation while headings, paragraphs, links, lists, and code retain their native Markdown roles.
 
@@ -2629,7 +2629,7 @@ Wrap one Markdown ordered list in a `:::steps` container. Each top-level list it
 - `start=4` changes the first displayed step number.
 - The container must contain exactly one ordered list. Invalid or mixed input remains ordinary readable Markdown instead of being interpreted heuristically.
 - Rendering is completed during the site build and adds no client JavaScript or network requests.', '', 'Guides', '["Demo","Markdown","Steps","Shirine"]', 'en', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1787788800)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 INSERT INTO posts (slug, alias, permalink, title, description, content, image, category, tags, lang, pinned, draft, comment_enabled, permission_type, required_points, encrypted, password, password_hint, hide_home_content, uid, created_at)
 VALUES ('video', NULL, NULL, 'Include Video in the Posts', 'This post demonstrates how to include embedded video in a blog post.', 'Just copy the embed code from YouTube or other platforms, and paste it in the markdown file.
 
@@ -2658,7 +2658,7 @@ published: 2023-10-19
 ## ArtPlayer
 
 ::artplayer{src="https://www.pexels.com/download/video/38538991/" title="Sintel trailer" preload="auto"}', '', 'Examples', '["Example","Video"]', 'zh_CN', 0, 0, 1, 'public', 0, 0, '', '', 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1), 1690848000)
-ON CONFLICT(slug) DO NOTHING;
+ON CONFLICT(slug) DO UPDATE SET draft = excluded.draft, encrypted = excluded.encrypted, password = excluded.password, password_hint = excluded.password_hint;
 
 -- 5. Default Site Configurations
 INSERT INTO site_configs (key, value, updated_at)
@@ -2683,7 +2683,7 @@ INSERT INTO site_configs (key, value, updated_at)
 VALUES ('compass', '[{"key":"dev","name":"Development","icon":"material-symbols:code-rounded","blurb":"Sites I keep open while writing code","entries":[{"label":"GitHub","href":"https://github.com","note":"Code hosting & collaboration","icon":"fa6-brands:github"},{"label":"MDN","href":"https://developer.mozilla.org","note":"Authoritative web docs","icon":"material-symbols:menu-book-rounded"},{"label":"Stack Overflow","href":"https://stackoverflow.com","note":"Q&A and debugging","icon":"fa6-brands:stack-overflow"}]},{"key":"design","name":"Design","icon":"material-symbols:palette-outline-rounded","blurb":"Colors, icons and inspiration","entries":[{"label":"Iconify","href":"https://icon-sets.iconify.design","note":"Searchable open-source icon sets"},{"label":"Material Symbols","href":"https://fonts.google.com/icons","note":"Official M3 icon set","icon":"material-symbols:star-rounded"},{"label":"Excalidraw","href":"https://excalidraw.com","note":"Hand-drawn whiteboard collaboration"}]},{"key":"tools","name":"Tools","icon":"material-symbols:build-outline-rounded","entries":[{"label":"Squoosh","href":"https://squoosh.app","note":"Image compression & conversion"},{"label":"Regex101","href":"https://regex101.com","note":"Regex testing & debugging"}]},{"key":"reads","name":"Reading","icon":"material-symbols:auto-stories-outline-rounded","entries":[{"label":"Hacker News","href":"https://news.ycombinator.com"},{"label":"V2EX","href":"https://www.v2ex.com"},{"label":"Solidot","href":"https://www.solidot.org","note":"Tech and culture news"}]}]', unixepoch())
 ON CONFLICT(key) DO NOTHING;
 INSERT INTO site_configs (key, value, updated_at)
-VALUES ('anime', '[{"title":"Lycoris Recoil","cover":"/assets/anime/lkls.webp","link":"https://www.bilibili.com/bangumi/media/md28338623","status":"completed","rating":9.8,"progress":{"watched":12,"total":12},"description":"Girl''s gunfight","year":"2022","studio":"A-1 Pictures","genres":["Action","Slice of Life"],"period":{"start":"2022-07","end":"2022-09"}},{"title":"Yowamushi Pedal","cover":"/assets/anime/rynh.webp","link":"https://www.bilibili.com/bangumi/media/md2590","status":"watching","rating":9.5,"progress":{"watched":8,"total":12},"description":"Girl''s daily life, sweet and healing","year":"2015","studio":"Nexus","genres":["Daily life","Healing"],"period":{"start":"2015-07","end":"2015-09"}},{"title":"Asteroid in Love","cover":"/assets/anime/laxxx.webp","link":"https://www.bilibili.com/bangumi/media/md28224128","status":"watching","rating":9.2,"progress":{"watched":5,"total":12},"description":"Meeting girls among the stars, pure love and healing","year":"2020","studio":"Doga Kobo","genres":["Romance","Healing"],"period":{"start":"2020-01","end":"2020-03"}},{"title":"Is the Order a Rabbit?","cover":"/assets/anime/tz1.webp","link":"https://www.bilibili.com/bangumi/media/md2762","status":"planned","rating":9.0,"progress":{"watched":12,"total":12},"description":"A group of girls'' warm daily life","year":"2014","studio":"White Fox","genres":["Daily life","Healing"],"period":{"start":"2014-04","end":"2014-06"}},{"title":"The Secret of the Magic Girl","cover":"/assets/anime/cmmn.webp","link":"https://www.bilibili.com/bangumi/media/md26625039","status":"watching","rating":9.0,"progress":{"watched":8,"total":12},"description":"Muli, Muli!","year":"2024","studio":"C2C","genres":["Daily life","Healing","Magic"],"period":{"start":"2025-07","end":"2025-10"}}]', unixepoch())
+VALUES ('anime', '[{"title":"Lycoris Recoil","cover":"/assets/anime/lkls.webp","link":"https://www.bilibili.com/bangumi/media/md28338623","status":"completed","rating":9.8,"progress":{"watched":12,"total":12},"description":"Girl''s gunfight","year":"2022","studio":"A-1 Pictures","genres":["Action","Slice of Life"],"period":{"start":"2022-07","end":"2022-09"}},{"title":"Yowamushi Pedal","cover":"/assets/anime/rynh.webp","link":"https://www.bilibili.com/bangumi/media/md2590","status":"watching","rating":9.5,"progress":{"watched":8,"total":12},"description":"Girl''s daily life, sweet and healing","year":"2015","studio":"Nexus","genres":["Daily life","Healing"],"period":{"start":"2015-07","end":"2015-09"}},{"title":"Asteroid in Love","cover":"/assets/anime/laxxx.webp","link":"https://www.bilibili.com/bangumi/media/md28224128","status":"watching","rating":9.2,"progress":{"watched":5,"total":12},"description":"Meeting girls among the stars, pure love and healing","year":"2020","studio":"Doga Kobo","genres":["Romance","Healing"],"period":{"start":"2020-01","end":"2020-03"}},{"title":"Is the Order a Rabbit?","cover":"/assets/anime/tz1.webp","link":"https://www.bilibili.com/bangumi/media/md2762","status":"planned","rating":9,"progress":{"watched":12,"total":12},"description":"A group of girls'' warm daily life","year":"2014","studio":"White Fox","genres":["Daily life","Healing"],"period":{"start":"2014-04","end":"2014-06"}},{"title":"The Secret of the Magic Girl","cover":"/assets/anime/cmmn.webp","link":"https://www.bilibili.com/bangumi/media/md26625039","status":"watching","rating":9,"progress":{"watched":8,"total":12},"description":"Muli, Muli!","year":"2024","studio":"C2C","genres":["Daily life","Healing","Magic"],"period":{"start":"2025-07","end":"2025-10"}}]', unixepoch())
 ON CONFLICT(key) DO NOTHING;
 INSERT INTO site_configs (key, value, updated_at)
 VALUES ('projects', '[{"key":"shirine","title":"Shirine","summary":"An Astro blog theme shaped around an M3E component system, expressive content, and resilient client navigation.","category":"theme","phase":"building","technologies":["Astro","Svelte","TypeScript","Tailwind CSS"],"icon":"material-symbols:deployed-code-outline-rounded","cover":"/assets/projects/shirine.webp","coverAlt":"Shirine theme homepage preview","featured":true,"repository":"https://github.com/yiran168/Shirine","year":"2026","enable":true},{"key":"folkpatch","title":"FolkPatch","summary":"A kernel-level root solution for Android, built on APatch.","category":"android","phase":"building","technologies":["Kotlin","APatch","Android"],"icon":"material-symbols:terminal-rounded","repository":"https://github.com/LyraVoid/FolkPatch","year":"2025","enable":true},{"key":"kernelpatch","title":"KernelPatch","summary":"A kernel patch framework that powers APatch-style root on Android by loading code into the running kernel.","category":"android","phase":"shipped","technologies":["C","Linux Kernel","Android"],"icon":"material-symbols:extension-outline-rounded","repository":"https://github.com/lyravoid/KernelPatch","year":"2024","enable":true}]', unixepoch())

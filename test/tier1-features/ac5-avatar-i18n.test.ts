@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import crypto from "node:crypto";
 import { createTestEnv } from "../helpers/test-env";
 import { userMenuI18n, getUserMenuText } from "../../client/src/i18n/userMenu";
 
@@ -91,11 +92,13 @@ describe("Tier 1 - AC 5: Avatar Management & 4-Language i18n", () => {
     expect(adminItems).not.toContain("checkedInToday");
   });
 
-  it("AC 5.3: 20 anime WebP avatars and 20 thumbnails are present with valid WebP signatures", () => {
+  it("AC 5.3: 50 anime WebP avatars and 50 thumbnails are present with valid WebP signatures and 0 duplicate hashes", () => {
     const avatarDir = resolve(PROJECT_ROOT, "client/public/assets/avatars");
     expect(existsSync(avatarDir)).toBe(true);
 
-    for (let i = 1; i <= 20; i++) {
+    const hashes = new Set<string>();
+
+    for (let i = 1; i <= 50; i++) {
       const pad = String(i).padStart(2, "0");
       const avatarFile = resolve(avatarDir, `avatar_${pad}.webp`);
       const thumbFile = resolve(avatarDir, `avatar_${pad}_thumb.webp`);
@@ -119,18 +122,25 @@ describe("Tier 1 - AC 5: Avatar Management & 4-Language i18n", () => {
       const webpT = String.fromCharCode(...thumbBytes.subarray(8, 12));
       expect(riffT).toBe("RIFF");
       expect(webpT).toBe("WEBP");
+
+      // Verify 0 hash duplicates
+      const hash = crypto.createHash("sha256").update(avatarBytes).digest("hex");
+      expect(hashes.has(hash)).toBe(false);
+      hashes.add(hash);
     }
+
+    expect(hashes.size).toBe(50);
   });
 
-  it("AC 5.4: avatars.json provides 20 valid entries with prompts and URLs", () => {
+  it("AC 5.4: avatars.json provides 50 valid entries with prompts and URLs", () => {
     const jsonPath = resolve(PROJECT_ROOT, "client/public/assets/avatars/avatars.json");
     expect(existsSync(jsonPath)).toBe(true);
 
     const data = JSON.parse(readFileSync(jsonPath, "utf-8"));
     expect(Array.isArray(data)).toBe(true);
-    expect(data.length).toBe(20);
+    expect(data.length).toBe(50);
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 50; i++) {
       const item = data[i];
       const expectedCode = `avatar_${String(i + 1).padStart(2, "0")}`;
       expect(item.id).toBe(i + 1);

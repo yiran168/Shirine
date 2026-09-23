@@ -224,7 +224,7 @@ export const PRESET_POSTS: SeedPost[] = [
     "pinned": 1,
     "draft": 0,
     "commentEnabled": 1,
-    "permissionType": "login_required",
+    "permissionType": "password",
     "requiredPoints": 0,
     "encrypted": 1,
     "password": "shirine-secret",
@@ -784,6 +784,9 @@ export const PRESET_ALBUMS: SeedAlbum[] = [
     "hidden": 0,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
     "draft": 0,
     "photos": [
       {
@@ -1109,6 +1112,9 @@ export const PRESET_ALBUMS: SeedAlbum[] = [
     "hidden": 0,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
     "draft": 0,
     "photos": [
       {
@@ -1149,6 +1155,9 @@ export const PRESET_ALBUMS: SeedAlbum[] = [
     "hidden": 1,
     "permissionType": "public",
     "requiredPoints": 0,
+    "encrypted": 0,
+    "password": "",
+    "passwordHint": "",
     "draft": 0,
     "photos": [
       {

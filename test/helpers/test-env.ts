@@ -155,21 +155,43 @@ export class TestEnvironment {
     return res[0];
   }
 
-  async createAlbum(overrides: Partial<typeof schema.albums.$inferInsert> = {}) {
+  async createAlbum(
+    overrides: Partial<typeof schema.albums.$inferInsert> & {
+      photos?: Array<{ url: string; alt?: string; title?: string; sortOrder?: number }>;
+    } = {}
+  ) {
     const title = overrides.title || `Test Album ${Math.random().toString(36).slice(2, 6)}`;
     const res = await this.db
       .insert(schema.albums)
       .values({
+        slug: overrides.slug || `album-${Math.random().toString(36).slice(2, 8)}`,
         title,
         description: overrides.description || "Test album description",
-        permissionType: overrides.permissionType || "public",
+        permissionType: overrides.permissionType || (overrides.password ? "password" : "public"),
         requiredPoints: overrides.requiredPoints ?? 0,
+        encrypted: overrides.encrypted ?? (overrides.password ? 1 : 0),
+        password: overrides.password || "",
+        passwordHint: overrides.passwordHint || "",
         draft: overrides.draft ?? 0,
         uid: overrides.uid ?? null,
         cover: overrides.cover || "",
       })
       .returning();
-    return res[0];
+    const album = res[0];
+
+    if (overrides.photos && overrides.photos.length > 0) {
+      for (const p of overrides.photos) {
+        await this.db.insert(schema.albumPhotos).values({
+          albumId: album.id,
+          url: p.url,
+          alt: p.alt || title,
+          title: p.title || title,
+          sortOrder: p.sortOrder || 1,
+        });
+      }
+    }
+
+    return album;
   }
 
   close(): void {

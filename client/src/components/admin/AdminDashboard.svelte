@@ -389,29 +389,29 @@
   // Media Library state
   const R2_PUBLIC_BASE = "https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev";
 
-  const PRESET_MEDIA: Array<{ key: string; size: number; uploaded: string; url: string; isPreset?: boolean }> = [
+  const PRESET_MEDIA: Array<{ key: string; size: number; uploaded: string; url: string; fallbackUrl?: string; isPreset?: boolean }> = [
     // Audio Presets
-    { key: "audio/dazbee.mp3", size: 4521000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/dazbee.mp3`, isPreset: true },
-    { key: "audio/hitori.mp3", size: 5120000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/hitori.mp3`, isPreset: true },
-    { key: "audio/xryx.mp3", size: 4890000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/xryx.mp3`, isPreset: true },
-    { key: "audio/cl.mp3", size: 4760000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/cl.mp3`, isPreset: true },
-    { key: "audio/Baka.wav", size: 245000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Baka.wav`, isPreset: true },
-    { key: "audio/Ciallo.wav", size: 312000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Ciallo.wav`, isPreset: true },
-    { key: "audio/Ehe.wav", size: 198000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Ehe.wav`, isPreset: true },
-    { key: "audio/Imoi.wav", size: 220000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Imoi.wav`, isPreset: true },
-    { key: "audio/Zako.wav", size: 280000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Zako.wav`, isPreset: true },
+    { key: "audio/dazbee.mp3", size: 4521000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/dazbee.mp3`, fallbackUrl: "/assets/audio/dazbee.mp3", isPreset: true },
+    { key: "audio/hitori.mp3", size: 5120000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/hitori.mp3`, fallbackUrl: "/assets/audio/hitori.mp3", isPreset: true },
+    { key: "audio/xryx.mp3", size: 4890000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/xryx.mp3`, fallbackUrl: "/assets/audio/xryx.mp3", isPreset: true },
+    { key: "audio/cl.mp3", size: 4760000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/cl.mp3`, fallbackUrl: "/assets/audio/cl.mp3", isPreset: true },
+    { key: "audio/Baka.wav", size: 245000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Baka.wav`, fallbackUrl: "/assets/audio/Baka.wav", isPreset: true },
+    { key: "audio/Ciallo.wav", size: 312000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Ciallo.wav`, fallbackUrl: "/assets/audio/Ciallo.wav", isPreset: true },
+    { key: "audio/Ehe.wav", size: 198000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Ehe.wav`, fallbackUrl: "/assets/audio/Ehe.wav", isPreset: true },
+    { key: "audio/Imoi.wav", size: 220000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Imoi.wav`, fallbackUrl: "/assets/audio/Imoi.wav", isPreset: true },
+    { key: "audio/Zako.wav", size: 280000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/audio/Zako.wav`, fallbackUrl: "/assets/audio/Zako.wav", isPreset: true },
     // Image / Cover / Banner Presets
-    { key: "images/banner/desktop/1.webp", size: 845000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/images/banner/desktop/1.webp`, isPreset: true },
-    { key: "images/banner/mobile/1.webp", size: 412000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/images/banner/mobile/1.webp`, isPreset: true },
-    { key: "images/demo-avatar.webp", size: 688000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/images/demo-avatar.webp`, isPreset: true },
-    { key: "anime/lkls.webp", size: 320000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/lkls.webp`, isPreset: true },
-    { key: "anime/rynh.webp", size: 310000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/rynh.webp`, isPreset: true },
-    { key: "anime/laxxx.webp", size: 340000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/laxxx.webp`, isPreset: true },
-    { key: "anime/tz1.webp", size: 290000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/tz1.webp`, isPreset: true },
-    { key: "anime/cmmn.webp", size: 330000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/cmmn.webp`, isPreset: true },
+    { key: "images/banner/desktop/1.webp", size: 845000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/images/banner/desktop/1.webp`, fallbackUrl: "/assets/images/banner/desktop/1.webp", isPreset: true },
+    { key: "images/banner/mobile/1.webp", size: 412000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/images/banner/mobile/1.webp`, fallbackUrl: "/assets/images/banner/mobile/1.webp", isPreset: true },
+    { key: "images/demo-avatar.webp", size: 688000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/images/demo-avatar.webp`, fallbackUrl: "/assets/images/demo-avatar.webp", isPreset: true },
+    { key: "anime/lkls.webp", size: 320000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/lkls.webp`, fallbackUrl: "/assets/anime/lkls.webp", isPreset: true },
+    { key: "anime/rynh.webp", size: 310000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/rynh.webp`, fallbackUrl: "/assets/anime/rynh.webp", isPreset: true },
+    { key: "anime/laxxx.webp", size: 340000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/laxxx.webp`, fallbackUrl: "/assets/anime/laxxx.webp", isPreset: true },
+    { key: "anime/tz1.webp", size: 290000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/tz1.webp`, fallbackUrl: "/assets/anime/tz1.webp", isPreset: true },
+    { key: "anime/cmmn.webp", size: 330000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/cmmn.webp`, fallbackUrl: "/assets/anime/cmmn.webp", isPreset: true },
   ];
 
-  let mediaFiles = $state<Array<{ key: string; size: number; uploaded: string; url: string; isPreset?: boolean; httpMetadata?: any }>>([]);
+  let mediaFiles = $state<Array<{ key: string; size: number; uploaded: string; url: string; fallbackUrl?: string; isPreset?: boolean; httpMetadata?: any }>>([]);
   let mediaFilter = $state<"all" | "image" | "audio" | "preset" | "uploaded">("all");
   let mediaSearch = $state("");
   let mediaUploading = $state(false);
@@ -608,7 +608,15 @@
           };
         }
         if (sysRes.success && sysRes.data) {
-          systemConfigState = { ...systemConfigState, ...sysRes.data };
+          const loadedQuotes = sysRes.data.live2dQuotes;
+          const formattedQuotes = Array.isArray(loadedQuotes)
+            ? loadedQuotes.join("\n")
+            : (typeof loadedQuotes === "string" ? loadedQuotes : systemConfigState.live2dQuotes);
+          systemConfigState = {
+            ...systemConfigState,
+            ...sysRes.data,
+            live2dQuotes: formattedQuotes,
+          };
         }
       }
     } catch (err) {
@@ -1748,6 +1756,36 @@
     } finally {
       mediaUploading = false;
       input.value = "";
+    }
+  }
+
+  let mediaSyncing = $state(false);
+
+  async function syncPresetsToR2() {
+    mediaSyncing = true;
+    let synced = 0;
+    try {
+      for (const preset of PRESET_MEDIA) {
+        if (!preset.fallbackUrl) continue;
+        try {
+          const res = await fetch(preset.fallbackUrl);
+          if (res.ok) {
+            const blob = await res.blob();
+            const fileName = preset.key.split("/").pop() || "preset";
+            const file = new File([blob], fileName, { type: blob.type || "application/octet-stream" });
+            const uploadRes = await uploadFile(file);
+            if (uploadRes.success) synced++;
+          }
+        } catch (e) {
+          console.warn(`Failed to sync preset ${preset.key}:`, e);
+        }
+      }
+      showMessage(`预设素材已成功同步 ${synced} 个至 Cloudflare R2！`);
+      await loadMediaLibrary();
+    } catch (err: any) {
+      showMessage(err.message || "同步预设失败", true);
+    } finally {
+      mediaSyncing = false;
     }
   }
 
@@ -5318,6 +5356,15 @@
               >
                 <span>🔄 刷新</span>
               </button>
+              <button
+                type="button"
+                disabled={mediaSyncing}
+                onclick={syncPresetsToR2}
+                class="px-4 py-2.5 rounded-full border border-primary/30 text-primary hover:bg-primary/10 text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all active:scale-98 disabled:opacity-50"
+                title="将全站内置预设音频与封面自动同步至 Cloudflare R2"
+              >
+                <span>{mediaSyncing ? "正在同步预设..." : "☁️ 同步预设至 R2"}</span>
+              </button>
               <label class="px-5 py-2.5 rounded-full bg-primary text-on-primary text-xs font-semibold shadow hover:brightness-105 cursor-pointer flex items-center gap-1.5 transition-all active:scale-98">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                 <span>{mediaUploading ? "正在上传中..." : "📤 上传文件到 R2"}</span>
@@ -5406,7 +5453,18 @@
                 <div class="rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface)] overflow-hidden shadow-sm flex flex-col group hover:shadow-md transition-shadow">
                   <div class="h-32 bg-[var(--surface-container)] relative overflow-hidden flex items-center justify-center">
                     {#if isImage}
-                      <img src={file.url} alt={file.key} class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+                      <img
+                        src={file.url}
+                        alt={file.key}
+                        onerror={(e) => {
+                          const target = e.currentTarget as HTMLImageElement;
+                          if (file.fallbackUrl && target.src !== file.fallbackUrl) {
+                            target.src = file.fallbackUrl;
+                          }
+                        }}
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
                     {:else if isAudio}
                       <div class="flex flex-col items-center gap-1.5 text-primary p-2 w-full">
                         <span class="text-2xl">🎵</span>
@@ -5431,7 +5489,12 @@
                       <p class="text-xs font-semibold text-[var(--on-surface)] truncate" title={file.key}>{file.key.split("/").pop() || file.key}</p>
                       <p class="text-[10px] text-[var(--on-surface-variant)] font-mono truncate mt-0.5" title={file.url}>{file.url}</p>
                       {#if isAudio}
-                        <audio controls src={file.url} preload="none" class="w-full mt-2 h-7 rounded"></audio>
+                        <audio controls preload="none" class="w-full mt-2 h-7 rounded">
+                          <source src={file.url} />
+                          {#if file.fallbackUrl}
+                            <source src={file.fallbackUrl} />
+                          {/if}
+                        </audio>
                       {/if}
                     </div>
 
@@ -5862,6 +5925,83 @@ npm run dev
 ```
 
 :::</code></pre>
+            </div>
+
+            <!-- Code Trees & Diff Trees -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>🌳 代码架构与文件变更树 (Code Trees & Diff Trees)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard(':::file-tree{title="Shirine 项目源码结构" icon="colored"}\n- src/\n  - components/\n    - ++ Header.svelte # 新增组件\n    - -- OldNav.svelte # 移除旧版导航\n    - PostCard.astro\n  - content/\n    - posts/\n      - markdown-enhancements.md\n  - layouts/\n    - MainGridLayout.astro\n- wrangler.jsonc\n- package.json\n:::')}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制代码树语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">支持使用 <code>++</code> 和 <code>--</code> 标注新增与删除的文件变更差异，自动附带文件类型专属色彩图标与目录折叠能力。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::file-tree&#123;title="Shirine 项目源码结构" icon="colored"&#125;
+- src/
+  - components/
+    - ++ Header.svelte # 新增组件
+    - -- OldNav.svelte # 移除旧版导航
+    - PostCard.astro
+  - content/
+    - posts/
+      - markdown-enhancements.md
+  - layouts/
+    - MainGridLayout.astro
+- wrangler.jsonc
+- package.json
+:::</code></pre>
+            </div>
+
+            <!-- Badges & Status Pills -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>🏷️ 徽章与胶囊标记 (Badges & Status Pills)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard('<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">M3E Release</span>\n<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Active</span>\n<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">Pending</span>\n\n[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)\n[![Cloudflare Pages](https://img.shields.io/badge/Deploy-Cloudflare%20Pages-orange)](https://pages.cloudflare.com)')}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制徽章标记语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">支持原生 M3E 语义胶囊徽章以及 Shields.io 动态矢量徽章，用于展示版本、构建状态与技术栈标签。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>&lt;span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20"&gt;M3E Release&lt;/span&gt;
+&lt;span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"&gt;Active&lt;/span&gt;
+&lt;span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"&gt;Pending&lt;/span&gt;
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Cloudflare Pages](https://img.shields.io/badge/Deploy-Cloudflare%20Pages-orange)](https://pages.cloudflare.com)</code></pre>
+            </div>
+
+            <!-- Abbreviations -->
+            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                  <span>🔤 缩略语全名术语卡 (Abbreviations Glossary)</span>
+                </h2>
+                <button
+                  type="button"
+                  onclick={() => copyToClipboard('Shirine 运用了先进的 AST 编译器与 M3E 设计规范，全面部署于 CF Pages 与 D1。\n\n*[AST]: Abstract Syntax Tree（抽象语法树）\n*[M3E]: Material 3 Expressive（谷歌最新动态设计标准）\n*[CF]: Cloudflare 全球边缘分发网络\n*[D1]: Cloudflare Serverless SQLite 分布式数据库')}
+                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                >
+                  📋 复制缩略语语法
+                </button>
+              </div>
+              <p class="text-xs text-[var(--on-surface-variant)]">Markdown 标准缩略语语法。在正文任意位置提及缩写词，读者鼠标悬浮即可展示全称与详细中文释义。</p>
+              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>Shirine 运用了先进的 AST 编译器与 M3E 设计规范，全面部署于 CF Pages 与 D1。
+
+*[AST]: Abstract Syntax Tree（抽象语法树）
+*[M3E]: Material 3 Expressive（谷歌最新动态设计标准）
+*[CF]: Cloudflare 全球边缘分发网络
+*[D1]: Cloudflare Serverless SQLite 分布式数据库</code></pre>
             </div>
           </div>
         {/if}
