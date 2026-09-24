@@ -18,6 +18,7 @@ const htmlLang = currentAdminLang.replace("_", "-");
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Shirine 管理控制台</title>
 		<link rel="icon" href="/logo/icon.webp" />
+		<link rel="preload" href="/assets/images/furina-loading.svg" as="image" type="image/svg+xml" fetchpriority="high" />
 		<script is:inline>
 			const theme = localStorage.getItem('theme') || 'auto';
 			if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -30,8 +31,44 @@ const htmlLang = currentAdminLang.replace("_", "-");
 		</script>
 	</head>
 	<body class="h-full antialiased bg-[var(--surface-container-lowest,#f8fafc)] text-[var(--on-surface,#0f172a)]">
+		<!-- Global Furina Anime Loading Screen for Admin Console -->
+		<div
+			id="furina-admin-loader"
+			class="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[var(--surface-container-lowest,#f8fafc)]/90 backdrop-blur-xl transition-all duration-500 ease-out select-none"
+			aria-label="管理后台加载中..."
+			role="status"
+		>
+			<div class="relative flex flex-col items-center justify-center max-w-[280px] sm:max-w-[340px] md:max-w-[380px] w-full px-4">
+				<img
+					src="/assets/images/furina-loading.svg"
+					alt="Shirine Loading..."
+					width="380"
+					height="380"
+					loading="eager"
+					fetchpriority="high"
+					class="w-full h-auto drop-shadow-xl pointer-events-none"
+				/>
+			</div>
+		</div>
 		<AdminDashboard client:only="svelte" />
 		<Live2DControl client:only="svelte" mode="admin" />
+		<script is:inline>
+			const adminLoader = document.getElementById('furina-admin-loader');
+			if (adminLoader) {
+				const start = Date.now();
+				const dismiss = () => {
+					const elapsed = Date.now() - start;
+					const delay = Math.max(0, 600 - elapsed);
+					setTimeout(() => {
+						adminLoader.classList.add('opacity-0', 'pointer-events-none');
+						setTimeout(() => { adminLoader.style.display = 'none'; }, 500);
+					}, delay);
+				};
+				if (document.readyState === 'complete') dismiss();
+				else window.addEventListener('load', dismiss);
+				setTimeout(dismiss, 2500);
+			}
+		</script>
 	</body>
 </html>
 

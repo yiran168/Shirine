@@ -34,6 +34,8 @@
     const saved = localStorage.getItem("shirine_live2d_visible");
     if (saved !== null) {
       userVisible = saved === "true";
+    } else if (window.innerWidth < 768) {
+      userVisible = false; // Collapse by default on narrow mobile screens to avoid screen blockage
     }
 
     const defaultRightX = Math.max(0, window.innerWidth - WIDGET_WIDTH - 24);
@@ -109,7 +111,16 @@
 
     window.addEventListener("message", handleMessage);
 
-    // 4. Setup Swup listener if present
+    // 4. Setup window resize listener
+    const handleResize = () => {
+      const maxX = Math.max(0, window.innerWidth - WIDGET_WIDTH - 24);
+      if (posX > maxX) {
+        posX = maxX;
+      }
+    };
+    window.addEventListener("resize", handleResize);
+
+    // 5. Setup Swup listener if present
     const onVisitEnd = () => {
       initWidget();
     };
@@ -119,6 +130,7 @@
 
     return () => {
       window.removeEventListener("message", handleMessage);
+      window.removeEventListener("resize", handleResize);
       if ((window as any).swup?.hooks) {
         try {
           (window as any).swup.hooks.off("visit:end", onVisitEnd);
@@ -199,7 +211,7 @@
 {#if enabledByBackend}
   <!-- Draggable Live2D Container -->
   <div
-    class="fixed z-40 select-none pointer-events-none"
+    class="fixed z-35 select-none pointer-events-none"
     style="left: {posX}px; bottom: {posY}px;"
   >
     <!-- Live2D Host Iframe (Sandboxed) -->

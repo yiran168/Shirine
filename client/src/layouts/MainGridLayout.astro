@@ -77,13 +77,13 @@ const mainContentClasses = generateMainContentClasses(sidebarResponsive);
 <BannerStage page={page} title={title} description={description} date={bannerDate} />
 
 <!-- Main content -->
-<div id="main-layout" class="absolute w-full z-30 pointer-events-none">
+<div id="main-layout" class="absolute w-full z-40 pointer-events-none">
     <!-- The pointer-events-none here prevent blocking the click event of the TOC -->
     <div class="relative max-w-[var(--page-width)] mx-auto pointer-events-auto">
 		<div id="main-grid" class:list={["transition duration-[var(--m3e-duration-long)] w-full left-0 right-0 grid grid-rows-[auto_1fr_auto] lg:grid-rows-[auto] mx-auto gap-4 px-2 md:px-4", gridClasses]}>
-			<SideBar class={sidebarClasses} currentPage={page} headings={headings}></SideBar>
+			<SideBar class:list={[sidebarClasses, "relative z-40 pointer-events-auto"]} currentPage={page} headings={headings}></SideBar>
 			{isDualColumn(sidebarResponsive) && (
-				<SideBar id="sidebar-secondary" column="secondary" class={secondarySidebarClasses} currentPage={page} headings={headings}></SideBar>
+				<SideBar id="sidebar-secondary" column="secondary" class:list={[secondarySidebarClasses, "relative z-40 pointer-events-auto"]} currentPage={page} headings={headings}></SideBar>
 			)}
 
             <!-- 主内容列：分类导航栏静态渲染（位于 Swup 容器外），

@@ -1,205 +1,398 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
   <defs>
-    <!-- Gradients -->
+    <!-- Background Hydro Glow -->
+    <radialGradient id="hydroAura" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.25"/>
+      <stop offset="60%" stop-color="#818cf8" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#c084fc" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Cloud Gradients -->
     <linearGradient id="cloudGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="60%" stop-color="#fdf2f8"/>
-      <stop offset="100%" stop-color="#fae8ff"/>
+      <stop offset="50%" stop-color="#f0f9ff"/>
+      <stop offset="100%" stop-color="#e0f2fe"/>
     </linearGradient>
-
     <linearGradient id="cloudShadow" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#e9d5ff" stop-opacity="0.3"/>
-      <stop offset="100%" stop-color="#d8b4fe" stop-opacity="0.6"/>
+      <stop offset="0%" stop-color="#bae6fd" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#7dd3fc" stop-opacity="0.5"/>
     </linearGradient>
 
-    <linearGradient id="hairGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f472b6"/>
-      <stop offset="50%" stop-color="#ec4899"/>
-      <stop offset="100%" stop-color="#db2777"/>
+    <!-- Hair Gradients: Silver-Blue with Hydro Cyan accents -->
+    <linearGradient id="furinaHairSilver" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="40%" stop-color="#e0f2fe"/>
+      <stop offset="85%" stop-color="#93c5fd"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+    <linearGradient id="furinaHairStreak" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
     </linearGradient>
 
-    <linearGradient id="dressGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+    <!-- Hat & Clothes: Fontaine Royal Navy & Gold -->
+    <linearGradient id="furinaHat" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="60%" stop-color="#172554"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="furinaGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="50%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="furinaDress" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="50%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="furinaRuffle" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#fce7f3"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
     </linearGradient>
 
-    <linearGradient id="ribbonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#a855f7"/>
-      <stop offset="100%" stop-color="#7c3aed"/>
+    <!-- Eye Gradient: Ocean Hydro & Cyan -->
+    <linearGradient id="eyeCyan" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="45%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#bae6fd"/>
+    </linearGradient>
+    <linearGradient id="eyeDeepBlue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="55%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#93c5fd"/>
     </linearGradient>
 
+    <!-- Bubble & Star Gradients -->
+    <radialGradient id="bubbleGrad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#7dd3fc" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.2"/>
+    </radialGradient>
+
+    <!-- Progress Bar Gradient (Water Blue to Light Purple) -->
     <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#f472b6"/>
-      <stop offset="50%" stop-color="#c084fc"/>
-      <stop offset="100%" stop-color="#818cf8"/>
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#c084fc"/>
     </linearGradient>
 
-    <linearGradient id="glowDotGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f472b6"/>
-      <stop offset="100%" stop-color="#9333ea"/>
-    </linearGradient>
-
-    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+    <!-- Filters -->
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
       <feGaussianBlur stdDeviation="4" result="blur"/>
       <feComposite in="SourceGraphic" in2="blur" operator="over"/>
     </filter>
-
-    <filter id="starGlow" x="-50%" y="-50%" width="200%" height="200%">
+    <filter id="waterGlow" x="-40%" y="-40%" width="180%" height="180%">
       <feGaussianBlur stdDeviation="3" result="blur"/>
       <feComposite in="SourceGraphic" in2="blur" operator="over"/>
     </filter>
   </defs>
 
   <style>
-    /* 12-15 fps animation cadence */
+    /* Chibi Furina & Cloud Floating Animation */
     @keyframes floatCloud {
       0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-10px); }
+      50% { transform: translateY(-7px); }
     }
-
     @keyframes floatMascot {
       0%, 100% { transform: translateY(0px) rotate(0deg); }
-      50% { transform: translateY(-12px) rotate(1.5deg); }
+      50% { transform: translateY(-9px) rotate(0.8deg); }
+    }
+    .cloud-group {
+      animation: floatCloud 3.2s ease-in-out infinite;
+      transform-origin: 256px 290px;
+    }
+    .mascot-group {
+      animation: floatMascot 3.2s ease-in-out infinite;
+      transform-origin: 256px 220px;
     }
 
+    /* Hair Sway Animation */
+    @keyframes hairSwayLeft {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(-4deg); }
+    }
+    @keyframes hairSwayRight {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(5deg); }
+    }
+    .hair-left {
+      animation: hairSwayLeft 3.2s ease-in-out infinite;
+      transform-origin: 210px 140px;
+    }
+    .hair-right {
+      animation: hairSwayRight 3.2s ease-in-out infinite;
+      transform-origin: 300px 140px;
+    }
+
+    /* Furina Hand Wave */
     @keyframes waveArm {
       0%, 100% { transform: rotate(0deg); }
-      25% { transform: rotate(20deg); }
-      75% { transform: rotate(-10deg); }
+      20% { transform: rotate(16deg); }
+      40% { transform: rotate(-8deg); }
+      60% { transform: rotate(14deg); }
+      80% { transform: rotate(-4deg); }
+    }
+    .wave-arm {
+      animation: waveArm 2.8s ease-in-out infinite;
+      transform-origin: 310px 240px;
     }
 
+    /* Furina Eye Blink */
     @keyframes blinkEye {
-      0%, 90%, 100% { transform: scaleY(1); }
-      95% { transform: scaleY(0.1); }
+      0%, 92%, 100% { transform: scaleY(1); }
+      96% { transform: scaleY(0.08); }
+    }
+    .furina-eyes {
+      animation: blinkEye 3.6s ease-in-out infinite;
+      transform-origin: 256px 186px;
     }
 
-    @keyframes twinkle {
-      0%, 100% { transform: scale(0.6) rotate(0deg); opacity: 0.3; }
-      50% { transform: scale(1.1) rotate(45deg); opacity: 1; }
-    }
-
+    /* Water Droplets and Bubbles rising */
     @keyframes petalDrift {
-      0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
-      20% { opacity: 0.8; }
+      0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+      25% { opacity: 0.85; }
+      75% { opacity: 0.85; }
+      100% { transform: translate(8px, -45px) scale(1.15); opacity: 0; }
+    }
+    @keyframes bubbleRiseB {
+      0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
+      30% { opacity: 0.9; }
       80% { opacity: 0.8; }
-      100% { transform: translate(-30px, 60px) rotate(120deg); opacity: 0; }
+      100% { transform: translate(-10px, -52px) scale(1.15); opacity: 0; }
     }
+    @keyframes bubbleRiseC {
+      0% { transform: translate(0, 0) scale(0.7); opacity: 0; }
+      25% { opacity: 0.85; }
+      75% { opacity: 0.85; }
+      100% { transform: translate(6px, -48px) scale(1.2); opacity: 0; }
+    }
+    .bubble-1 { animation: petalDrift 3.4s ease-in-out infinite; }
+    .bubble-2 { animation: bubbleRiseB 4.1s ease-in-out infinite 0.7s; }
+    .bubble-3 { animation: bubbleRiseC 3.8s ease-in-out infinite 1.4s; }
+    .bubble-4 { animation: petalDrift 4.4s ease-in-out infinite 2.0s; }
 
+    /* Star Sparkles */
+    @keyframes twinkle {
+      0%, 100% { transform: scale(0.5) rotate(0deg); opacity: 0.2; }
+      50% { transform: scale(1.15) rotate(45deg); opacity: 1; }
+    }
+    .star-1 { animation: twinkle 2.2s ease-in-out infinite; transform-origin: 150px 130px; }
+    .star-2 { animation: twinkle 2.7s ease-in-out infinite 0.9s; transform-origin: 365px 120px; }
+    .star-3 { animation: twinkle 2.4s ease-in-out infinite 1.5s; transform-origin: 350px 270px; }
+
+    /* Progress Bar Runner - Seamless Flow */
     @keyframes progressBarAnim {
-      0% { transform: translateX(-160px); width: 60px; }
-      50% { width: 140px; }
-      100% { transform: translateX(330px); width: 70px; }
+      0% {
+        transform: translateX(-180px);
+        width: 80px;
+      }
+      50% {
+        width: 170px;
+      }
+      100% {
+        transform: translateX(340px);
+        width: 90px;
+      }
+    }
+    .progress-bar-anim {
+      animation: progressBarAnim 2.4s cubic-bezier(0.4, 0.0, 0.2, 1) infinite;
     }
 
+    /* Sequential Dots */
     @keyframes dotPulse {
-      0%, 100% { transform: scale(0.8); opacity: 0.3; }
-      50% { transform: scale(1.2); opacity: 1; }
+      0%, 100% { opacity: 0.2; transform: translateY(0); }
+      50% { opacity: 1; transform: translateY(-2px); }
     }
-
     @keyframes dotFade1 {
-      0%, 20% { opacity: 0; }
-      40%, 100% { opacity: 1; }
+      0%, 20% { opacity: 0.2; transform: translateY(0); }
+      40% { opacity: 1; transform: translateY(-2px); }
+      60%, 100% { opacity: 0.2; transform: translateY(0); }
     }
     @keyframes dotFade2 {
-      0%, 40% { opacity: 0; }
-      60%, 100% { opacity: 1; }
+      0%, 40% { opacity: 0.2; transform: translateY(0); }
+      60% { opacity: 1; transform: translateY(-2px); }
+      80%, 100% { opacity: 0.2; transform: translateY(0); }
     }
     @keyframes dotFade3 {
-      0%, 60% { opacity: 0; }
-      80%, 100% { opacity: 1; }
+      0%, 60% { opacity: 0.2; transform: translateY(0); }
+      80% { opacity: 1; transform: translateY(-2px); }
+      100% { opacity: 0.2; transform: translateY(0); }
     }
-
-    .cloud-group { animation: floatCloud 3.5s ease-in-out infinite; }
-    .mascot-group { animation: floatMascot 3.5s ease-in-out infinite; transform-origin: 256px 200px; }
-    .arm-wave { animation: waveArm 2s ease-in-out infinite; transform-origin: 295px 190px; }
-    .eye-blink { animation: blinkEye 3.8s infinite; transform-origin: 256px 165px; }
-    .star-twinkle-1 { animation: twinkle 2.2s infinite; transform-origin: 160px 110px; }
-    .star-twinkle-2 { animation: twinkle 2.8s infinite 0.8s; transform-origin: 360px 100px; }
-    .star-twinkle-3 { animation: twinkle 2.4s infinite 1.4s; transform-origin: 370px 240px; }
-    .petal-1 { animation: petalDrift 4s linear infinite; }
-    .petal-2 { animation: petalDrift 4.5s linear infinite 1.5s; }
-    .progress-bar-runner { animation: progressBarAnim 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
     .dot-1 { animation: dotFade1 1.8s infinite; }
     .dot-2 { animation: dotFade2 1.8s infinite; }
     .dot-3 { animation: dotFade3 1.8s infinite; }
   </style>
 
-  <!-- Upper Tier: Mascot on Cloud -->
-  <g class="cloud-group">
-    <!-- Star Sparkles -->
-    <path class="star-twinkle-1" d="M160 102 L162 108 L168 110 L162 112 L160 118 L158 112 L152 110 L158 108 Z" fill="#f472b6" filter="url(#starGlow)"/>
-    <path class="star-twinkle-2" d="M360 92 L362 98 L368 100 L362 102 L360 108 L358 102 L352 100 L358 98 Z" fill="#c084fc" filter="url(#starGlow)"/>
-    <path class="star-twinkle-3" d="M370 232 L372 238 L378 240 L372 242 L370 248 L368 242 L362 240 L368 238 Z" fill="#fb7185" filter="url(#starGlow)"/>
+  <!-- Background Ambient Glow behind Furina -->
+  <circle cx="256" cy="200" r="170" fill="url(#hydroAura)"/>
 
-    <!-- Falling Petals -->
-    <path class="petal-1" d="M170 150 C165 140 150 145 155 155 C160 165 175 160 170 150 Z" fill="#f472b6" opacity="0.7"/>
-    <path class="petal-2" d="M340 130 C335 120 320 125 325 135 C330 145 345 140 340 130 Z" fill="#ec4899" opacity="0.7"/>
+  <!-- ==================== TIER 1: CHIBI FURINA & CLOUD (y: 30 to 380) ==================== -->
+  <g class="mascot-group floatMascot">
+    <!-- Star Sparkles in background -->
+    <g filter="url(#waterGlow)">
+      <path class="star-1 twinkle" d="M150 120 L152 128 L160 130 L152 132 L150 140 L148 132 L140 130 L148 128 Z" fill="#7dd3fc"/>
+      <path class="star-2 twinkle" d="M365 110 L367 118 L375 120 L367 122 L365 130 L363 122 L355 120 L363 118 Z" fill="#c084fc"/>
+      <path class="star-3 twinkle" d="M350 260 L352 268 L360 270 L352 272 L350 280 L348 272 L340 270 L348 268 Z" fill="#38bdf8"/>
+    </g>
 
-    <!-- Fluffy Cloud -->
-    <g filter="url(#softGlow)">
-      <path d="M150 310 C125 310 105 290 105 265 C105 245 120 230 138 226 C145 198 175 180 208 182 C222 170 242 165 265 167 C292 167 315 180 326 200 C340 200 355 210 362 225 C382 228 398 245 398 268 C398 292 378 310 352 310 Z" fill="url(#cloudShadow)"/>
-      <path d="M145 302 C122 302 108 285 108 262 C108 245 120 232 136 228 C144 202 170 185 200 188 C214 175 234 170 255 172 C280 172 302 184 314 202 C328 202 342 212 350 226 C368 228 384 245 384 265 C384 288 365 305 342 305 Z" fill="url(#cloudGrad)"/>
+    <!-- Hydro Bubbles / Droplets -->
+    <circle class="bubble-1 petalDrift" cx="160" cy="240" r="10" fill="url(#bubbleGrad)" filter="url(#waterGlow)"/>
+    <circle class="bubble-2 petalDrift" cx="345" cy="200" r="14" fill="url(#bubbleGrad)" filter="url(#waterGlow)"/>
+    <circle class="bubble-3 petalDrift" cx="175" cy="170" r="7" fill="url(#bubbleGrad)"/>
+    <circle class="bubble-4 petalDrift" cx="330" cy="150" r="8" fill="url(#bubbleGrad)"/>
+
+    <!-- Cloud Base underneath Furina -->
+    <g class="cloud-group floatCloud" filter="url(#softGlow)">
+      <!-- Cloud Shadow layer -->
+      <path d="M155 330 C130 330 110 310 110 288 C110 270 125 255 142 252 C150 225 178 208 212 210 C225 198 245 192 268 194 C295 194 318 208 330 228 C345 228 360 238 368 252 C388 255 404 272 404 292 C404 316 384 335 358 335 Z" fill="url(#cloudShadow)" opacity="0.6"/>
+      <!-- Cloud Highlight layer -->
+      <path d="M150 322 C128 322 112 305 112 284 C112 268 124 254 140 250 C148 226 174 210 205 212 C218 200 238 195 258 196 C284 196 306 208 318 226 C332 225 348 234 355 248 C374 250 390 266 390 286 C390 308 372 325 348 325 Z" fill="url(#cloudGrad)"/>
+      <ellipse cx="256" cy="305" rx="110" ry="24" fill="#ffffff" opacity="0.9"/>
+    </g>
+
+    <!-- Furina Back Hair / Long Side Ribbons -->
+    <g class="hair-left">
+      <path d="M195 160 C170 180 155 230 168 275 C172 290 182 298 186 288 C192 270 190 235 204 185 Z" fill="url(#furinaHairSilver)"/>
+      <path d="M178 210 C165 240 162 268 172 288 C175 280 178 250 186 220 Z" fill="url(#furinaHairStreak)" opacity="0.85"/>
+    </g>
+    <g class="hair-right">
+      <path d="M315 160 C340 180 355 230 342 275 C338 290 328 298 324 288 C318 270 320 235 306 185 Z" fill="url(#furinaHairSilver)"/>
+      <path d="M332 210 C345 240 348 268 338 288 C335 280 332 250 324 220 Z" fill="url(#furinaHairStreak)" opacity="0.85"/>
+    </g>
+
+    <!-- Furina Body & Outfit -->
+    <g id="furina-body">
+      <!-- Fontaine Coat / Capelet -->
+      <path d="M212 245 C212 230 230 220 256 220 C282 220 300 230 300 245 L310 292 C310 298 298 304 256 304 C214 304 202 298 202 292 Z" fill="url(#furinaDress)"/>
+      <!-- Gold Waist Trim -->
+      <path d="M228 274 Q256 280 284 274 Q256 283 228 274 Z" fill="url(#furinaGold)"/>
+      <circle cx="256" cy="278" r="4" fill="url(#furinaGold)"/>
+      <!-- White Jabot / Chest Ruffles -->
+      <path d="M246 226 L266 226 L262 248 L256 254 L250 248 Z" fill="url(#furinaRuffle)"/>
+      <path d="M250 240 L262 240 L259 256 L256 260 L253 256 Z" fill="#f8fafc"/>
+      <circle cx="256" cy="233" r="3.5" fill="#38bdf8" filter="url(#waterGlow)"/>
+
+      <!-- Legs / Sitting posture on cloud -->
+      <rect x="236" y="290" width="16" height="24" rx="8" fill="#1e293b"/>
+      <rect x="260" y="290" width="16" height="24" rx="8" fill="#1e293b"/>
+      <!-- Cute Fontaine Boots with gold buckles -->
+      <ellipse cx="244" cy="312" rx="9" ry="6" fill="#0f172a"/>
+      <ellipse cx="268" cy="312" rx="9" ry="6" fill="#0f172a"/>
+      <circle cx="244" cy="310" r="2.5" fill="url(#furinaGold)"/>
+      <circle cx="268" cy="310" r="2.5" fill="url(#furinaGold)"/>
+    </g>
+
+    <!-- Left Arm & Hand (resting gracefully) -->
+    <path d="M214 236 C202 248 196 264 206 274 C210 278 218 274 218 266 C218 256 222 248 226 242 Z" fill="url(#furinaDress)"/>
+    <circle cx="206" cy="274" r="5" fill="#ffffff"/> <!-- White glove -->
+
+    <!-- Right Arm & Hand (Waving adorably!) -->
+    <g class="wave-arm waveArm">
+      <path d="M296 238 C310 236 324 230 334 220 C338 216 342 220 338 226 C330 238 318 248 304 252 Z" fill="url(#furinaDress)"/>
+      <!-- White glove hand waving -->
+      <circle cx="338" cy="218" r="6.5" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+      <path d="M336 213 C338 209 344 210 343 215" stroke="#cbd5e1" stroke-width="1.5" stroke-linecap="round"/>
+    </g>
+
+    <!-- Furina Head & Face -->
+    <g id="furina-head">
+      <!-- Cute Face Shape -->
+      <path d="M208 174 C208 140 228 126 256 126 C284 126 304 140 304 174 C304 204 286 218 256 218 C226 218 208 204 208 174 Z" fill="#fff5eb"/>
+
+      <!-- Blush -->
+      <ellipse cx="225" cy="192" rx="7" ry="4" fill="#f43f5e" opacity="0.35"/>
+      <ellipse cx="287" cy="192" rx="7" ry="4" fill="#f43f5e" opacity="0.35"/>
+
+      <!-- Smiling Mouth -->
+      <path d="M250 197 Q256 202 262 197" stroke="#e11d48" stroke-width="2" stroke-linecap="round" fill="none"/>
+
+      <!-- Heterochromatic Eyes with Blinking Animation -->
+      <g class="furina-eyes blinkEye">
+        <!-- Left Eye (Viewer's Left): Cyan/Hydro -->
+        <g id="eye-left">
+          <ellipse cx="233" cy="180" rx="9" ry="12" fill="#0f172a"/>
+          <ellipse cx="233" cy="181" rx="8" ry="11" fill="url(#eyeCyan)"/>
+          <!-- Pupil & Water droplet motif -->
+          <circle cx="233" cy="182" r="5" fill="#0369a1"/>
+          <circle cx="231" cy="177" r="3.2" fill="#ffffff"/>
+          <circle cx="236" cy="186" r="1.8" fill="#ffffff"/>
+          <!-- Eyelashes -->
+          <path d="M222 173 Q233 166 244 172" stroke="#1e293b" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+          <path d="M222 171 L220 167" stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+        </g>
+
+        <!-- Right Eye (Viewer's Right): Deep Royal Blue -->
+        <g id="eye-right">
+          <ellipse cx="279" cy="180" rx="9" ry="12" fill="#0f172a"/>
+          <ellipse cx="279" cy="181" rx="8" ry="11" fill="url(#eyeDeepBlue)"/>
+          <!-- Pupil & Water droplet motif -->
+          <circle cx="279" cy="182" r="5" fill="#1e3a8a"/>
+          <circle cx="277" cy="177" r="3.2" fill="#ffffff"/>
+          <circle cx="282" cy="186" r="1.8" fill="#ffffff"/>
+          <!-- Eyelashes -->
+          <path d="M268 172 Q279 166 290 173" stroke="#1e293b" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+          <path d="M290 171 L292 167" stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+        </g>
+      </g>
+
+      <!-- Eyebrows -->
+      <path d="M225 166 Q234 163 241 166" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <path d="M271 166 Q278 163 287 166" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" fill="none"/>
+
+      <!-- Front Hair Bangs (Furina's iconic styled bangs) -->
+      <path d="M206 156 C214 136 230 130 256 130 C282 130 298 136 306 156 C304 168 296 172 290 164 C284 154 278 152 274 168 C270 174 264 176 260 166 C256 152 250 152 246 168 C242 175 236 175 232 166 C226 154 218 160 214 170 C208 172 205 164 206 156 Z" fill="url(#furinaHairSilver)"/>
+      <!-- Blue highlight strand in bangs -->
+      <path d="M246 132 C248 144 252 156 256 166 C253 158 250 146 248 134 Z" fill="url(#furinaHairStreak)"/>
+    </g>
+
+    <!-- Furina's Signature Mini Top Hat -->
+    <g id="furina-hat" transform="rotate(-12, 280, 110)">
+      <!-- Hat Plume / Feathers -->
+      <path d="M296 90 C310 70 330 65 336 75 C340 85 320 100 300 102 Z" fill="#93c5fd" opacity="0.9"/>
+      <path d="M294 92 C304 78 322 74 326 82 C328 88 314 98 298 100 Z" fill="#ffffff"/>
+
+      <!-- Hat Crown -->
+      <path d="M260 80 L298 74 L294 116 L254 120 Z" fill="url(#furinaHat)"/>
+      <ellipse cx="279" cy="77" rx="19" ry="6" fill="#172554"/>
+
+      <!-- Hat Ribbon & Gold Buckle -->
+      <path d="M255 112 L295 106 L294 116 L254 120 Z" fill="#2563eb"/>
+      <rect x="268" y="108" width="12" height="9" rx="2" fill="url(#furinaGold)" transform="rotate(-7, 274, 112)"/>
+      <rect x="271" y="110" width="6" height="5" rx="1" fill="#0f172a" transform="rotate(-7, 274, 112)"/>
+      <circle cx="274" cy="112" r="2" fill="#38bdf8" filter="url(#waterGlow)"/>
+
+      <!-- Hat Brim -->
+      <ellipse cx="276" cy="118" rx="28" ry="8" fill="url(#furinaHat)"/>
+      <path d="M248 118 Q276 125 304 118" stroke="url(#furinaGold)" stroke-width="1.5" fill="none"/>
     </g>
   </g>
 
-  <!-- Mascot -->
-  <g class="mascot-group">
-    <!-- Hair back -->
-    <path d="M195 160 C175 200 170 240 185 260 C195 240 200 210 205 180 Z" fill="url(#hairGrad)"/>
-    <path d="M317 160 C337 200 342 240 327 260 C317 240 312 210 307 180 Z" fill="url(#hairGrad)"/>
+  <!-- ==================== TIER 2: PROGRESS BAR & TYPOGRAPHY (y: 400 to 485) ==================== -->
+  <!-- Strict zero-overlap barrier at y: 400 -->
+  <g id="tier-progress-section">
+    <!-- Progress Bar Track (Light grey-blue rounded base) -->
+    <rect x="96" y="416" width="320" height="12" rx="6" fill="#e2e8f0" fill-opacity="0.85" stroke="#93c5fd" stroke-opacity="0.5" stroke-width="1.5"/>
+    <rect x="98" y="418" width="316" height="8" rx="4" fill="#cbd5e1" fill-opacity="0.5"/>
 
-    <!-- Body / Dress -->
-    <path d="M216 235 C216 220 232 210 256 210 C280 210 296 220 296 235 L306 278 C306 284 294 290 256 290 C218 290 206 284 206 278 Z" fill="url(#dressGrad)"/>
-    <!-- Ribbon -->
-    <path d="M236 225 L256 235 L276 225 L266 242 L256 238 L246 242 Z" fill="url(#ribbonGrad)"/>
-    <circle cx="256" cy="235" r="4" fill="#fbbf24"/>
-
-    <!-- Head -->
-    <ellipse cx="256" cy="180" rx="46" ry="42" fill="#fff1f2"/>
-    <!-- Cheeks -->
-    <ellipse cx="226" cy="190" rx="6" ry="3.5" fill="#fda4af" opacity="0.6"/>
-    <ellipse cx="286" cy="190" rx="6" ry="3.5" fill="#fda4af" opacity="0.6"/>
-    <!-- Mouth -->
-    <path d="M251 195 Q256 199 261 195" stroke="#f43f5e" stroke-width="2" stroke-linecap="round" fill="none"/>
-
-    <!-- Eyes -->
-    <g class="eye-blink">
-      <ellipse cx="234" cy="178" rx="7" ry="10" fill="#374151"/>
-      <ellipse cx="278" cy="178" rx="7" ry="10" fill="#374151"/>
-      <circle cx="232" cy="175" r="3" fill="#ffffff"/>
-      <circle cx="276" cy="175" r="3" fill="#ffffff"/>
-      <circle cx="236" cy="182" r="1.5" fill="#ffffff"/>
-      <circle cx="280" cy="182" r="1.5" fill="#ffffff"/>
+    <!-- Dynamic Looping Progress Bar Runner -->
+    <g clip-path="url(#progressTrackClip)">
+      <rect class="progress-bar-anim progressBarAnim" x="96" y="417" width="120" height="10" rx="5" fill="url(#progressGrad)" filter="url(#waterGlow)"/>
     </g>
 
-    <!-- Front Bangs -->
-    <path d="M210 165 C215 145 230 138 256 138 C282 138 297 145 302 165 C295 175 285 160 275 172 C265 155 255 170 245 158 C235 172 225 160 218 175 C212 172 210 168 210 165 Z" fill="url(#hairGrad)"/>
-
-    <!-- Waving Arm -->
-    <g class="arm-wave">
-      <path d="M292 230 C305 225 318 215 328 205 C332 201 336 205 332 210 C322 222 312 232 298 238 Z" fill="url(#dressGrad)"/>
-      <circle cx="330" cy="204" r="6" fill="#fff1f2"/>
-    </g>
-  </g>
-
-  <!-- Lower Tier: Independent Progress Bar & Typography -->
-  <g id="lower-tier">
-    <!-- Progress Bar Container -->
-    <rect x="96" y="420" width="320" height="12" rx="6" fill="#fdf2f8" stroke="#fbcfe8" stroke-width="1.5"/>
-    <rect x="98" y="422" width="316" height="8" rx="4" fill="#fce7f3" opacity="0.5"/>
-
-    <!-- Animated Progress Bar Runner -->
-    <g clip-path="url(#barClip)">
-      <rect class="progress-bar-runner" x="96" y="421" width="120" height="10" rx="5" fill="url(#progressGrad)" filter="url(#softGlow)"/>
-    </g>
-    <clipPath id="barClip">
-      <rect x="97" y="421" width="318" height="10" rx="5"/>
+    <clipPath id="progressTrackClip">
+      <rect x="97" y="417" width="318" height="10" rx="5"/>
     </clipPath>
 
-    <!-- "加载中" with 3 glowing dots -->
-    <g transform="translate(256, 460)">
-      <text text-anchor="middle" font-family="'PingFang SC', system-ui, sans-serif" font-size="15" font-weight="600" letter-spacing="2" fill="#ec4899">
-        加载中<tspan class="dot-1 dotPulse">.</tspan><tspan class="dot-2 dotPulse">.</tspan><tspan class="dot-3 dotPulse">.</tspan>
+    <!-- Japanese / Anime Otaku Typographic Label "加载中…" with 3 Sequential Blinking Dots -->
+    <g transform="translate(256, 458)">
+      <text text-anchor="middle" font-family="'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Segoe UI', system-ui, sans-serif" font-size="15" font-weight="600" letter-spacing="3" fill="#334155">
+        <tspan fill="#0284c7">加</tspan>
+        <tspan fill="#2563eb">载</tspan>
+        <tspan fill="#7c3aed">中</tspan>
+        <tspan class="dot-1 dotPulse" fill="#0284c7">.</tspan>
+        <tspan class="dot-2 dotPulse" fill="#2563eb">.</tspan>
+        <tspan class="dot-3 dotPulse" fill="#7c3aed">.</tspan>
       </text>
     </g>
   </g>

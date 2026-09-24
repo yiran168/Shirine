@@ -70,15 +70,11 @@
       <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.2"/>
     </radialGradient>
 
-    <!-- Progress Bar Gradient -->
+    <!-- Progress Bar Gradient (Water Blue to Light Purple) -->
     <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#38bdf8"/>
       <stop offset="50%" stop-color="#818cf8"/>
       <stop offset="100%" stop-color="#c084fc"/>
-    </linearGradient>
-    <linearGradient id="progressHeadGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#c084fc"/>
-      <stop offset="100%" stop-color="#ffffff"/>
     </linearGradient>
 
     <!-- Filters -->
@@ -94,16 +90,20 @@
 
   <style>
     /* Chibi Furina & Cloud Floating Animation */
-    @keyframes furinaFloat {
-      0%, 100% {
-        transform: translateY(0px);
-      }
-      50% {
-        transform: translateY(-9px);
-      }
+    @keyframes floatCloud {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-7px); }
     }
-    .furina-group {
-      animation: furinaFloat 3.2s ease-in-out infinite;
+    @keyframes floatMascot {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-9px) rotate(0.8deg); }
+    }
+    .cloud-group {
+      animation: floatCloud 3.2s ease-in-out infinite;
+      transform-origin: 256px 290px;
+    }
+    .mascot-group {
+      animation: floatMascot 3.2s ease-in-out infinite;
       transform-origin: 256px 220px;
     }
 
@@ -126,34 +126,34 @@
     }
 
     /* Furina Hand Wave */
-    @keyframes furinaWave {
+    @keyframes waveArm {
       0%, 100% { transform: rotate(0deg); }
       20% { transform: rotate(16deg); }
       40% { transform: rotate(-8deg); }
       60% { transform: rotate(14deg); }
       80% { transform: rotate(-4deg); }
     }
-    .waving-hand {
-      animation: furinaWave 2.8s ease-in-out infinite;
+    .wave-arm {
+      animation: waveArm 2.8s ease-in-out infinite;
       transform-origin: 310px 240px;
     }
 
     /* Furina Eye Blink */
-    @keyframes furinaBlink {
+    @keyframes blinkEye {
       0%, 92%, 100% { transform: scaleY(1); }
       96% { transform: scaleY(0.08); }
     }
     .furina-eyes {
-      animation: furinaBlink 3.6s ease-in-out infinite;
+      animation: blinkEye 3.6s ease-in-out infinite;
       transform-origin: 256px 186px;
     }
 
     /* Water Droplets and Bubbles rising */
-    @keyframes bubbleRiseA {
+    @keyframes petalDrift {
       0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
-      20% { opacity: 0.85; }
-      80% { opacity: 0.85; }
-      100% { transform: translate(8px, -45px) scale(1.1); opacity: 0; }
+      25% { opacity: 0.85; }
+      75% { opacity: 0.85; }
+      100% { transform: translate(8px, -45px) scale(1.15); opacity: 0; }
     }
     @keyframes bubbleRiseB {
       0% { transform: translate(0, 0) scale(0.5); opacity: 0; }
@@ -167,22 +167,22 @@
       75% { opacity: 0.85; }
       100% { transform: translate(6px, -48px) scale(1.2); opacity: 0; }
     }
-    .bubble-1 { animation: bubbleRiseA 3.4s ease-in-out infinite; }
+    .bubble-1 { animation: petalDrift 3.4s ease-in-out infinite; }
     .bubble-2 { animation: bubbleRiseB 4.1s ease-in-out infinite 0.7s; }
     .bubble-3 { animation: bubbleRiseC 3.8s ease-in-out infinite 1.4s; }
-    .bubble-4 { animation: bubbleRiseA 4.4s ease-in-out infinite 2.0s; }
+    .bubble-4 { animation: petalDrift 4.4s ease-in-out infinite 2.0s; }
 
     /* Star Sparkles */
-    @keyframes starTwinkle {
+    @keyframes twinkle {
       0%, 100% { transform: scale(0.5) rotate(0deg); opacity: 0.2; }
       50% { transform: scale(1.15) rotate(45deg); opacity: 1; }
     }
-    .star-1 { animation: starTwinkle 2.2s ease-in-out infinite; transform-origin: 150px 130px; }
-    .star-2 { animation: starTwinkle 2.7s ease-in-out infinite 0.9s; transform-origin: 365px 120px; }
-    .star-3 { animation: starTwinkle 2.4s ease-in-out infinite 1.5s; transform-origin: 350px 270px; }
+    .star-1 { animation: twinkle 2.2s ease-in-out infinite; transform-origin: 150px 130px; }
+    .star-2 { animation: twinkle 2.7s ease-in-out infinite 0.9s; transform-origin: 365px 120px; }
+    .star-3 { animation: twinkle 2.4s ease-in-out infinite 1.5s; transform-origin: 350px 270px; }
 
     /* Progress Bar Runner - Seamless Flow */
-    @keyframes progressRunner {
+    @keyframes progressBarAnim {
       0% {
         transform: translateX(-180px);
         width: 80px;
@@ -195,11 +195,15 @@
         width: 90px;
       }
     }
-    .progress-runner {
-      animation: progressRunner 2.4s cubic-bezier(0.4, 0.0, 0.2, 1) infinite;
+    .progress-bar-anim {
+      animation: progressBarAnim 2.4s cubic-bezier(0.4, 0.0, 0.2, 1) infinite;
     }
 
     /* Sequential Dots */
+    @keyframes dotPulse {
+      0%, 100% { opacity: 0.2; transform: translateY(0); }
+      50% { opacity: 1; transform: translateY(-2px); }
+    }
     @keyframes dotFade1 {
       0%, 20% { opacity: 0.2; transform: translateY(0); }
       40% { opacity: 1; transform: translateY(-2px); }
@@ -224,22 +228,22 @@
   <circle cx="256" cy="200" r="170" fill="url(#hydroAura)"/>
 
   <!-- ==================== TIER 1: CHIBI FURINA & CLOUD (y: 30 to 380) ==================== -->
-  <g class="furina-group">
+  <g class="mascot-group floatMascot">
     <!-- Star Sparkles in background -->
     <g filter="url(#waterGlow)">
-      <path class="star-1" d="M150 120 L152 128 L160 130 L152 132 L150 140 L148 132 L140 130 L148 128 Z" fill="#7dd3fc"/>
-      <path class="star-2" d="M365 110 L367 118 L375 120 L367 122 L365 130 L363 122 L355 120 L363 118 Z" fill="#c084fc"/>
-      <path class="star-3" d="M350 260 L352 268 L360 270 L352 272 L350 280 L348 272 L340 270 L348 268 Z" fill="#38bdf8"/>
+      <path class="star-1 twinkle" d="M150 120 L152 128 L160 130 L152 132 L150 140 L148 132 L140 130 L148 128 Z" fill="#7dd3fc"/>
+      <path class="star-2 twinkle" d="M365 110 L367 118 L375 120 L367 122 L365 130 L363 122 L355 120 L363 118 Z" fill="#c084fc"/>
+      <path class="star-3 twinkle" d="M350 260 L352 268 L360 270 L352 272 L350 280 L348 272 L340 270 L348 268 Z" fill="#38bdf8"/>
     </g>
 
-    <!-- Hydro Bubbles -->
-    <circle class="bubble-1" cx="160" cy="240" r="10" fill="url(#bubbleGrad)" filter="url(#waterGlow)"/>
-    <circle class="bubble-2" cx="345" cy="200" r="14" fill="url(#bubbleGrad)" filter="url(#waterGlow)"/>
-    <circle class="bubble-3" cx="175" cy="170" r="7" fill="url(#bubbleGrad)"/>
-    <circle class="bubble-4" cx="330" cy="150" r="8" fill="url(#bubbleGrad)"/>
+    <!-- Hydro Bubbles / Droplets -->
+    <circle class="bubble-1 petalDrift" cx="160" cy="240" r="10" fill="url(#bubbleGrad)" filter="url(#waterGlow)"/>
+    <circle class="bubble-2 petalDrift" cx="345" cy="200" r="14" fill="url(#bubbleGrad)" filter="url(#waterGlow)"/>
+    <circle class="bubble-3 petalDrift" cx="175" cy="170" r="7" fill="url(#bubbleGrad)"/>
+    <circle class="bubble-4 petalDrift" cx="330" cy="150" r="8" fill="url(#bubbleGrad)"/>
 
     <!-- Cloud Base underneath Furina -->
-    <g filter="url(#softGlow)">
+    <g class="cloud-group floatCloud" filter="url(#softGlow)">
       <!-- Cloud Shadow layer -->
       <path d="M155 330 C130 330 110 310 110 288 C110 270 125 255 142 252 C150 225 178 208 212 210 C225 198 245 192 268 194 C295 194 318 208 330 228 C345 228 360 238 368 252 C388 255 404 272 404 292 C404 316 384 335 358 335 Z" fill="url(#cloudShadow)" opacity="0.6"/>
       <!-- Cloud Highlight layer -->
@@ -284,7 +288,7 @@
     <circle cx="206" cy="274" r="5" fill="#ffffff"/> <!-- White glove -->
 
     <!-- Right Arm & Hand (Waving adorably!) -->
-    <g class="waving-hand">
+    <g class="wave-arm waveArm">
       <path d="M296 238 C310 236 324 230 334 220 C338 216 342 220 338 226 C330 238 318 248 304 252 Z" fill="url(#furinaDress)"/>
       <!-- White glove hand waving -->
       <circle cx="338" cy="218" r="6.5" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
@@ -304,7 +308,7 @@
       <path d="M250 197 Q256 202 262 197" stroke="#e11d48" stroke-width="2" stroke-linecap="round" fill="none"/>
 
       <!-- Heterochromatic Eyes with Blinking Animation -->
-      <g class="furina-eyes">
+      <g class="furina-eyes blinkEye">
         <!-- Left Eye (Viewer's Left): Cyan/Hydro -->
         <g id="eye-left">
           <ellipse cx="233" cy="180" rx="9" ry="12" fill="#0f172a"/>
@@ -367,34 +371,29 @@
   <!-- ==================== TIER 2: PROGRESS BAR & TYPOGRAPHY (y: 400 to 485) ==================== -->
   <!-- Strict zero-overlap barrier at y: 400 -->
   <g id="tier-progress-section">
-    <!-- Progress Bar Track (Glassy Pill Container) -->
-    <rect x="96" y="416" width="320" height="12" rx="6" fill="#0f172a" fill-opacity="0.12" stroke="#93c5fd" stroke-opacity="0.4" stroke-width="1.5"/>
-    <rect x="98" y="418" width="316" height="8" rx="4" fill="#1e293b" fill-opacity="0.08"/>
+    <!-- Progress Bar Track (Light grey-blue rounded base) -->
+    <rect x="96" y="416" width="320" height="12" rx="6" fill="#e2e8f0" fill-opacity="0.85" stroke="#93c5fd" stroke-opacity="0.5" stroke-width="1.5"/>
+    <rect x="98" y="418" width="316" height="8" rx="4" fill="#cbd5e1" fill-opacity="0.5"/>
 
     <!-- Dynamic Looping Progress Bar Runner -->
     <g clip-path="url(#progressTrackClip)">
-      <rect class="progress-runner" x="96" y="417" width="120" height="10" rx="5" fill="url(#progressGrad)" filter="url(#waterGlow)"/>
+      <rect class="progress-bar-anim progressBarAnim" x="96" y="417" width="120" height="10" rx="5" fill="url(#progressGrad)" filter="url(#waterGlow)"/>
     </g>
 
     <clipPath id="progressTrackClip">
       <rect x="97" y="417" width="318" height="10" rx="5"/>
     </clipPath>
 
-    <!-- Japanese / Anime Otaku Typographic Label "加载中…" -->
+    <!-- Japanese / Anime Otaku Typographic Label "加载中…" with 3 Sequential Blinking Dots -->
     <g transform="translate(256, 458)">
       <text text-anchor="middle" font-family="'PingFang SC', 'Hiragino Sans GB', 'Noto Sans CJK SC', 'Segoe UI', system-ui, sans-serif" font-size="15" font-weight="600" letter-spacing="3" fill="#334155">
         <tspan fill="#0284c7">加</tspan>
         <tspan fill="#2563eb">载</tspan>
         <tspan fill="#7c3aed">中</tspan>
-        <tspan class="dot-1" fill="#0284c7">.</tspan>
-        <tspan class="dot-2" fill="#2563eb">.</tspan>
-        <tspan class="dot-3" fill="#7c3aed">.</tspan>
+        <tspan class="dot-1 dotPulse" fill="#0284c7">.</tspan>
+        <tspan class="dot-2 dotPulse" fill="#2563eb">.</tspan>
+        <tspan class="dot-3 dotPulse" fill="#7c3aed">.</tspan>
       </text>
     </g>
-
-    <!-- Subtle Subtitle / Brand Accent -->
-    <text x="256" y="480" text-anchor="middle" font-family="'Segoe UI', system-ui, sans-serif" font-size="10" font-weight="500" letter-spacing="4" fill="#94a3b8">
-      SHIRINE · FONTAINE MELODY
-    </text>
   </g>
 </svg>

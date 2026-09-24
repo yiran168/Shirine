@@ -2364,7 +2364,7 @@
     <!-- Main Admin Layout -->
     <div class="flex-1 flex flex-col md:flex-row">
       <!-- Sidebar Navigation -->
-      <aside class="w-full md:w-64 border-r border-[var(--outline-variant)]/20 bg-[var(--surface-container-lowest)] p-4 flex md:flex-col gap-1 overflow-x-auto shrink-0 relative z-20 pointer-events-auto">
+      <aside class="w-full md:w-64 border-r border-[var(--outline-variant)]/20 bg-[var(--surface-container-lowest)] p-4 flex md:flex-col gap-1 overflow-x-auto shrink-0 relative z-50 pointer-events-auto">
         <button
           onclick={() => switchTab("overview")}
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'overview' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"

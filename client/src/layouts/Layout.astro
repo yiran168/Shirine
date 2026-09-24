@@ -220,6 +220,7 @@ const runtimeApiUrl =
 		}}></style>
 
 		<slot name="head"></slot>
+		<link rel="preload" href="/assets/images/furina-loading.svg" as="image" type="image/svg+xml" fetchpriority="high" />
 		<link rel="alternate" type="application/rss+xml" title={profileConfig.name} href={`${Astro.site}rss.xml`}/>
 		<link rel="alternate" type="application/atom+xml" title={profileConfig.name} href={`${Astro.site}atom.xml`}/>
 	</head>
@@ -232,6 +233,26 @@ const runtimeApiUrl =
 		data-banner-has-desktop={String(hasDesktopBanner)}
 		data-banner-has-mobile={String(hasMobileBanner)}
 	>
+		<!-- Global Furina Anime Loading Screen (512x512 Seamless Loop, placed at top of body for immediate first paint) -->
+		<div
+			id="furina-global-loader"
+			class="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[var(--surface-container-lowest,#f8fafc)]/90 backdrop-blur-xl transition-all duration-500 ease-out select-none"
+			aria-label="页面加载中..."
+			role="status"
+		>
+			<div class="relative flex flex-col items-center justify-center max-w-[280px] sm:max-w-[340px] md:max-w-[380px] w-full px-4">
+				<img
+					src="/assets/images/furina-loading.svg"
+					alt="Shirine Loading..."
+					width="380"
+					height="380"
+					loading="eager"
+					fetchpriority="high"
+					class="w-full h-auto drop-shadow-xl pointer-events-none"
+				/>
+			</div>
+		</div>
+
 		<ConfigCarrier></ConfigCarrier>
 		{umamiOptions && <UmamiRuntime />}
 		{textureEnabled && (
@@ -247,24 +268,6 @@ const runtimeApiUrl =
 		<Live2DControl client:only="svelte" mode="guest" />
 		<AuthModal client:only="svelte" />
 		<UserDrawer client:only="svelte" />
-
-		<!-- Global Furina Anime Loading Screen (512x512 Seamless Loop) -->
-		<div
-			id="furina-global-loader"
-			class="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[var(--surface-container-lowest,#f8fafc)]/90 backdrop-blur-xl transition-all duration-400 ease-out select-none"
-			aria-label="页面加载中..."
-			role="status"
-		>
-			<div class="relative flex flex-col items-center justify-center max-w-[280px] sm:max-w-[340px] md:max-w-[380px] w-full px-4">
-				<img
-					src="/assets/images/furina-loading.svg"
-					alt="Shirine Loading..."
-					width="380"
-					height="380"
-					class="w-full h-auto drop-shadow-xl pointer-events-none"
-				/>
-			</div>
-		</div>
 	</body>
 </html>
 
@@ -345,14 +348,22 @@ document.addEventListener("click", async (event) => {
 	void copyPageLink();
 });
 
-function dismissFurinaLoader() {
+const furinaLoaderStartTime = Date.now();
+const MIN_INITIAL_LOADER_MS = 650;
+
+function dismissFurinaLoader(minDisplayMs = 0) {
 	const loader = document.getElementById('furina-global-loader');
-	if (loader && !loader.classList.contains('opacity-0')) {
+	if (!loader || loader.classList.contains('opacity-0')) return;
+
+	const elapsed = Date.now() - furinaLoaderStartTime;
+	const delay = Math.max(0, minDisplayMs - elapsed);
+
+	setTimeout(() => {
 		loader.classList.add('opacity-0', 'pointer-events-none');
 		setTimeout(() => {
 			loader.style.display = 'none';
-		}, 450);
-	}
+		}, 500);
+	}, delay);
 }
 
 function showFurinaLoader() {
@@ -366,10 +377,10 @@ function showFurinaLoader() {
 }
 
 if (document.readyState === 'complete') {
-	setTimeout(dismissFurinaLoader, 350);
+	dismissFurinaLoader(MIN_INITIAL_LOADER_MS);
 } else {
-	window.addEventListener('load', () => setTimeout(dismissFurinaLoader, 350));
-	setTimeout(dismissFurinaLoader, 2500);
+	window.addEventListener('load', () => dismissFurinaLoader(MIN_INITIAL_LOADER_MS));
+	setTimeout(() => dismissFurinaLoader(0), 3000);
 }
 
 const setup = () => {
@@ -395,7 +406,7 @@ const setup = () => {
 		document.getElementById('page-height-extend')?.classList.remove('hidden');
 	});
 	window.swup.hooks.on('visit:end', () => {
-		setTimeout(dismissFurinaLoader, 200);
+		dismissFurinaLoader(300);
 		if (!scrollStarted) finishVisit();
 	});
 	window.swup.hooks.on('page:view', () => {
