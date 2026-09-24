@@ -20,6 +20,7 @@ import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import { isWidgetVisibleOnPage, pagesToAttribute } from "@utils/sidebar-page";
 import { musicConfig, resolveMusicOptions } from "@/config/musicConfig";
+import { getDynamicSiteConfig } from "@utils/dynamic-config";
 import { sidebarConfig } from "@/config/sidebarConfig";
 import type {
 	SidebarColumn,
@@ -54,7 +55,9 @@ const ariaLabel =
 		? i18n(I18nKey.sidebarSecondary)
 		: i18n(I18nKey.sidebar);
 
-const musicOptions = resolveMusicOptions(musicConfig);
+const { music: dynamicMusic } = await getDynamicSiteConfig(Astro.request);
+const activeMusicConfig = dynamicMusic ?? musicConfig;
+const musicOptions = resolveMusicOptions(activeMusicConfig);
 const hasEnabledMusicWidget =
 	sidebarConfig.enable &&
 	sidebarConfig.components.some(

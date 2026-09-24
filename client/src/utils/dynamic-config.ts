@@ -38,23 +38,33 @@ export interface DynamicSiteConfigResult {
 
 let cachedPromise: Promise<DynamicSiteConfigResult> | null = null;
 let cachedTime = 0;
-const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_MS = 2000;
 
-export async function getDynamicSiteConfig(): Promise<DynamicSiteConfigResult> {
+export function clearDynamicConfigCache(): void {
+  cachedPromise = null;
+  cachedTime = 0;
+}
+
+export async function getDynamicSiteConfig(request?: Request): Promise<DynamicSiteConfigResult> {
   const now = Date.now();
-  if (cachedPromise && now - cachedTime < CACHE_TTL_MS) {
+  if (!request && cachedPromise && now - cachedTime < CACHE_TTL_MS) {
     return cachedPromise;
   }
 
-  cachedTime = now;
-  const promise = (async (): Promise<DynamicSiteConfigResult> => {
+  const fetchConfig = async (): Promise<DynamicSiteConfigResult> => {
     let apiBase = "";
-    if (import.meta.env.PUBLIC_API_URL) {
+    if (request?.url) {
+      try {
+        const origin = new URL(request.url).origin;
+        apiBase = `${origin}/api`;
+      } catch {}
+    }
+    if (!apiBase && import.meta.env.PUBLIC_API_URL) {
       const raw = import.meta.env.PUBLIC_API_URL.replace(/\/$/, "");
       apiBase = raw.endsWith("/api") ? raw : `${raw}/api`;
-    } else if (typeof window !== "undefined" && window.location) {
+    } else if (!apiBase && typeof window !== "undefined" && window.location) {
       apiBase = `${window.location.origin}/api`;
-    } else {
+    } else if (!apiBase) {
       apiBase = "http://127.0.0.1:11498/api";
     }
 
@@ -67,6 +77,11 @@ export async function getDynamicSiteConfig(): Promise<DynamicSiteConfigResult> {
         const data = json.data || json.config;
         if (json.success && data) {
           const mergedSite = deepMerge(siteConfig, data.site || {});
+          if (mergedSite.title && (!mergedSite.banner?.homeText?.title || mergedSite.banner.homeText.title === siteConfig.title)) {
+            if (!mergedSite.banner) mergedSite.banner = {} as any;
+            if (!mergedSite.banner.homeText) mergedSite.banner.homeText = {} as any;
+            mergedSite.banner.homeText.title = mergedSite.title;
+          }
           if (mergedSite.lang) {
             setSiteLang(mergedSite.lang);
           }
@@ -88,8 +103,13 @@ export async function getDynamicSiteConfig(): Promise<DynamicSiteConfigResult> {
       announcement: announcementConfig,
       footer: footerConfig,
     };
-  })();
+  };
 
-  cachedPromise = promise;
-  return promise;
+  if (!request) {
+    cachedTime = now;
+    cachedPromise = fetchConfig();
+    return cachedPromise;
+  }
+
+  return fetchConfig();
 }

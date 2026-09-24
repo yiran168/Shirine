@@ -1,22 +1,22 @@
 # Introduction
 
-Shirine is a blog based on Cloudflare Pages + Workers + D1 + R2. It does not require a server to deploy. It can be deployed just with a domain name that resolves to Cloudflare.
+Shirine is a modern anime dynamic blog system built on Astro 5 and the Cloudflare full-stack ecosystem (Cloudflare Pages SSR + Workers + D1 distributed database + R2 object storage), deeply following the Material 3 Expressive (M3E) design standard.
 
-## Demo
+## Repository
 
-[xeu.life](https://xeu.life)
+- GitHub: [https://github.com/yiran168/Shirine](https://github.com/yiran168/Shirine)
 
-## Features
-1. Support GitHub OAuth login. By default, the first logged-in user has management privileges, and other users are ordinary users
-2. Support article writing and editing
-3. Support local real-time saving of modifications/edits to any article without interfering between multiple articles
-4. Support setting it as visible only to yourself, which can serve as a draft box for cloud synchronization or record more private content
-5. Support dragging/pasting uploaded images to a bucket that supports the S3 protocol and generating links
-6. Support setting article aliases, and access articles through links such as https://xeu.life/about
-7. Support articles not being listed in the homepage list
-8. Support adding links of friends' blog, and the backend regularly checks and updates the accessible status of links every 20 minutes
-9. Support replying to comment articles/deleting comments
-10. Support sending comment notifications through Webhook
-11. Support automatic identification of the first picture in the article and display it as the header image in the article list
-12. Support inputting tag texts such as "#Blog #Cloudflare" and automatically parsing them into tags
-13. For more features, please refer to https://xeu.life
+## Key Features
+
+1. **Material 3 Expressive Design**: 100% compliant with Google M3E design tokens, fluid layouts, and expressive spring animations. Features HCT dynamic color extraction to automatically derive compliant tonal palettes across 0-360° hues.
+2. **Instant Dynamic Publishing**: Frontend powered by Astro 5 SSR on Cloudflare Pages; backend powered by Cloudflare Workers + Hono + Drizzle ORM. Content persists in Cloudflare D1 and assets in Cloudflare R2. Published articles, albums, and moments appear immediately on refresh.
+3. **3-Tier Content Permissions & Points Store**: Supports Public, Login Required (frosted glass lock card), and Points Required (configurable points to unlock permanently with celebratory confetti animation).
+4. **Daily Check-in & Rewards Engine**: Offers fixed points and random range modes, tracking consecutive streaks and transaction ledgers.
+5. **50 Preset Anime WebP Avatars**: Includes 50 curated high-res anime avatars with optimized thumbnails and responsive modal picker.
+6. **Sandboxed Pio Live2D Widget**: Embedded inside an isolated iframe to prevent style leakage, with independent toggles for visitors and admin, customizable multilingual quotes, and non-obscured top z-index.
+7. **Multi-Source Music Player**: Seamlessly supports local presets, custom R2 audio URLs, and Meting remote playlists (NetEase Cloud Music, QQ Music, Kugou), with metadata preloading to eliminate duration delay.
+8. **Rich Markdown Extension Ecosystem**: Admonitions, Steps containers, Collapsible panels, Code tabs, Mermaid diagrams, KaTeX math expressions, and media embeds.
+9. **Integrated AI Writing Assistant**: Streaming content generation with foldable reasoning/thought process display and request timeout handling.
+10. **Cloudflare Turnstile Anti-Bot Security**: Frictionless bot verification to protect sensitive actions against automated attacks.
+11. **Comprehensive Internationalization (i18n)**: Full 4-language support across frontend and admin dashboard (Simplified Chinese, Traditional Chinese, English, Japanese).
+12. **RSS 2.0 & Atom 1.0 Feeds**: Built-in permission filtration preventing protected content from leaking into public feeds.

@@ -139,8 +139,16 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 		if (apiConnected && apiPosts.length > 0) {
 			postsToUse = apiPosts.map((ap) => {
 				const local = localPostsMap.get(ap.id);
-				if (local && (!ap.body || ap.body.trim().length === 0)) {
-					ap.body = local.body;
+				if (local) {
+					if (!ap.body || ap.body.trim().length === 0) {
+						ap.body = local.body;
+					}
+					if (!ap.filePath && local.filePath) {
+						(ap as any).filePath = local.filePath;
+					}
+					if (!ap.data.image && local.data.image) {
+						ap.data.image = local.data.image;
+					}
 				}
 				return ap;
 			});

@@ -449,6 +449,7 @@
   let aiInstruction = $state("");
   let aiGenerating = $state(false);
   let aiResult = $state("");
+  let aiThinking = $state("");
   let aiAvailableModels = $state<string[]>([]);
   let aiFetchingModels = $state(false);
 
@@ -1256,6 +1257,47 @@
     siteConfigState.musicTracks = siteConfigState.musicTracks.filter((_, i) => i !== index);
   }
 
+  function handleAudioTrackUpload(e: Event, track: any) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) {
+      try {
+        const probe = new Audio(URL.createObjectURL(file));
+        probe.onloadedmetadata = () => {
+          if (probe.duration && !isNaN(probe.duration) && isFinite(probe.duration)) {
+            track.duration = Math.round(probe.duration);
+          }
+        };
+      } catch {}
+    }
+    handleGenericUpload(e, (url) => {
+      track.source = url;
+    });
+  }
+
+  function probeTrackDuration(track: any) {
+    if (!track.source) {
+      showMessage("请先输入或上传音频链接", true);
+      return;
+    }
+    try {
+      const probe = new Audio(track.source);
+      probe.onloadedmetadata = () => {
+        if (probe.duration && !isNaN(probe.duration) && isFinite(probe.duration)) {
+          track.duration = Math.round(probe.duration);
+          showMessage(`探测音频时长成功: ${Math.floor(track.duration / 60)}分${track.duration % 60}秒`);
+        } else {
+          showMessage("未能解析该音频时长，可手动在输入框中填写秒数", true);
+        }
+      };
+      probe.onerror = () => {
+        showMessage("无法探测该音频（可能存在跨域限制），请手动输入秒数", true);
+      };
+    } catch {
+      showMessage("探测音频时长异常，请手动输入秒数", true);
+    }
+  }
+
   // --- Profile Links Operations ---
   function addProfileLink(preset?: { name: string; icon: string; url: string }) {
     siteConfigState.profileLinks = [
@@ -1862,6 +1904,7 @@
     aiPrompt = "";
     aiInstruction = "";
     aiResult = "";
+    aiThinking = "";
     aiModalOpen = true;
   }
 
@@ -1872,26 +1915,84 @@
     }
     aiGenerating = true;
     aiResult = "";
+    aiThinking = "";
     try {
       const contextText = aiTarget === "post"
         ? `文章标题: ${postForm.title}\n文章分类: ${postForm.category}\n已有正文:\n${postForm.content.slice(0, 2500)}`
         : `已有动态内容:\n${(momentModalOpen ? editMomentForm.content : momentContent).slice(0, 1000)}`;
 
-      const res = await aiApi.generate({
-        apiUrl: systemConfigState.aiApiUrl,
-        apiKey: systemConfigState.aiApiKey,
-        model: systemConfigState.aiModel,
-        prompt: `【上下文】：\n${contextText}\n\n【用户指令】：\n${promptToUse}`,
-        systemPrompt: "你是一个专业的个人博客写作助手。根据用户指令帮助润色、续写或整理博客内容，直接输出 Markdown 格式，不要废话。",
+      const token = localStorage.getItem("shirine_token") || "";
+      const response = await fetch("/api/admin/ai/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+        body: JSON.stringify({
+          apiUrl: systemConfigState.aiApiUrl,
+          apiKey: systemConfigState.aiApiKey,
+          model: systemConfigState.aiModel,
+          prompt: `【上下文】：\n${contextText}\n\n【用户指令】：\n${promptToUse}`,
+          systemPrompt: "你是一个专业的个人博客写作助手。根据用户指令帮助润色、续写或整理博客内容，直接输出 Markdown 格式，不要废话。",
+          stream: true,
+        }),
+        signal: AbortSignal.timeout(60000),
       });
 
-      if (res.success && res.content) {
-        aiResult = res.content;
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => null);
+        showMessage(errJson?.error || `AI 请求失败 (${response.status})`, true);
+        return;
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("text/event-stream") && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith(":")) continue;
+            if (trimmed === "data: [DONE]") continue;
+            if (trimmed.startsWith("data: ")) {
+              try {
+                const parsed = JSON.parse(trimmed.slice(6));
+                const delta = parsed.choices?.[0]?.delta;
+                const reasoning = delta?.reasoning_content || delta?.reasoning || delta?.thought;
+                if (reasoning) {
+                  aiThinking += reasoning;
+                }
+                if (delta?.content) {
+                  aiResult += delta.content;
+                }
+              } catch {}
+            }
+          }
+        }
       } else {
-        showMessage(res.error || "AI 生成失败，请检查 API 配置", true);
+        const res = await response.json();
+        const content = res.content || res.text || "";
+        if (res.success && content) {
+          aiResult = content;
+          if (res.thinking) aiThinking = res.thinking;
+        } else {
+          showMessage(res.error || "AI 生成失败，请检查 API 配置", true);
+        }
       }
     } catch (err: any) {
-      showMessage(err.message || "生成异常", true);
+      if (err.name === "TimeoutError" || err.name === "AbortError") {
+        showMessage("AI 请求超时，请检查接口网络通畅度或更换响应更快的模型", true);
+      } else {
+        showMessage(err.message || "生成异常", true);
+      }
     } finally {
       aiGenerating = false;
     }
@@ -1996,8 +2097,11 @@
     }
   }
 
+  let isSavingAllSettings = $state(false);
+
   // --- Settings Save ---
   async function saveAllSettings() {
+    isSavingAllSettings = true;
     try {
       const desktopBanners = siteConfigState.bannerDesktop
         .split("\n")
@@ -2036,6 +2140,8 @@
       }
     } catch (err: any) {
       showMessage(err.message, true);
+    } finally {
+      isSavingAllSettings = false;
     }
   }
 
@@ -2364,7 +2470,7 @@
     <!-- Main Admin Layout -->
     <div class="flex-1 flex flex-col md:flex-row">
       <!-- Sidebar Navigation -->
-      <aside class="w-full md:w-64 border-r border-[var(--outline-variant)]/20 bg-[var(--surface-container-lowest)] p-4 flex md:flex-col gap-1 overflow-x-auto shrink-0 relative z-50 pointer-events-auto">
+      <aside class="w-full md:w-64 border-r border-[var(--outline-variant)]/20 bg-[var(--surface-container-lowest)] p-4 flex md:flex-col gap-1 overflow-x-auto shrink-0 md:sticky md:top-16 md:h-[calc(100vh-4rem)] md:overflow-y-auto relative z-50 pointer-events-auto">
         <button
           onclick={() => switchTab("overview")}
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'overview' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
@@ -4250,9 +4356,25 @@
 
         {:else if currentTab === "settings"}
           <!-- Settings Panel -->
-          <div class="mb-6">
-            <h1 class="text-2xl font-bold">系统与全站配置</h1>
-            <p class="text-xs text-[var(--on-surface-variant)] mt-1">配置每日签到积分规则、Cloudflare Turnstile 人机验证、看板娘及全站核心设定</p>
+          <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-bold">系统与全站配置</h1>
+              <p class="text-xs text-[var(--on-surface-variant)] mt-1">配置每日签到积分规则、Cloudflare Turnstile 人机验证、看板娘及全站核心设定</p>
+            </div>
+            <button
+              type="button"
+              onclick={saveAllSettings}
+              disabled={isSavingAllSettings}
+              class="px-6 py-2.5 rounded-full bg-primary text-on-primary font-bold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all flex items-center gap-2 shrink-0 self-start sm:self-auto disabled:opacity-50"
+            >
+              {#if isSavingAllSettings}
+                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                <span>保存中...</span>
+              {:else}
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span>保存所有外观与系统设定</span>
+              {/if}
+            </button>
           </div>
 
           <div class="space-y-6 max-w-3xl">
@@ -5142,12 +5264,35 @@
                                 />
                                 <label class="cursor-pointer p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-[10px] shrink-0 font-medium" title="上传音频文件 (.mp3, .flac, .wav, .ogg, .m4a)">
                                   <span>🎵 上传</span>
-                                  <input type="file" accept="audio/*,.mp3,.flac,.wav,.ogg,.m4a,.aac" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => { track.source = url; })} />
+                                  <input type="file" accept="audio/*,.mp3,.flac,.wav,.ogg,.m4a,.aac" class="hidden" onchange={(e) => handleAudioTrackUpload(e, track)} />
                                 </label>
                                 {#if track.source}
                                   <button type="button" onclick={() => copyToClipboard(track.source)} class="p-1.5 rounded-lg border border-[var(--outline-variant)]/20 hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] text-[10px] shrink-0" title="复制音频链接">
                                     📋
                                   </button>
+                                {/if}
+                              </div>
+                              <div class="flex items-center gap-1.5">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  bind:value={track.duration}
+                                  placeholder="时长(秒)"
+                                  class="w-24 px-2.5 py-1.5 rounded-lg border border-[var(--outline-variant)]/20 bg-[var(--surface)] text-xs outline-none font-mono"
+                                  title="音频时长(秒)"
+                                />
+                                <button
+                                  type="button"
+                                  onclick={() => probeTrackDuration(track)}
+                                  class="px-2 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-semibold shrink-0 transition-colors"
+                                  title="探测已填写的音频链接时长"
+                                >
+                                  ⏱️ 探测时长
+                                </button>
+                                {#if track.duration}
+                                  <span class="text-[10px] text-[var(--on-surface-variant)]">
+                                    ({Math.floor(track.duration / 60)}:{String(track.duration % 60).padStart(2, "0")})
+                                  </span>
                                 {/if}
                               </div>
                               <div class="flex items-center gap-1">
@@ -5216,10 +5361,16 @@
             <!-- Save Button -->
             <button
               onclick={saveAllSettings}
-              class="px-8 py-3 rounded-full bg-primary text-on-primary font-bold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all flex items-center gap-2"
+              disabled={isSavingAllSettings}
+              class="px-8 py-3 rounded-full bg-primary text-on-primary font-bold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all flex items-center gap-2 disabled:opacity-50"
             >
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-              <span>保存所有外观与系统设定</span>
+              {#if isSavingAllSettings}
+                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                <span>保存中...</span>
+              {:else}
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <span>保存所有外观与系统设定</span>
+              {/if}
             </button>
           </div>
 
@@ -5617,7 +5768,7 @@
                       <p class="text-xs font-semibold text-[var(--on-surface)] truncate" title={file.key}>{file.key.split("/").pop() || file.key}</p>
                       <p class="text-[10px] text-[var(--on-surface-variant)] font-mono truncate mt-0.5" title={file.url}>{file.url}</p>
                       {#if isAudio}
-                        <audio controls preload="none" class="w-full mt-2 h-7 rounded">
+                        <audio controls preload="metadata" class="w-full mt-2 h-7 rounded">
                           <source src={file.url} />
                           {#if file.fallbackUrl}
                             <source src={file.fallbackUrl} />
@@ -5669,12 +5820,40 @@
             </div>
           </div>
 
-          <div class="space-y-6 max-w-4xl">
-            <!-- Basic Formatting -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>🖋️ 基础文本排版 (Headings, Bold, Lists, Tables)</span>
+          <div class="flex flex-col xl:flex-row gap-6 items-start">
+            <div class="space-y-6 flex-1 max-w-4xl min-w-0">
+              <!-- Frontmatter Template -->
+              <div id="guide-frontmatter" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>📑 文章元数据完整模板 (YAML Frontmatter)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard(`---\ntitle: "新博文标题"\npublished: 2026-09-24\ndescription: "文章精炼摘要描述，用于前台卡片展示与 SEO 元数据"\ncategory: "技术探索"\ntags: ["Astro", "Shirine", "Svelte"]\nimage: "./cover.webp"\ndraft: false\npinned: false\n---\n`)}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制 Frontmatter
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">放置于博文 Markdown 文件的最顶部，配置文章标题、发布日期、分类、标签与封面图路径。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>---
+title: "新博文标题"
+published: 2026-09-24
+description: "文章精炼摘要描述，用于前台卡片展示与 SEO 元数据"
+category: "技术探索"
+tags: ["Astro", "Shirine", "Svelte"]
+image: "./cover.webp"
+draft: false
+pinned: false
+---</code></pre>
+              </div>
+
+              <!-- Basic Formatting -->
+              <div id="guide-basic" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🖋️ 基础文本排版 (Headings, Bold, Lists, Tables)</span>
                 </h2>
                 <button
                   type="button"
@@ -5705,13 +5884,60 @@
 | 表头一 | 表头二 | 表头三 |
 | :--- | :---: | ---: |
 | 左对齐 | 居中对齐 | 右对齐 |</code></pre>
-            </div>
+              </div>
 
-            <!-- Admonitions -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>💡 警告与提示卡片 (Admonitions)</span>
+              <!-- Keyboard & Super/Subscript -->
+              <div id="guide-kbd" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>⌨️ 键盘快捷键与上标下标 (Keyboard & Super/Subscript)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('按下 <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd> 打开命令面板。\n\nMac 用户请按下 <kbd>⌘</kbd> + <kbd>K</kbd> 唤出全局检索。\n\n水分子化学式为 H<sub>2</sub>O，爱因斯坦方程 E = mc<sup>2</sup>。')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制按键与上下标
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">用于编写键盘快捷键操作指南或科学公式上下标文本。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>按下 &lt;kbd&gt;Ctrl&lt;/kbd&gt; + &lt;kbd&gt;Shift&lt;/kbd&gt; + &lt;kbd&gt;P&lt;/kbd&gt; 打开命令面板。
+Mac 用户请按下 &lt;kbd&gt;⌘&lt;/kbd&gt; + &lt;kbd&gt;K&lt;/kbd&gt; 唤出全局检索。
+
+水分子化学式为 H&lt;sub&gt;2&lt;/sub&gt;O，爱因斯坦方程 E = mc&lt;sup&gt;2&lt;/sup&gt;。</code></pre>
+              </div>
+
+              <!-- Footnotes -->
+              <div id="guide-footnotes" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>📑 引用段落与文末脚注 (Blockquotes & Footnotes)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('这是一个带有学术来源的声明观点[^1]，以及另一个解释词汇[^2]。\n\n> 这是一个经典引用区块。\n>> 支持嵌套多级引用。\n>\n> — 鲁迅\n\n[^1]: 这是脚注的具体文献出处或详细背景注解。\n[^2]: 这是第二个脚注的解释内容。点击后可双向锚点跳转。')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制引用与脚注
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">在正文使用 <code>[^1]</code> 标记，并在文末编写对应解释，读者点击即可平滑跳转到文末注释并返回。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>这是一个带有学术来源的声明观点[^1]，以及另一个解释词汇[^2]。
+
+> 这是一个经典引用区块。
+>> 支持嵌套多级引用。
+>
+> — 鲁迅
+
+[^1]: 这是脚注的具体文献出处或详细背景注解。
+[^2]: 这是第二个脚注的解释内容。点击后可双向锚点跳转。</code></pre>
+              </div>
+
+              <!-- Admonitions -->
+              <div id="guide-admonitions" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>💡 警告与提示卡片 (Admonitions)</span>
                 </h2>
                 <button
                   type="button"
@@ -5744,7 +5970,7 @@
             </div>
 
             <!-- Expressive Code -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+            <div id="guide-code" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
               <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                 <h2 class="text-base font-bold flex items-center gap-2">
                   <span>💻 增强代码块 (Expressive Code)</span>
@@ -5769,7 +5995,7 @@ export function greeting(name: string): string &#123;
             </div>
 
             <!-- Math & Mermaid -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+            <div id="guide-math" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
               <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                 <h2 class="text-base font-bold flex items-center gap-2">
                   <span>📐 数学公式与 Mermaid 流程图 (KaTeX & Diagrams)</span>
@@ -5800,7 +6026,7 @@ graph TD;
             </div>
 
             <!-- Collapse Panels & Tabs -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+            <div id="guide-tabs" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
               <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                 <h2 class="text-base font-bold flex items-center gap-2">
                   <span>📂 折叠面板与分栏选项卡 (Collapse & Tabs)</span>
@@ -5835,7 +6061,7 @@ npm install
             </div>
 
             <!-- Video & Audio Embeds -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+            <div id="guide-media" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
               <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                 <h2 class="text-base font-bold flex items-center gap-2">
                   <span>🎬 视频、音频与画廊组件 (Media Embeds)</span>
@@ -5864,7 +6090,7 @@ npm install
             </div>
 
             <!-- Steps Flow -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+            <div id="guide-steps" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
               <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                 <h2 class="text-base font-bold flex items-center gap-2">
                   <span>🪜 序号导轨步骤条 (Steps Flow)</span>
@@ -5894,7 +6120,7 @@ npm install
             </div>
 
             <!-- File Tree -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+            <div id="guide-file-tree" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
               <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                 <h2 class="text-base font-bold flex items-center gap-2">
                   <span>🌲 交互式目录树 (File Tree)</span>
@@ -5927,7 +6153,7 @@ npm install
             </div>
 
             <!-- Artplayer & Audio Reader -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+            <div id="guide-artplayer" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
               <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                 <h2 class="text-base font-bold flex items-center gap-2">
                   <span>🎥 Artplayer 视频播放器与 Audio Reader 行内朗读</span>
@@ -5947,7 +6173,7 @@ npm install
             </div>
 
             <!-- GitHub Card & Field Group -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+            <div id="guide-github" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
               <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                 <h2 class="text-base font-bold flex items-center gap-2">
                   <span>🐙 GitHub 仓库卡片与参数属性清单 (Field Cards)</span>
@@ -5984,7 +6210,7 @@ npm install
             </div>
 
             <!-- Annotations & Marker Highlights -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+            <div id="guide-marker" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
               <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                 <h2 class="text-base font-bold flex items-center gap-2">
                   <span>🏷️ 荧光笔高亮与悬浮术语注解 (Marker & Annotations)</span>
@@ -6010,7 +6236,7 @@ npm install
             </div>
 
             <!-- Multi-tab Sync & Accordion FAQ -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+            <div id="guide-accordion" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
               <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                 <h2 class="text-base font-bold flex items-center gap-2">
                   <span>❓ 手风琴问答组与同步代码选项卡 (Accordion & Option Groups)</span>
@@ -6056,7 +6282,7 @@ npm run dev
             </div>
 
             <!-- Code Trees & Diff Trees -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+            <div id="guide-diff-tree" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
               <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                 <h2 class="text-base font-bold flex items-center gap-2">
                   <span>🌳 代码架构与文件变更树 (Code Trees & Diff Trees)</span>
@@ -6087,7 +6313,7 @@ npm run dev
             </div>
 
             <!-- Badges & Status Pills -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+            <div id="guide-badges" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
               <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                 <h2 class="text-base font-bold flex items-center gap-2">
                   <span>🏷️ 徽章与胶囊标记 (Badges & Status Pills)</span>
@@ -6110,7 +6336,7 @@ npm run dev
             </div>
 
             <!-- Abbreviations -->
-            <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+            <div id="guide-abbr" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
               <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                 <h2 class="text-base font-bold flex items-center gap-2">
                   <span>🔤 缩略语全名术语卡 (Abbreviations Glossary)</span>
@@ -6132,6 +6358,35 @@ npm run dev
 *[D1]: Cloudflare Serverless SQLite 分布式数据库</code></pre>
             </div>
           </div>
+
+          <!-- Sticky Quick Jump Table of Contents -->
+          <aside class="hidden xl:block w-72 shrink-0 sticky top-20 p-5 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-3">
+            <div class="flex items-center gap-2 pb-2 border-b border-[var(--outline-variant)]/20">
+              <span class="text-base">📑</span>
+              <span class="text-sm font-bold">快速目录导航</span>
+            </div>
+            <nav class="space-y-1 text-xs max-h-[calc(100vh-12rem)] overflow-y-auto pr-1">
+              <a href="#guide-frontmatter" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">📑 文章元数据 (Frontmatter)</a>
+              <a href="#guide-basic" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🖋️ 基础文本排版</a>
+              <a href="#guide-kbd" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">⌨️ 键盘快捷键与上下标</a>
+              <a href="#guide-footnotes" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">⚓ 脚注与学术引用</a>
+              <a href="#guide-admonitions" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">💡 警告与提示卡片</a>
+              <a href="#guide-code" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">💻 增强代码块 (Expressive Code)</a>
+              <a href="#guide-math" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">📐 数学公式与 Mermaid</a>
+              <a href="#guide-tabs" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">📂 折叠面板与分栏选项卡</a>
+              <a href="#guide-media" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🎬 视频、音频与画廊组件</a>
+              <a href="#guide-steps" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🪜 序号导轨步骤条 (Steps)</a>
+              <a href="#guide-file-tree" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🌲 交互式目录树 (File Tree)</a>
+              <a href="#guide-artplayer" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🎥 Artplayer 视频播放器</a>
+              <a href="#guide-github" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🐙 GitHub 仓库卡片与参数卡片</a>
+              <a href="#guide-marker" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🏷️ 荧光笔高亮与悬浮术语</a>
+              <a href="#guide-accordion" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">❓ 手风琴问答组与同步选项卡</a>
+              <a href="#guide-diff-tree" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🌳 代码架构与文件变更树</a>
+              <a href="#guide-badges" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🏷️ 徽章与胶囊标记</a>
+              <a href="#guide-abbr" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🔤 缩略语全名术语卡</a>
+            </nav>
+          </aside>
+        </div>
         {/if}
       </main>
     </div>
@@ -7103,7 +7358,18 @@ npm run dev
           </div>
 
           <!-- Result Area -->
-          {#if aiGenerating}
+          {#if aiThinking}
+            <details class="p-3.5 rounded-2xl bg-[var(--surface-container)] border border-[var(--outline-variant)]/30 text-xs text-[var(--on-surface-variant)] space-y-1.5" open>
+              <summary class="font-bold cursor-pointer text-primary flex items-center gap-1.5 select-none">
+                <span>🧠 深度思考推理过程 (Reasoning Process)</span>
+              </summary>
+              <div class="mt-2 text-xs leading-relaxed whitespace-pre-wrap font-mono max-h-40 overflow-y-auto">
+                {aiThinking}
+              </div>
+            </details>
+          {/if}
+
+          {#if aiGenerating && !aiResult}
             <div class="p-6 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 text-center space-y-2 animate-pulse">
               <span class="text-2xl">✨</span>
               <p class="text-xs text-[var(--on-surface-variant)]">AI 正在根据您的上下文与指令进行创作，请稍候...</p>
@@ -7111,7 +7377,12 @@ npm run dev
           {:else if aiResult}
             <div class="space-y-2">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold text-[var(--on-surface)]">生成结果预览 (Markdown)</span>
+                <span class="text-xs font-semibold text-[var(--on-surface)]">
+                  生成结果预览 (Markdown)
+                  {#if aiGenerating}
+                    <span class="text-primary animate-pulse ml-1">● 正在生成中...</span>
+                  {/if}
+                </span>
                 <div class="flex items-center gap-2">
                   <button
                     type="button"
@@ -7122,7 +7393,7 @@ npm run dev
                   </button>
                   <button
                     type="button"
-                    onclick={() => { aiResult = ""; }}
+                    onclick={() => { aiResult = ""; aiThinking = ""; }}
                     class="px-2 py-1 rounded-lg hover:bg-error/10 text-error text-xs transition-colors"
                   >
                     清空

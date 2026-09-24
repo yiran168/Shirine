@@ -51,8 +51,8 @@ It marries the visual elegance of Google's **Material 3 Expressive** (2025) desi
   - Tracks consecutive check-in streaks and history.
 - 👤 **First Registered User Superadmin**:
   - The first user to register automatically becomes `superadmin` with full system control.
-- 🖼️ **20 Preset Anime WebP Avatars**:
-  - 20 anime avatars with high-res and thumbnails; switcher grid modal.
+- 🖼️ **50 Preset Anime WebP Avatars**:
+  - 50 anime avatars with high-res and thumbnails; switcher grid modal.
   - Global navbar avatar menu adapting to 3 states: Guest (Sign In/Up), User (Check-in/Avatar/Sign Out), Admin (Admin Panel/Avatar/Sign Out).
 - 🐱 **Sandboxed Pio Live2D Widget**:
   - Embedded via an isolated iframe, preventing CSS class collisions and script conflicts.

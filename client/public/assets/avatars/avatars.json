@@ -2,16 +2,16 @@
   {
     "id": 1,
     "code": "avatar_01",
-    "name": "千夏·元气咖啡",
-    "prompt": "Energetic anime barista girl with light brown ponytail, warm orange apron and friendly smile",
+    "name": "千夏·元气晨光",
+    "prompt": "Energetic anime girl with bright amber eyes and warm golden morning sunlight",
     "url": "/assets/avatars/avatar_01.webp",
     "thumbUrl": "/assets/avatars/avatar_01_thumb.webp"
   },
   {
     "id": 2,
     "code": "avatar_02",
-    "name": "静流·青空私塾",
-    "prompt": "Gentle anime schoolgirl with dark navy bob cut, crisp sailor uniform under azure sky",
+    "name": "夜见·战姬降临",
+    "prompt": "Cool combat maiden with sleek silver hair, battle gear and focused violet gaze",
     "url": "/assets/avatars/avatar_02.webp",
     "thumbUrl": "/assets/avatars/avatar_02_thumb.webp"
   },
@@ -26,376 +26,376 @@
   {
     "id": 4,
     "code": "avatar_04",
-    "name": "泷奈·夜幕沉着",
-    "prompt": "Cool black-haired anime girl with deep purple eyes, poised posture and quiet determination",
+    "name": "静流·青空私塾",
+    "prompt": "Gentle anime schoolgirl with dark navy bob cut, crisp sailor uniform under azure sky",
     "url": "/assets/avatars/avatar_04.webp",
     "thumbUrl": "/assets/avatars/avatar_04_thumb.webp"
   },
   {
     "id": 5,
     "code": "avatar_05",
-    "name": "未来·歌姬幻想",
-    "prompt": "Futuristic idol girl with cyan dual pigtails, holographic hair ribbons and glowing audio visualizer",
+    "name": "蒂亚·学园心动",
+    "prompt": "Gentle schoolgirl in navy uniform, soft chestnut bob and gentle radiant smile",
     "url": "/assets/avatars/avatar_05.webp",
     "thumbUrl": "/assets/avatars/avatar_05_thumb.webp"
   },
   {
     "id": 6,
     "code": "avatar_06",
-    "name": "银白长发·红瞳",
-    "prompt": "Silver-white flowing hair, crimson ruby eyes, gothic anime dress, ethereal atmosphere",
+    "name": "花见·樱下独酌",
+    "prompt": "Graceful anime maiden under weeping cherry blossoms in a traditional patterned silk kimono",
     "url": "/assets/avatars/avatar_06.webp",
     "thumbUrl": "/assets/avatars/avatar_06_thumb.webp"
   },
   {
     "id": 7,
     "code": "avatar_07",
-    "name": "金发双马尾·活力",
-    "prompt": "Vibrant golden blonde twin-tails, emerald green eyes, cheerful smile in summer breeze",
+    "name": "星奈·碧海蓝天",
+    "prompt": "Vibrant anime heroine with teal twin-tails standing on a sunny coastline with summer waves",
     "url": "/assets/avatars/avatar_07.webp",
     "thumbUrl": "/assets/avatars/avatar_07_thumb.webp"
   },
   {
     "id": 8,
     "code": "avatar_08",
-    "name": "黑发姬发式·和风",
-    "prompt": "Traditional black hime-cut tresses, amethyst violet eyes, delicate floral silk kimono",
+    "name": "紫苑·暮光回眸",
+    "prompt": "Ethereal anime girl with flowing lilac hair against a glowing twilight skyline",
     "url": "/assets/avatars/avatar_08.webp",
     "thumbUrl": "/assets/avatars/avatar_08_thumb.webp"
   },
   {
     "id": 9,
     "code": "avatar_09",
-    "name": "樱粉短发·温柔",
-    "prompt": "Soft pastel pink layered bob, warm amber eyes, gentle smile under falling sakura blossoms",
+    "name": "琉璃·天籁之境",
+    "prompt": "Cosmic anime priestess in star-embroidered robes surrounded by celestial nebula",
     "url": "/assets/avatars/avatar_09.webp",
     "thumbUrl": "/assets/avatars/avatar_09_thumb.webp"
   },
   {
     "id": 10,
     "code": "avatar_10",
-    "name": "冰蓝长发·清冷",
-    "prompt": "Frosty ice-blue cascading hair, deep sapphire eyes, tranquil snowy crystal hairpins",
+    "name": "真昼·暖冬红茶",
+    "prompt": "Cozy anime girl wrapped in a warm knit scarf holding a steaming cup of tea",
     "url": "/assets/avatars/avatar_10.webp",
     "thumbUrl": "/assets/avatars/avatar_10_thumb.webp"
   },
   {
     "id": 11,
     "code": "avatar_11",
-    "name": "栗色微卷·知性",
-    "prompt": "Chestnut wavy curls, hazel brown eyes, cozy knitted sweater, relaxed afternoon cafe vibe",
+    "name": "凛音·剑舞风华",
+    "prompt": "Dynamic swordswoman in flowing eastern robes wielding a gleaming crystal katana",
     "url": "/assets/avatars/avatar_11.webp",
     "thumbUrl": "/assets/avatars/avatar_11_thumb.webp"
   },
   {
     "id": 12,
     "code": "avatar_12",
-    "name": "白发猫耳·软萌",
-    "prompt": "Snowy white pixie hair with fluffy feline ears, golden eyes, oversized hoodie",
+    "name": "优姬·蔷薇庄园",
+    "prompt": "Victorian noble girl with platinum curls and emerald eyes resting in an antique rose garden",
     "url": "/assets/avatars/avatar_12.webp",
     "thumbUrl": "/assets/avatars/avatar_12_thumb.webp"
   },
   {
     "id": 13,
     "code": "avatar_13",
-    "name": "紫罗兰·优雅",
-    "prompt": "Rich royal violet waves, golden diadem, elegant Victorian aristocratic anime maiden",
+    "name": "枫华·秋意渐浓",
+    "prompt": "Gentle girl with auburn braid among falling crimson maple leaves on an autumn afternoon",
     "url": "/assets/avatars/avatar_13.webp",
     "thumbUrl": "/assets/avatars/avatar_13_thumb.webp"
   },
   {
     "id": 14,
     "code": "avatar_14",
-    "name": "薄荷绿·森系",
-    "prompt": "Fresh mint green twin braids, leafy emerald eyes, woodland floral crown, ethereal sunlight",
+    "name": "蕾拉·赛博霓虹",
+    "prompt": "Futuristic anime hacker with luminous neon cyberwear and holographic visor in a rainy metropolis",
     "url": "/assets/avatars/avatar_14.webp",
     "thumbUrl": "/assets/avatars/avatar_14_thumb.webp"
   },
   {
     "id": 15,
     "code": "avatar_15",
-    "name": "墨黑马尾·飒爽",
-    "prompt": "Jet-black high ponytail, piercing steel-blue eyes, modern cyber jacket with neon accents",
+    "name": "雪奈·纯白誓言",
+    "prompt": "Pale snow maiden with crystalline azure eyes in a tranquil winter fantasy forest",
     "url": "/assets/avatars/avatar_15.webp",
     "thumbUrl": "/assets/avatars/avatar_15_thumb.webp"
   },
   {
     "id": 16,
     "code": "avatar_16",
-    "name": "珊瑚橙·元气",
-    "prompt": "Bright peach-coral wavy hair, playful wink, sunset beach vacation aesthetic",
+    "name": "未希·微风摇曳",
+    "prompt": "Carefree anime student with wind-swept golden locks enjoying a sunny rooftop breeze",
     "url": "/assets/avatars/avatar_16.webp",
     "thumbUrl": "/assets/avatars/avatar_16_thumb.webp"
   },
   {
     "id": 17,
     "code": "avatar_17",
-    "name": "薰衣草·梦幻",
-    "prompt": "Soft lavender purple locks, starry eyes, galaxy nebula reflections, celestial aesthetic",
+    "name": "明日香·炽热黄昏",
+    "prompt": "Passionate crimson-haired pilot looking toward the burning sunset with resolute determination",
     "url": "/assets/avatars/avatar_17.webp",
     "thumbUrl": "/assets/avatars/avatar_17_thumb.webp"
   },
   {
     "id": 18,
     "code": "avatar_18",
-    "name": "浅金盘发·大小姐",
-    "prompt": "Champagne blonde braided updo, sapphire earrings, regal academy uniform portrait",
+    "name": "爱丽丝·奇境茶会",
+    "prompt": "Fairy-tale blonde anime girl with blue ribbon headband and vintage tea party porcelain",
     "url": "/assets/avatars/avatar_18.webp",
     "thumbUrl": "/assets/avatars/avatar_18_thumb.webp"
   },
   {
     "id": 19,
     "code": "avatar_19",
-    "name": "深海蓝·人鱼",
-    "prompt": "Deep ocean cyan gradient hair, luminous pearl hairpins, aquamarine bioluminescent glow",
+    "name": "雪莉·白羽微风",
+    "prompt": "Gentle anime maiden with pure white plumage hairpins and soft lavender eyes",
     "url": "/assets/avatars/avatar_19.webp",
     "thumbUrl": "/assets/avatars/avatar_19_thumb.webp"
   },
   {
     "id": 20,
     "code": "avatar_20",
-    "name": "赤焰红·热烈",
-    "prompt": "Crimson scarlet dynamic tresses, fierce fiery eyes, confident smirk with flame motif",
+    "name": "奏·极夜星芒",
+    "prompt": "Solemn pianist girl with sleek midnight-black hair beneath a shimmering aurora sky",
     "url": "/assets/avatars/avatar_20.webp",
     "thumbUrl": "/assets/avatars/avatar_20_thumb.webp"
   },
   {
     "id": 21,
     "code": "avatar_21",
-    "name": "珍珠白·天使",
-    "prompt": "Feathered white locks, halo glimmer, gentle golden eyes, sacred serenity anime art",
+    "name": "心爱·糖果幻想",
+    "prompt": "Sweet anime girl surrounded by whimsical pastel macarons, cupcakes and colorful ribbons",
     "url": "/assets/avatars/avatar_21.webp",
     "thumbUrl": "/assets/avatars/avatar_21_thumb.webp"
   },
   {
     "id": 22,
     "code": "avatar_22",
-    "name": "青墨短发·剑客",
-    "prompt": "Sleek ink-black bob with asymmetric fringe, bamboo forest mist, wanderer samurai girl",
+    "name": "莲·浮世清欢",
+    "prompt": "Zen anime maiden in white and crimson robes observing koi fish in a tranquil temple pond",
     "url": "/assets/avatars/avatar_22.webp",
     "thumbUrl": "/assets/avatars/avatar_22_thumb.webp"
   },
   {
     "id": 23,
     "code": "avatar_23",
-    "name": "焦糖卷发·秋日",
-    "prompt": "Warm caramel autumn waves, maple leaf clip, wool scarf, golden hour illumination",
+    "name": "菲雅·森之精灵",
+    "prompt": "Woodland anime fairy with delicate pointed ears, emerald braids and luminous floating fireflies",
     "url": "/assets/avatars/avatar_23.webp",
     "thumbUrl": "/assets/avatars/avatar_23_thumb.webp"
   },
   {
     "id": 24,
     "code": "avatar_24",
-    "name": "极光绿·电竞",
-    "prompt": "Neon lime-green accented dark hair, glowing cat-ear headset, vibrant cyberpunk streamer",
+    "name": "七海·深海秘宝",
+    "prompt": "Mystic mermaid anime girl with iridescent turquoise gradient hair and glowing pearl accessories",
     "url": "/assets/avatars/avatar_24.webp",
     "thumbUrl": "/assets/avatars/avatar_24_thumb.webp"
   },
   {
     "id": 25,
     "code": "avatar_25",
-    "name": "蜜桃粉·雀跃",
-    "prompt": "Fluffy peach-pink twintails, heart-shaped ribbon clips, sparkling bright anime eyes",
+    "name": "小夜·浮空之城",
+    "prompt": "Steampunk adventurer girl with brass goggles and aviator jacket overlooking floating sky islands",
     "url": "/assets/avatars/avatar_25.webp",
     "thumbUrl": "/assets/avatars/avatar_25_thumb.webp"
   },
   {
     "id": 26,
     "code": "avatar_26",
-    "name": "月光银·占星",
-    "prompt": "Moonlit silver straight hair, star constellation veil, mystical crescent tarot reader",
+    "name": "若叶·早春新绿",
+    "prompt": "Bright mint-haired anime gardener smiling warmly among blooming spring seedlings",
     "url": "/assets/avatars/avatar_26.webp",
     "thumbUrl": "/assets/avatars/avatar_26_thumb.webp"
   },
   {
     "id": 27,
     "code": "avatar_27",
-    "name": "海蓝双丸子·俏皮",
-    "prompt": "Ocean blue twin space buns, playful expression, street fashion pastel jacket",
+    "name": "悠奈·时空旅人",
+    "prompt": "Chronos traveler girl holding an antique brass hourglass surrounded by floating clockwork gears",
     "url": "/assets/avatars/avatar_27.webp",
     "thumbUrl": "/assets/avatars/avatar_27_thumb.webp"
   },
   {
     "id": 28,
     "code": "avatar_28",
-    "name": "琥珀棕·学妹",
-    "prompt": "Warm amber-brown straight cut with neat fringe, classic notebook, quiet library corner",
+    "name": "希尔·日常律动",
+    "prompt": "Cute anime girl in casual street hoodie listening to music with oversized white headphones",
     "url": "/assets/avatars/avatar_28.webp",
     "thumbUrl": "/assets/avatars/avatar_28_thumb.webp"
   },
   {
     "id": 29,
     "code": "avatar_29",
-    "name": "烟灰微卷·朋克",
-    "prompt": "Smoky ash-gray layered shag with magenta tips, silver piercings, rock band guitarist",
+    "name": "美月·雨后初霁",
+    "prompt": "Translucent umbrella held by a cheerful anime girl as sunlight breaks through rainclouds",
     "url": "/assets/avatars/avatar_29.webp",
     "thumbUrl": "/assets/avatars/avatar_29_thumb.webp"
   },
   {
     "id": 30,
     "code": "avatar_30",
-    "name": "白金长直·纯净",
-    "prompt": "Platinum blonde silk tresses, pale blue eyes, minimalist modern aesthetic portrait",
+    "name": "佳奈·慵懒假日",
+    "prompt": "Sleepy anime heroine cuddling a plush pillow in soft morning bedroom sunlight",
     "url": "/assets/avatars/avatar_30.webp",
     "thumbUrl": "/assets/avatars/avatar_30_thumb.webp"
   },
   {
     "id": 31,
     "code": "avatar_31",
-    "name": "落樱红·巫女",
-    "prompt": "Traditional scarlet red ribbon tying back raven hair, white miko shrine attire, sacred bells",
+    "name": "沙耶·午后甜梦",
+    "prompt": "Peaceful girl dozing off with an open hardcover book in a sunlit garden hammock",
     "url": "/assets/avatars/avatar_31.webp",
     "thumbUrl": "/assets/avatars/avatar_31_thumb.webp"
   },
   {
     "id": 32,
     "code": "avatar_32",
-    "name": "青瓷色·恬静",
-    "prompt": "Celadon soft teal curls, ceramic flower barrette, quiet tea house afternoon setting",
+    "name": "柚子·元气橙光",
+    "prompt": "Bright citrus-themed anime girl with energetic side ponytail and radiant optimistic grin",
     "url": "/assets/avatars/avatar_32.webp",
     "thumbUrl": "/assets/avatars/avatar_32_thumb.webp"
   },
   {
     "id": 33,
     "code": "avatar_33",
-    "name": "金橙色·向日葵",
-    "prompt": "Sunny amber-gold side braid, sunflower accessory, cheerful outdoor countryside scene",
+    "name": "琴音·静夜独奏",
+    "prompt": "Melodic violinist maiden with flowing brown curls illuminated by soft antique stage lamps",
     "url": "/assets/avatars/avatar_33.webp",
     "thumbUrl": "/assets/avatars/avatar_33_thumb.webp"
   },
   {
     "id": 34,
     "code": "avatar_34",
-    "name": "星空紫·魔女",
-    "prompt": "Midnight violet cascading locks, pointed arcane hat, glowing purple potion flask",
+    "name": "杏子·街角烘焙",
+    "prompt": "Warm pastry baker anime girl in crisp white chef apron holding fresh golden croissants",
     "url": "/assets/avatars/avatar_34.webp",
     "thumbUrl": "/assets/avatars/avatar_34_thumb.webp"
   },
   {
     "id": 35,
     "code": "avatar_35",
-    "name": "雪白短碎·精灵",
-    "prompt": "Tumbling snow-white short pixie cut, delicate pointed ears, dewdrop crystal pendant",
+    "name": "结衣·晨曦微步",
+    "prompt": "Elegantly poised anime girl in neat school blazer walking down a sun-dappled morning avenue",
     "url": "/assets/avatars/avatar_35.webp",
     "thumbUrl": "/assets/avatars/avatar_35_thumb.webp"
   },
   {
     "id": 36,
     "code": "avatar_36",
-    "name": "浅栗编发·文艺",
-    "prompt": "Soft chestnut crown braid, linen dress, sketchbook with watercolor palette",
+    "name": "美咲·灵动之声",
+    "prompt": "Vocalist anime girl with expressive hazel eyes singing passionately into a studio microphone",
     "url": "/assets/avatars/avatar_36.webp",
     "thumbUrl": "/assets/avatars/avatar_36_thumb.webp"
   },
   {
     "id": 37,
     "code": "avatar_37",
-    "name": "绯红微卷·夜色",
-    "prompt": "Wine-red dramatic curls, dark gothic lace choker, vintage candlelight atmosphere",
+    "name": "日向·向阳花开",
+    "prompt": "Sun-kissed anime girl with bright sunflowers tucked behind her ear in an open summer field",
     "url": "/assets/avatars/avatar_37.webp",
     "thumbUrl": "/assets/avatars/avatar_37_thumb.webp"
   },
   {
     "id": 38,
     "code": "avatar_38",
-    "name": "青金渐变·机械",
-    "prompt": "Teal to gold gradient high twin-tails, mechanical hairpin, sci-fi engineer anime girl",
+    "name": "阳葵·暖阳依偎",
+    "prompt": "Gentle girl gazing through a warm sunlit bay window wrapped in cozy amber light",
     "url": "/assets/avatars/avatar_38.webp",
     "thumbUrl": "/assets/avatars/avatar_38_thumb.webp"
   },
   {
     "id": 39,
     "code": "avatar_39",
-    "name": "乳白长卷·甜点",
-    "prompt": "Cream-white whipped curls, strawberry cake motif, pastel pastry chef anime style",
+    "name": "白露·初音凝望",
+    "prompt": "Classic cyber pop icon with iconic dual turquoise twintails and futuristic headset",
     "url": "/assets/avatars/avatar_39.webp",
     "thumbUrl": "/assets/avatars/avatar_39_thumb.webp"
   },
   {
     "id": 40,
     "code": "avatar_40",
-    "name": "深空蓝·星航",
-    "prompt": "Cosmic navy blue sleek cut, constellation star map visor, interstellar navigator",
+    "name": "古蕾雅·学院龙姬",
+    "prompt": "Mysterious dragon-descendant academy student with subtle curved horns and deep golden eyes",
     "url": "/assets/avatars/avatar_40.webp",
     "thumbUrl": "/assets/avatars/avatar_40_thumb.webp"
   },
   {
     "id": 41,
     "code": "avatar_41",
-    "name": "暖杏色·冬日",
-    "prompt": "Apricot blonde shoulder-length bob, fluffy earmuffs, snow falling softly around",
+    "name": "达兹比·月下歌姬",
+    "prompt": "Dreamy indie anime singer with dark wavy tresses surrounded by glowing butterflies",
     "url": "/assets/avatars/avatar_41.webp",
     "thumbUrl": "/assets/avatars/avatar_41_thumb.webp"
   },
   {
     "id": 42,
     "code": "avatar_42",
-    "name": "石榴红·华丽",
-    "prompt": "Garnet red elaborate coiffure, velvet ribbon, baroque fantasy anime portrait",
+    "name": "一里·低回吉他",
+    "prompt": "Shy introverted pink-haired guitarist clutching her instrument in a cozy live house corner",
     "url": "/assets/avatars/avatar_42.webp",
     "thumbUrl": "/assets/avatars/avatar_42_thumb.webp"
   },
   {
     "id": 43,
     "code": "avatar_43",
-    "name": "琉璃青·灵动",
-    "prompt": "Lapis-tinted cyan dynamic waves, dragonfly hairpin, mountain stream breeze",
+    "name": "星野·幽夜极光",
+    "prompt": "Stargazer heroine in deep velvet coat observing the northern aurora through a brass telescope",
     "url": "/assets/avatars/avatar_43.webp",
     "thumbUrl": "/assets/avatars/avatar_43_thumb.webp"
   },
   {
     "id": 44,
     "code": "avatar_44",
-    "name": "奶茶色·慵懒",
-    "prompt": "Milky tea brown wavy locks, sleepy cute expression, warm oversized fleece blanket",
+    "name": "希琳·银月守护",
+    "prompt": "Shirine mascot heroine with shimmering silver hair, starry tiara and elegant royal cape",
     "url": "/assets/avatars/avatar_44.webp",
     "thumbUrl": "/assets/avatars/avatar_44_thumb.webp"
   },
   {
     "id": 45,
     "code": "avatar_45",
-    "name": "黑曜石·干练",
-    "prompt": "Polished obsidian bob cut, sharp crimson glasses, stylish executive anime lady",
+    "name": "天音·云端漫步",
+    "prompt": "Sky-walking anime maiden among rolling cumulus clouds under a limitless azure horizon",
     "url": "/assets/avatars/avatar_45.webp",
     "thumbUrl": "/assets/avatars/avatar_45_thumb.webp"
   },
   {
     "id": 46,
     "code": "avatar_46",
-    "name": "薄云粉·初晴",
-    "prompt": "Pale blush pink locks, morning dew sunshine, joyful smile after spring rain",
+    "name": "绯色·破晓黎明",
+    "prompt": "Warrior maiden in lightweight ceremonial armor standing tall against the first light of dawn",
     "url": "/assets/avatars/avatar_46.webp",
     "thumbUrl": "/assets/avatars/avatar_46_thumb.webp"
   },
   {
     "id": 47,
     "code": "avatar_47",
-    "name": "苍翠绿·射手",
-    "prompt": "Forest verdant braid, leather archer hood, focused gaze in sun-dappled glade",
+    "name": "栞·书卷幽香",
+    "prompt": "Scholarly anime librarian with round wire glasses turning pages in a majestic grand library",
     "url": "/assets/avatars/avatar_47.webp",
     "thumbUrl": "/assets/avatars/avatar_47_thumb.webp"
   },
   {
     "id": 48,
     "code": "avatar_48",
-    "name": "香槟金·华尔兹",
-    "prompt": "Sparkling champagne blonde curls, crystal tiara, ballroom dance celebration",
+    "name": "黑白·诺瓦尔",
+    "prompt": "Live2D heroine Noir in intricate monochrome gothic dress with gentle welcoming expression",
     "url": "/assets/avatars/avatar_48.webp",
     "thumbUrl": "/assets/avatars/avatar_48_thumb.webp"
   },
   {
     "id": 49,
     "code": "avatar_49",
-    "name": "暗夜黑·游侠",
-    "prompt": "Shadow black hooded fringe, midnight purple highlights, silver dagger silhouette",
+    "name": "千岁·华美盛典",
+    "prompt": "Festival queen in grand gold-embroidered kimono holding an ornamental lacquered fan",
     "url": "/assets/avatars/avatar_49.webp",
     "thumbUrl": "/assets/avatars/avatar_49_thumb.webp"
   },
   {
     "id": 50,
     "code": "avatar_50",
-    "name": "晨曦金·晴空",
-    "prompt": "Radiant sunrise blonde twin tails, sky blue ribbons, soaring above fluffy morning clouds",
+    "name": "星霜·极光使者",
+    "prompt": "Celestial messenger with cascading starlight hair bringing dawn across the twilight sky",
     "url": "/assets/avatars/avatar_50.webp",
     "thumbUrl": "/assets/avatars/avatar_50_thumb.webp"
   }

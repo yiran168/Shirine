@@ -167,7 +167,7 @@ const titleLabel =
 					loading="lazy"
 					decoding="async"
 					onload="this.parentElement?.previousElementSibling?.classList.add('m3-blog-postcard__cover-loading--done')"
-					onerror="this.parentElement?.previousElementSibling?.classList.add('m3-blog-postcard__cover-loading--done')"
+					onerror="this.onerror=null; this.src='/assets/images/banner/desktop/1.webp'; if (this.previousElementSibling) this.previousElementSibling.remove(); this.parentElement?.previousElementSibling?.classList.add('m3-blog-postcard__cover-loading--done')"
 				/>
 			</picture>
 			<span class="m3-blog-postcard__cover-mask" aria-hidden="true"></span>

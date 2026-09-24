@@ -4,7 +4,7 @@ import type {
 } from "../../types/musicConfig.ts";
 
 export const DEFAULT_METING_API =
-	"https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&r=:r";
+	"https://api.i-meto.com/meting/api?server=:server&type=:type&id=:id&r=:r";
 export const DEFAULT_METING_SERVER = "netease";
 export const DEFAULT_METING_TYPE = "playlist";
 
@@ -88,6 +88,32 @@ export function parseMetingSong(
 	});
 }
 
+export const METING_APIS = [
+	"https://api.i-meto.com/meting/api?server=:server&type=:type&id=:id&r=:r",
+	"https://api.injahow.cn/meting/?server=:server&type=:type&id=:id&r=:r",
+	"https://meting.qjcloud.cn/api?server=:server&type=:type&id=:id&r=:r",
+];
+
+function resolveMetingApiUrl(
+	template: string,
+	server: string,
+	type: string,
+	id: string,
+	random: string,
+): string {
+	let tpl = template.trim();
+	if (!tpl.includes(":server") && !tpl.includes(":id")) {
+		tpl = tpl.replace(/\/+$/, "");
+		tpl = `${tpl}?server=:server&type=:type&id=:id&r=:r`;
+	}
+	return tpl
+		.replace(":server", encodeURIComponent(server))
+		.replace(":type", encodeURIComponent(type))
+		.replace(":id", encodeURIComponent(id))
+		.replace(":auth", "")
+		.replace(":r", random);
+}
+
 /**
  * 从 Meting API 异步获取并解析曲目列表。
  */
@@ -95,28 +121,42 @@ export async function fetchMetingTracks(
 	config: MetingMusicConfig,
 	customFetch: typeof fetch = fetch,
 ): Promise<readonly TrackDescriptor[]> {
-	const url = buildMetingUrl(config);
-	if (!url) return [];
-
-	const response = await customFetch(url);
-	if (!response.ok) {
-		throw new Error(`Meting API HTTP ${response.status}`);
-	}
-
-	const data = (await response.json()) as RawMetingSong[];
-	if (!Array.isArray(data)) return [];
-
 	const server = config.server || DEFAULT_METING_SERVER;
-	const tracks: TrackDescriptor[] = [];
-	const seenIds = new Set<string>();
+	const type = config.type || DEFAULT_METING_TYPE;
+	const id = config.id?.trim();
+	if (!id) return [];
 
-	for (let i = 0; i < data.length; i++) {
-		const track = parseMetingSong(data[i], i, server);
-		if (track && !seenIds.has(track.id)) {
-			seenIds.add(track.id);
-			tracks.push(track);
+	const candidates = config.api ? [config.api, ...METING_APIS] : METING_APIS;
+
+	for (const apiTemplate of candidates) {
+		const random = Date.now().toString();
+		const url = resolveMetingApiUrl(apiTemplate, server, type, id, random);
+
+		try {
+			const response = await customFetch(url, { signal: AbortSignal.timeout(5000) });
+			if (!response.ok) continue;
+
+			const data = (await response.json()) as RawMetingSong[];
+			if (!Array.isArray(data) || data.length === 0) continue;
+
+			const tracks: TrackDescriptor[] = [];
+			const seenIds = new Set<string>();
+
+			for (let i = 0; i < data.length; i++) {
+				const track = parseMetingSong(data[i], i, server);
+				if (track && !seenIds.has(track.id)) {
+					seenIds.add(track.id);
+					tracks.push(track);
+				}
+			}
+
+			if (tracks.length > 0) {
+				return Object.freeze(tracks);
+			}
+		} catch {
+			// Try next candidate endpoint
 		}
 	}
 
-	return Object.freeze(tracks);
+	return [];
 }

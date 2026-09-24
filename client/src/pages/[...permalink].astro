@@ -286,9 +286,11 @@ const hasMath = hasMarkdownSyntax(markdownSyntaxes, "math");
 const markdownStylesheetAssets =
 	await getMarkdownStylesheetAssets(markdownSyntaxes);
 const effectiveHeadings = isEncrypted ? [] : headings;
+const rawDir = getDir(entry.id);
+const postDir = (!rawDir || rawDir === "/" || rawDir === "\\") ? entry.id : rawDir;
 const imageBasePath = entry.filePath
 	? path.relative(path.resolve("src"), path.dirname(entry.filePath))
-	: path.join("content/posts/", getDir(entry.id));
+	: path.join("content/posts", postDir);
 const effectiveUpdatedDate = entry.data.updated ?? entry.data.published;
 const publishedInstant = getPublishedInstant(entry.data);
 const updatedInstant = getUpdatedInstant(entry.data);

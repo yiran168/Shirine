@@ -59,6 +59,9 @@
 </style>
 </head>
 <body>
+<div id="shirine-l2d-bubble" style="display:none; opacity:0; position:fixed; top:24px; left:50%; transform:translateX(-50%); max-width:220px; width:max-content; background:rgba(26,26,36,0.92); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.25); box-shadow:0 6px 20px rgba(0,0,0,0.4); border-radius:12px; color:#ffffff; font-size:12px; font-weight:500; line-height:1.5; padding:8px 12px; text-align:center; pointer-events:none; z-index:99999; transition:opacity 0.3s ease;">
+  <span id="shirine-l2d-bubble-text"></span>
+</div>
 <script src="/pio/live2dcubismcore.min.js"></script>
 <script src="/pio/live2d.min.js"></script>
 <script src="/pio/l2d-widget.min.js"></script>
@@ -116,25 +119,48 @@
     home: '<svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>'
   };
 
+  function showSpeechBubble(quote) {
+    var tipSpan = document.querySelector('div[style*="calc(100%"] span');
+    if (tipSpan) {
+      tipSpan.textContent = quote;
+      var bubble = tipSpan.parentElement;
+      if (bubble) {
+        bubble.style.opacity = '1';
+        bubble.style.animation = 'l2dw-tips-float 2.5s ease-in-out infinite';
+        clearTimeout(window.__bubbleTimer);
+        window.__bubbleTimer = setTimeout(function() {
+          if (bubble) bubble.style.opacity = '0';
+        }, 3500);
+        return;
+      }
+    }
+    var fallback = document.getElementById('shirine-l2d-bubble');
+    var fallbackText = document.getElementById('shirine-l2d-bubble-text');
+    if (fallback && fallbackText) {
+      fallbackText.textContent = quote;
+      fallback.style.display = 'block';
+      fallback.style.opacity = '1';
+      clearTimeout(window.__bubbleTimer);
+      window.__bubbleTimer = setTimeout(function() {
+        fallback.style.opacity = '0';
+        setTimeout(function() { fallback.style.display = 'none'; }, 300);
+      }, 3500);
+    }
+  }
+
   var menuActions = {
     home: function() { parent.postMessage({ type: 'l2d-action', action: 'home' }, '*'); },
     scrollToTop: function() { parent.postMessage({ type: 'l2d-action', action: 'scrollToTop' }, '*'); },
-    sleep: function(w) { w.sleep(); },
+    sleep: function(w) {
+      if (w && typeof w.sleep === 'function') {
+        w.sleep();
+      }
+      parent.postMessage({ type: 'l2d-sleep' }, '*');
+    },
     talk: function(w) {
       var quotes = quotesByLang[currentLang] || quotesByLang.zh_CN;
       var quote = quotes[Math.floor(Math.random() * quotes.length)];
-      var tipSpan = document.querySelector('div[style*="calc(100%"] span');
-      if (tipSpan) {
-        tipSpan.textContent = quote;
-        var bubble = tipSpan.parentElement;
-        if (bubble) {
-          bubble.style.opacity = '1';
-          bubble.style.animation = 'l2dw-tips-float 2.5s ease-in-out infinite';
-          setTimeout(function() {
-            if (bubble) bubble.style.opacity = '0';
-          }, 3500);
-        }
-      }
+      showSpeechBubble(quote);
     }
   };
 
@@ -267,8 +293,29 @@
   window.addEventListener('touchcancel', onDragEnd);
   window.addEventListener('blur', onDragEnd);
 
+  window.addEventListener('click', function(e) {
+    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+    if (isDragging) return;
+    var quotes = quotesByLang[currentLang] || quotesByLang.zh_CN;
+    var q = quotes[Math.floor(Math.random() * quotes.length)];
+    showSpeechBubble(q);
+  });
+
   window.addEventListener('message', function(e) {
     if (!e.data) return;
+    if (e.data.type === 'l2d-wake') {
+      try {
+        if (widgetInstance && typeof widgetInstance.wakeUp === 'function') {
+          widgetInstance.wakeUp();
+        } else if (widgetInstance && typeof widgetInstance.show === 'function') {
+          widgetInstance.show();
+        }
+      } catch (err) {}
+      var canvas = document.querySelector('canvas');
+      if (canvas) canvas.style.display = 'block';
+      notifyLoaded();
+      return;
+    }
     if (e.data.type === 'l2d-config' && e.data.lang) {
       currentLang = e.data.lang;
       return;
@@ -281,6 +328,10 @@
       quotesByLang[currentLang || 'zh_CN'] = e.data.quotes;
     }
     var config = e.data.config;
+    if (e.data.force) {
+      activeConfigKey = '';
+      loadingConfigKey = '';
+    }
     var configKey = JSON.stringify(config);
 
     if (widgetInstance && activeConfigKey === configKey) {
@@ -295,6 +346,14 @@
     loadingConfigKey = configKey;
     if (widgetInstance) {
       destroyWidget();
+    }
+
+    // Inject custom dialogue quotes into idle tips
+    var activeQuotes = quotesByLang[currentLang] || quotesByLang.zh_CN || [];
+    if (activeQuotes && activeQuotes.length > 0) {
+      config.tips = config.tips || {};
+      config.tips.idleTips = config.tips.idleTips || {};
+      config.tips.idleTips.wordings = activeQuotes;
     }
 
     var originalItems = (config.menus && config.menus.items) ? [...config.menus.items] : [];
@@ -347,6 +406,14 @@
         notifyLoaded();
       }
     }
+
+    setTimeout(function() {
+      if (!widgetLoaded && widgetInstance) {
+        widgetLoaded = true;
+        applyButtonIcons(originalItems);
+        notifyLoaded();
+      }
+    }, 1500);
   });
 
   window.addEventListener('resize', scheduleLayoutMeasurement);

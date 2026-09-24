@@ -92,6 +92,7 @@ export function createMusicRuntime(
 	let loadedIndex = -1;
 	const failedTrackIds = new Set<string>();
 	const knownDurations = new Map<string, number>();
+	let metingFetched = false;
 
 	function snapshot(): MusicSnapshot {
 		return Object.freeze({
@@ -215,7 +216,7 @@ export function createMusicRuntime(
 			audio &&
 			(options.provider === "local" ||
 				options.provider === "custom" ||
-				currentPlaylist.length > 0)
+				(currentPlaylist.length > 0 && (options.provider !== "mixed" || metingFetched)))
 		) {
 			return;
 		}
@@ -237,6 +238,7 @@ export function createMusicRuntime(
 				}
 				try {
 					const fetched = await fetchMetingTracks(options.meting, customFetch);
+					metingFetched = true;
 					if (generation !== lifecycleGeneration) return;
 					if (fetched.length > 0) {
 						if (options.provider === "mixed") {
@@ -295,7 +297,7 @@ export function createMusicRuntime(
 
 			if (generation !== lifecycleGeneration || audio) return;
 			audio = createAudio();
-			audio.preload = "none";
+			audio.preload = "metadata";
 			const volume = readStoredVolume();
 			audio.volume = volume;
 			audio.muted = state.muted;
@@ -598,13 +600,22 @@ export function createMusicRuntime(
 }
 
 let sharedRuntime: MusicRuntime | null = null;
+let sharedOptions: ResolvedMusicOptions | null = null;
 
 export function getMusicRuntime(options: ResolvedMusicOptions): MusicRuntime {
-	sharedRuntime ??= createMusicRuntime(options);
+	if (sharedRuntime && sharedOptions !== options) {
+		sharedRuntime.destroy();
+		sharedRuntime = null;
+	}
+	if (!sharedRuntime) {
+		sharedRuntime = createMusicRuntime(options);
+		sharedOptions = options;
+	}
 	return sharedRuntime;
 }
 
 export function destroyMusicRuntime(): void {
 	sharedRuntime?.destroy();
 	sharedRuntime = null;
+	sharedOptions = null;
 }

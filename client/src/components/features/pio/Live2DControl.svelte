@@ -96,6 +96,11 @@
       if (e.data?.type === "l2d-loaded") {
         isLoaded = true;
         iframeHeight = e.data.contentHeight || 500;
+      } else if (e.data?.type === "l2d-sleep") {
+        userVisible = false;
+        if (typeof window !== "undefined") {
+          localStorage.setItem("shirine_live2d_visible", "false");
+        }
       } else if (e.data?.type === "l2d-action") {
         if (e.data.action === "home") {
           window.location.href = "/";
@@ -173,7 +178,7 @@
     window.addEventListener("touchend", onEnd);
   }
 
-  function initWidget() {
+  function initWidget(force = false) {
     if (!iframeEl || !iframeEl.contentWindow) return;
     const widgetConfig = {
       model: { path: modelPath },
@@ -191,7 +196,7 @@
       },
     };
 
-    iframeEl.contentWindow.postMessage({ type: "l2d-init", config: widgetConfig, lang: live2dLang, quotes: live2dQuotes }, "*");
+    iframeEl.contentWindow.postMessage({ type: "l2d-init", config: widgetConfig, lang: live2dLang, quotes: live2dQuotes, force }, "*");
   }
 
   function handleIframeLoad() {
@@ -203,16 +208,22 @@
     if (typeof window !== "undefined") {
       localStorage.setItem("shirine_live2d_visible", String(userVisible));
     }
+    if (userVisible) {
+      if (iframeEl?.contentWindow) {
+        iframeEl.contentWindow.postMessage({ type: "l2d-wake" }, "*");
+      }
+      initWidget(true);
+    }
   }
 
   const shouldShow = $derived(enabledByBackend && userVisible);
 </script>
 
 {#if enabledByBackend}
-  <!-- Draggable Live2D Container -->
+  <!-- Draggable Live2D Container with supreme stacking priority -->
   <div
-    class="fixed z-35 select-none pointer-events-none"
-    style="left: {posX}px; bottom: {posY}px;"
+    class="fixed select-none pointer-events-none"
+    style="z-index: 99999 !important; left: {posX}px; bottom: {posY}px;"
   >
     <!-- Live2D Host Iframe (Sandboxed) -->
     <iframe
@@ -223,11 +234,14 @@
       title="Shirine Live2D 看板娘"
       allowtransparency="true"
       class="border-none transition-opacity duration-300 block"
-      style="width: {WIDGET_WIDTH}px; height: {iframeHeight}px; opacity: {shouldShow && isLoaded ? '1' : '0'}; pointer-events: {shouldShow && isLoaded ? 'auto' : 'none'}; display: {shouldShow ? 'block' : 'none'};"
+      style="width: {WIDGET_WIDTH}px; height: {iframeHeight}px; opacity: {shouldShow && isLoaded ? '1' : '0'}; pointer-events: {shouldShow && isLoaded ? 'auto' : 'none'}; visibility: {shouldShow ? 'visible' : 'hidden'};"
     ></iframe>
 
-    <!-- Drag Handle and Toggle Button Bar -->
-    <div class="absolute bottom-4 left-4 z-50 flex items-center gap-1.5 pointer-events-auto">
+    <!-- Drag Handle and Toggle Button Bar with supreme z-index -->
+    <div
+      class="absolute bottom-4 left-4 flex items-center gap-1.5 pointer-events-auto"
+      style="z-index: 99999 !important;"
+    >
       <!-- Toggle Visibility Button -->
       <button
         type="button"

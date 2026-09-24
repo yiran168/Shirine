@@ -5,7 +5,7 @@ import Tooltip from "@components/atoms/overlay/Tooltip.svelte";
 import Icon from "@iconify/svelte";
 import { collapse } from "@utils/motion";
 import { onMount } from "svelte";
-import type { ResolvedMusicOptions } from "@/config/musicConfig";
+import { resolveMusicOptions, type ResolvedMusicOptions } from "@/config/musicConfig";
 import type {
 	MusicErrorCode,
 	MusicRuntime,
@@ -41,22 +41,23 @@ interface Props {
 
 let { options, labels }: Props = $props();
 let runtime = $state<MusicRuntime | null>(null);
-const hasInitialTracks = options.playlist.length > 0;
-const hasMeting =
+const hasInitialTracks = $derived(options.playlist.length > 0);
+const hasMeting = $derived(
 	(options.provider === "meting" || options.provider === "mixed") &&
-	Boolean(options.meting?.id);
+	Boolean(options.meting?.id),
+);
 
 let snapshot = $state<MusicSnapshot>({
 	playlist: options.playlist,
-	currentIndex: hasInitialTracks ? 0 : -1,
+	currentIndex: options.playlist.length > 0 ? 0 : -1,
 	currentTrack: options.playlist[0] ?? null,
-	status: !hasInitialTracks && hasMeting ? "loading" : "idle",
+	status: options.playlist.length === 0 && ((options.provider === "meting" || options.provider === "mixed") && Boolean(options.meting?.id)) ? "loading" : "idle",
 	currentTime: 0,
 	duration: options.playlist[0]?.duration ?? 0,
 	volume: options.defaultVolume,
 	muted: false,
 	mode: options.defaultMode,
-	error: hasInitialTracks || hasMeting ? null : "empty-playlist",
+	error: options.playlist.length > 0 || ((options.provider === "meting" || options.provider === "mixed") && Boolean(options.meting?.id)) ? null : "empty-playlist",
 });
 let playlistOpen = $state(false);
 const playlistId = "sidebar-music-playlist";
@@ -118,13 +119,33 @@ const liveMessage = $derived.by(() => {
 onMount(() => {
 	let unsubscribe = () => {};
 	let active = true;
-	void import("@utils/music").then(({ getMusicRuntime }) => {
+
+	void (async () => {
+		try {
+			const res = await fetch("/api/config/site");
+			if (res.ok) {
+				const json = await res.json();
+				const data = json.data || json.config;
+				if (json.success && data?.music) {
+					const dynOptions = resolveMusicOptions(data.music);
+					if (dynOptions && active) {
+						options = dynOptions;
+					}
+				}
+			}
+		} catch {}
+
 		if (!active) return;
+		const { getMusicRuntime, destroyMusicRuntime } = await import("@utils/music");
+		if (!active) return;
+		destroyMusicRuntime();
 		runtime = getMusicRuntime(options);
 		unsubscribe = runtime.subscribe((next) => {
 			snapshot = next;
 		});
-	});
+		void runtime.initialize();
+	})();
+
 	return () => {
 		active = false;
 		unsubscribe();

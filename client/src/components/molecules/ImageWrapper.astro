@@ -124,6 +124,7 @@ const resolvedAspectRatio = aspectRatio ?? (!isLocal ? "16 / 9" : undefined);
 			loading={loading}
 			fetchpriority={fetchPriority}
 			onload={bloomEnabled ? "this.classList.add('image-bloom-img--loaded'); this.parentElement?.querySelector('.image-bloom-layer')?.classList.add('image-bloom-layer--loaded');" : undefined}
+			onerror="this.onerror=null; this.src='/assets/images/banner/desktop/1.webp';"
 		/>
 	)}
 </div>

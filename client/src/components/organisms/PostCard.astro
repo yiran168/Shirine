@@ -45,9 +45,11 @@ const {
 } = Astro.props;
 const className = Astro.props.class;
 
+const rawDir = getDir(entry.id);
+const postDir = (!rawDir || rawDir === "/" || rawDir === "\\") ? entry.id : rawDir;
 const imageBasePath = entry.filePath
 	? path.relative(path.resolve("src"), path.dirname(entry.filePath))
-	: path.join("content/posts/", getDir(entry.id));
+	: path.join("content/posts", postDir);
 
 let remarkPluginFrontmatter: any = { words: 0, minutes: 0, excerpt: "" };
 try {
@@ -89,8 +91,14 @@ if (image) {
 		const normalizedPath = path
 			.normalize(path.join("../../", imageBasePath, image))
 			.replace(/\\/g, "/");
-		const file =
+		let file =
 			files[normalizedPath] ?? getProjectImageLoader(image, imageBasePath);
+		if (!file) {
+			const fallbackPath = path
+				.normalize(path.join("../../content/posts", entry.id, image))
+				.replace(/\\/g, "/");
+			file = files[fallbackPath] ?? getProjectImageLoader(image, path.join("content/posts", entry.id));
+		}
 		if (file) {
 			const mod = await file();
 			try {
@@ -126,6 +134,8 @@ if (image) {
 			} catch {
 				coverUrl = (mod as unknown as { src: string }).src;
 			}
+		} else {
+			coverUrl = "/assets/images/banner/desktop/1.webp";
 		}
 	}
 }

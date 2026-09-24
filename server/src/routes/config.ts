@@ -748,7 +748,12 @@ configRouter.put("/site", requireAdmin, async (c) => {
       }
 
       const siteUpdates: Record<string, any> = {};
-      if (body.title !== undefined) siteUpdates.title = body.title;
+      if (body.title !== undefined) {
+        siteUpdates.title = body.title;
+        if (!siteUpdates.banner) siteUpdates.banner = {};
+        if (!siteUpdates.banner.homeText) siteUpdates.banner.homeText = {};
+        siteUpdates.banner.homeText.title = body.title;
+      }
       if (body.subtitle !== undefined) siteUpdates.subtitle = body.subtitle;
       if (body.lang !== undefined || body.defaultLang !== undefined) {
         siteUpdates.lang = body.lang || body.defaultLang;
@@ -778,7 +783,7 @@ configRouter.put("/site", requireAdmin, async (c) => {
         };
       }
       if (body.bannerDesktop !== undefined || body.bannerMobile !== undefined || body.bannerSubtitles !== undefined) {
-        siteUpdates.banner = {};
+        if (!siteUpdates.banner) siteUpdates.banner = {};
         if (body.bannerDesktop !== undefined) {
           const arr = Array.isArray(body.bannerDesktop) ? body.bannerDesktop : [body.bannerDesktop].filter(Boolean);
           siteUpdates.banner.src = { ...(siteUpdates.banner.src || {}), desktop: arr.map(sanitizeUrl) };
@@ -791,7 +796,8 @@ configRouter.put("/site", requireAdmin, async (c) => {
           const subs = Array.isArray(body.bannerSubtitles)
             ? body.bannerSubtitles
             : String(body.bannerSubtitles).split("\n").map((s: string) => s.trim()).filter(Boolean);
-          siteUpdates.banner.homeText = { subtitle: subs };
+          if (!siteUpdates.banner.homeText) siteUpdates.banner.homeText = {};
+          siteUpdates.banner.homeText.subtitle = subs;
         }
       }
 

@@ -414,7 +414,7 @@ adminRouter.post("/ai/models", async (c) => {
 adminRouter.post("/ai/generate", async (c) => {
   try {
     const body = await c.req.json();
-    const { prompt, systemPrompt, model } = body;
+    const { prompt, systemPrompt, model, stream } = body;
     const db = getDb(c.env.DB);
 
     let apiUrl = body.apiUrl;
@@ -442,6 +442,39 @@ adminRouter.post("/ai/generate", async (c) => {
     const cleanUrl = apiUrl.replace(/\/+$/, "");
     const endpoint = cleanUrl.endsWith("/chat/completions") ? cleanUrl : `${cleanUrl}/chat/completions`;
 
+    if (stream) {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: chosenModel,
+          messages: [
+            { role: "system", content: systemPrompt || "你是一个优雅、富有文采的博客写作助手。输出符合 Markdown 格式的精美内容。" },
+            { role: "user", content: prompt || "" },
+          ],
+          temperature: 0.7,
+          stream: true,
+        }),
+        signal: AbortSignal.timeout(120000),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        return c.json({ success: false, error: `AI 请求失败 (${res.status}): ${errText.slice(0, 150)}` }, 400);
+      }
+
+      return new Response(res.body, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
     const res = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -456,7 +489,7 @@ adminRouter.post("/ai/generate", async (c) => {
         ],
         temperature: 0.7,
       }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(120000),
     });
 
     if (!res.ok) {
@@ -465,8 +498,10 @@ adminRouter.post("/ai/generate", async (c) => {
     }
 
     const json = (await res.json()) as any;
-    const output = json.choices?.[0]?.message?.content || "";
-    return c.json({ success: true, text: output });
+    const choice = json.choices?.[0];
+    const output = choice?.message?.content || "";
+    const reasoningOutput = choice?.message?.reasoning_content || choice?.message?.reasoning || choice?.message?.thought || "";
+    return c.json({ success: true, text: output, content: output, thinking: reasoningOutput });
   } catch (err: any) {
     return c.json({ success: false, error: err.message || "AI 生成异常" }, 500);
   }
