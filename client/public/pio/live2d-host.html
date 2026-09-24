@@ -59,6 +59,8 @@
 </style>
 </head>
 <body>
+<script src="/pio/live2dcubismcore.min.js"></script>
+<script src="/pio/live2d.min.js"></script>
 <script src="/pio/l2d-widget.min.js"></script>
 <script>
   var widgetInstance = null;
@@ -331,13 +333,20 @@
       hideAboutMenu();
     }
 
-    widgetInstance.l2d.on('loaded', function() {
-      widgetLoaded = true;
-      applyButtonIcons(originalItems);
-      notifyLoaded();
-      observeWidgetLayout();
-      scheduleLayoutMeasurement();
-    });
+    if (widgetInstance && widgetInstance.l2d) {
+      widgetInstance.l2d.on('loaded', function() {
+        widgetLoaded = true;
+        applyButtonIcons(originalItems);
+        notifyLoaded();
+        observeWidgetLayout();
+        scheduleLayoutMeasurement();
+      });
+      if (widgetInstance.l2d.isLoaded || widgetInstance.l2d.model) {
+        widgetLoaded = true;
+        applyButtonIcons(originalItems);
+        notifyLoaded();
+      }
+    }
   });
 
   window.addEventListener('resize', scheduleLayoutMeasurement);

@@ -247,6 +247,24 @@ const runtimeApiUrl =
 		<Live2DControl client:only="svelte" mode="guest" />
 		<AuthModal client:only="svelte" />
 		<UserDrawer client:only="svelte" />
+
+		<!-- Global Furina Anime Loading Screen (512x512 Seamless Loop) -->
+		<div
+			id="furina-global-loader"
+			class="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[var(--surface-container-lowest,#f8fafc)]/90 backdrop-blur-xl transition-all duration-400 ease-out select-none"
+			aria-label="页面加载中..."
+			role="status"
+		>
+			<div class="relative flex flex-col items-center justify-center max-w-[280px] sm:max-w-[340px] md:max-w-[380px] w-full px-4">
+				<img
+					src="/assets/images/furina-loading.svg"
+					alt="Shirine Loading..."
+					width="380"
+					height="380"
+					class="w-full h-auto drop-shadow-xl pointer-events-none"
+				/>
+			</div>
+		</div>
 	</body>
 </html>
 
@@ -327,6 +345,33 @@ document.addEventListener("click", async (event) => {
 	void copyPageLink();
 });
 
+function dismissFurinaLoader() {
+	const loader = document.getElementById('furina-global-loader');
+	if (loader && !loader.classList.contains('opacity-0')) {
+		loader.classList.add('opacity-0', 'pointer-events-none');
+		setTimeout(() => {
+			loader.style.display = 'none';
+		}, 450);
+	}
+}
+
+function showFurinaLoader() {
+	const loader = document.getElementById('furina-global-loader');
+	if (loader) {
+		loader.style.display = 'flex';
+		requestAnimationFrame(() => {
+			loader.classList.remove('opacity-0', 'pointer-events-none');
+		});
+	}
+}
+
+if (document.readyState === 'complete') {
+	setTimeout(dismissFurinaLoader, 350);
+} else {
+	window.addEventListener('load', () => setTimeout(dismissFurinaLoader, 350));
+	setTimeout(dismissFurinaLoader, 2500);
+}
+
 const setup = () => {
 	if (!window.swup || window.__shirineNavigationBound) return;
 	window.__shirineNavigationBound = true;
@@ -343,12 +388,16 @@ const setup = () => {
 	}
 	window.swup.hooks.on('link:click', () => document.documentElement.style.setProperty('--content-delay', '0ms'));
 	window.swup.hooks.on('visit:start', () => {
+		showFurinaLoader();
 		window.clearTimeout(finishTimer);
 		visitActive = true;
 		scrollStarted = false;
 		document.getElementById('page-height-extend')?.classList.remove('hidden');
 	});
-	window.swup.hooks.on('visit:end', () => { if (!scrollStarted) finishVisit(); });
+	window.swup.hooks.on('visit:end', () => {
+		setTimeout(dismissFurinaLoader, 200);
+		if (!scrollStarted) finishVisit();
+	});
 	window.swup.hooks.on('page:view', () => {
 		if (document.querySelector('[data-no-swup-cache]')) {
 			try {

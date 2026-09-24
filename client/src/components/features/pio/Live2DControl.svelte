@@ -36,13 +36,21 @@
       userVisible = saved === "true";
     }
 
+    const defaultRightX = Math.max(0, window.innerWidth - WIDGET_WIDTH - 24);
+    const defaultY = 24;
+    posX = defaultRightX;
+    posY = defaultY;
+
     const savedPos = localStorage.getItem("shirine_live2d_pos");
     if (savedPos) {
       try {
         const parsed = JSON.parse(savedPos);
         if (typeof parsed.x === "number" && !isNaN(parsed.x)) posX = Math.max(0, Math.min(window.innerWidth - WIDGET_WIDTH, parsed.x));
         if (typeof parsed.y === "number" && !isNaN(parsed.y)) posY = Math.max(0, Math.min(window.innerHeight - 100, parsed.y));
-      } catch {}
+      } catch {
+        posX = defaultRightX;
+        posY = defaultY;
+      }
     }
 
     // 2. Fetch backend configuration
@@ -77,6 +85,7 @@
     } catch {
       enabledByBackend = true;
     }
+    initWidget();
 
     // 3. Setup message listener for live2d-host.html
     const handleMessage = (e: MessageEvent) => {
@@ -190,7 +199,7 @@
 {#if enabledByBackend}
   <!-- Draggable Live2D Container -->
   <div
-    class="fixed z-40 select-none"
+    class="fixed z-40 select-none pointer-events-none"
     style="left: {posX}px; bottom: {posY}px;"
   >
     <!-- Live2D Host Iframe (Sandboxed) -->
@@ -206,7 +215,7 @@
     ></iframe>
 
     <!-- Drag Handle and Toggle Button Bar -->
-    <div class="absolute bottom-4 left-4 z-50 flex items-center gap-1.5">
+    <div class="absolute bottom-4 left-4 z-50 flex items-center gap-1.5 pointer-events-auto">
       <!-- Toggle Visibility Button -->
       <button
         type="button"

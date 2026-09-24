@@ -56,7 +56,14 @@ const initial = fallback || (alt.trim() ? alt.trim()[0] : "?");
 			{loading}
 			fetchpriority={fetchPriority}
 			decoding="async"
-			onerror={() => (failed = true)}
+			onerror={(e) => {
+				const img = e.currentTarget as HTMLImageElement;
+				if (img && !img.src.includes('demo-avatar.webp')) {
+					img.src = '/assets/images/demo-avatar.webp';
+				} else {
+					failed = true;
+				}
+			}}
 		/>
 	{:else}
 		<span class="m3-avatar__fallback">{initial}</span>

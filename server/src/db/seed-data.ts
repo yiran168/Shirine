@@ -1189,7 +1189,7 @@ export const PRESET_ALBUMS: SeedAlbum[] = [
 export const PRESET_FRIENDS: SeedFriend[] = [
   {
     "name": "Mizuki",
-    "avatar": "https://avatars.githubusercontent.com/u/225602409?v=4&s=640",
+    "avatar": "/assets/avatars/avatar_01.webp",
     "desc": "Another Fuwari-based blog theme with docs",
     "url": "https://mizuki.mysqil.com",
     "accepted": 1,
@@ -1197,7 +1197,7 @@ export const PRESET_FRIENDS: SeedFriend[] = [
   },
   {
     "name": "Astro",
-    "avatar": "https://avatars.githubusercontent.com/u/44914786?v=4&s=640",
+    "avatar": "/assets/avatars/avatar_02.webp",
     "desc": "The web framework for content-driven websites",
     "url": "https://astro.build",
     "accepted": 1,
@@ -1205,7 +1205,7 @@ export const PRESET_FRIENDS: SeedFriend[] = [
   },
   {
     "name": "Material 3",
-    "avatar": "https://avatars.githubusercontent.com/u/19478152?v=4&s=640",
+    "avatar": "/assets/avatars/avatar_03.webp",
     "desc": "Material Design 3 — the next generation of Material Design",
     "url": "https://m3.material.io",
     "accepted": 1,

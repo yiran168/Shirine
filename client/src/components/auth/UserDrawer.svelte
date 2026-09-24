@@ -66,7 +66,17 @@
       <div class="my-6 flex items-center gap-4">
         <div class="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center text-primary text-xl font-bold overflow-hidden shadow-md">
           {#if authStore.user.avatar}
-            <img src={authStore.user.avatar} alt={authStore.user.username} class="w-full h-full object-cover" />
+            <img
+              src={authStore.user.avatar}
+              alt={authStore.user.username}
+              class="w-full h-full object-cover"
+              onerror={(e) => {
+                const target = e.currentTarget as HTMLImageElement;
+                if (target && !target.src.includes('demo-avatar.webp')) {
+                  target.src = '/assets/images/demo-avatar.webp';
+                }
+              }}
+            />
           {:else}
             {authStore.user.username.slice(0, 1).toUpperCase()}
           {/if}

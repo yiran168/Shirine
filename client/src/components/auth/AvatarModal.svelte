@@ -147,6 +147,12 @@
                 alt={av.name}
                 class="w-full h-full object-cover"
                 loading="lazy"
+                onerror={(e) => {
+                  const target = e.currentTarget as HTMLImageElement;
+                  if (target && !target.src.includes('demo-avatar.webp')) {
+                    target.src = '/assets/images/demo-avatar.webp';
+                  }
+                }}
               />
               {#if isSelected}
                 <div class="absolute inset-0 bg-primary/25 flex items-center justify-center backdrop-blur-[1px]">

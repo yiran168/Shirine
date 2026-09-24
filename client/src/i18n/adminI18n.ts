@@ -59,6 +59,11 @@ export const adminI18n = {
     timeline: "时间线管理",
     media: "媒体库管理",
     guide: "语法手册",
+    projects: "项目管理",
+    devices: "设备管理",
+    skills: "技能管理",
+    compass: "站点罗盘",
+    anime: "番剧追番",
   },
   zh_TW: {
     adminTitle: "Shirine Admin",
@@ -102,6 +107,11 @@ export const adminI18n = {
     timeline: "時間線管理",
     media: "媒體庫管理",
     guide: "語法手冊",
+    projects: "項目管理",
+    devices: "設備管理",
+    skills: "技能管理",
+    compass: "站點羅盤",
+    anime: "番劇追番",
   },
   en: {
     adminTitle: "Shirine Admin",
@@ -145,6 +155,11 @@ export const adminI18n = {
     timeline: "Timeline",
     media: "Media Library",
     guide: "Syntax Manual",
+    projects: "Projects",
+    devices: "Devices",
+    skills: "Skills",
+    compass: "Compass",
+    anime: "Anime",
   },
   ja: {
     adminTitle: "Shirine Admin",
@@ -188,6 +203,11 @@ export const adminI18n = {
     timeline: "タイムライン",
     media: "メディア管理",
     guide: "構文マニュアル",
+    projects: "プロジェクト管理",
+    devices: "デバイス管理",
+    skills: "スキル管理",
+    compass: "サイトコンパス",
+    anime: "アニメ追っかけ",
   },
 } as const;
 
