@@ -429,8 +429,8 @@ export async function deployServer(): Promise<void> {
 
   console.log(`✅ Backend Worker deployed successfully!`);
   if (deployRes.stdout) {
-    console.log(deployRes.stdout.trim());
-    const match = deployRes.stdout.match(/https:\/\/[a-zA-Z0-9_\-\.]+\.workers\.dev/);
+    const cleanStdout = deployRes.stdout.replace(/\u001b\[[0-9;]*m/g, "");
+    const match = cleanStdout.match(/https:\/\/[a-zA-Z0-9_\-\.]+\.workers\.dev/);
     if (match) {
       detectedWorkerApiUrl = `${match[0]}/api`;
       console.log(`📡 Auto-detected backend Worker API endpoint: ${detectedWorkerApiUrl}`);

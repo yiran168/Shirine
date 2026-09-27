@@ -11,69 +11,51 @@ import MainGridLayout from "@layouts/MainGridLayout.astro";
 import { findAlbum } from "@utils/album-scanner";
 import { url } from "@utils/url-utils";
 import { Icon } from "astro-icon/components";
-import { resolveApiBase } from "@utils/content-utils";
+import { fetchApi } from "@utils/content-utils";
 
 const id = Astro.params.id ?? "";
 let resolvedAlbum: any = null;
 let apiConnected = false;
 
-const apiBase = resolveApiBase(Astro.request);
-if (apiBase) {
-	try {
-		const cookieToken = Astro.cookies.get("shirine_token")?.value;
-		const rawCookie = Astro.request.headers.get("cookie") || "";
-		const cookieHeader = rawCookie || (cookieToken ? `shirine_token=${cookieToken}` : "");
-		let authHeader = Astro.request.headers.get("authorization") || "";
-		if (!authHeader && cookieToken) {
-			authHeader = `Bearer ${cookieToken}`;
-		}
-		const headers: Record<string, string> = {
-			...(cookieHeader ? { cookie: cookieHeader } : {}),
-			...(authHeader ? { authorization: authHeader } : {}),
-		};
-
-		const res = await fetch(`${apiBase}/albums/${id}`, {
-			headers,
-			signal: AbortSignal.timeout(3000),
-		});
-		if (res.ok) {
-			const json = await res.json();
-			const a = json.data || json.album;
-			if (json.success && a) {
-				apiConnected = true;
-				resolvedAlbum = {
-					id: a.slug || String(a.id),
-					title: a.title,
-					description: a.description || "",
-					cover: a.cover || "",
-					date: a.createdAt?.slice(0, 10) || "",
-					tags: Array.isArray(a.tags) ? a.tags : [],
-					protected: a.permissionType !== "public" || Boolean(a.requiresPassword),
-					layout: a.layout || "masonry",
-					columns: a.columns || 3,
-					photos: Array.isArray(a.photos)
-						? a.photos.map((p: any) => ({
-								id: p.id,
-								src: p.src || p.url || "",
-								alt: p.alt || p.title || a.title || "",
-								title: p.title || "",
-								description: p.description || "",
-						  }))
-						: [],
-					photoCount: a.count ?? a.photoCount ?? (Array.isArray(a.photos) ? a.photos.length : 0),
-					permissionType: a.permissionType || "public",
-					requiredPoints: a.requiredPoints || 0,
-					requiresPassword: Boolean(a.requiresPassword),
-					passwordHint: a.passwordHint || "",
-					isUnlocked: Boolean(a.isUnlocked),
-					dbId: a.id,
-				} as any;
-			}
-		} else if (res.status === 404) {
+try {
+	const res = await fetchApi(`/albums/${id}`, Astro.request);
+	if (res && res.ok) {
+		const json = await res.json();
+		const a = json.data || json.album;
+		if (json.success && a) {
 			apiConnected = true;
+			resolvedAlbum = {
+				id: a.slug || String(a.id),
+				title: a.title,
+				description: a.description || "",
+				cover: a.cover || "",
+				date: a.createdAt?.slice(0, 10) || "",
+				tags: Array.isArray(a.tags) ? a.tags : [],
+				protected: a.permissionType !== "public" || Boolean(a.requiresPassword),
+				layout: a.layout || "masonry",
+				columns: a.columns || 3,
+				photos: Array.isArray(a.photos)
+					? a.photos.map((p: any) => ({
+							id: p.id,
+							src: p.src || p.url || "",
+							alt: p.alt || p.title || a.title || "",
+							title: p.title || "",
+							description: p.description || "",
+					  }))
+					: [],
+				photoCount: a.count ?? a.photoCount ?? (Array.isArray(a.photos) ? a.photos.length : 0),
+				permissionType: a.permissionType || "public",
+				requiredPoints: a.requiredPoints || 0,
+				requiresPassword: Boolean(a.requiresPassword),
+				passwordHint: a.passwordHint || "",
+				isUnlocked: Boolean(a.isUnlocked),
+				dbId: a.id,
+			} as any;
 		}
-	} catch {}
-}
+	} else if (res && res.status === 404) {
+		apiConnected = true;
+	}
+} catch {}
 
 if (!apiConnected && !resolvedAlbum) {
 	resolvedAlbum = findAlbum(id);

@@ -24,7 +24,7 @@ import MainGridLayout from "@layouts/MainGridLayout.astro";
 import { discoverArticles } from "@utils/article-discovery";
 import { resolveAsset } from "@utils/asset-utils";
 import { getPublishedInstant, getUpdatedInstant } from "@utils/content-date";
-import { getSortedPosts, getDiscoveryCandidates, resolveApiBase } from "@utils/content-utils";
+import { getSortedPosts, getDiscoveryCandidates, fetchApi } from "@utils/content-utils";
 import { formatDateToYYYYMMDD } from "@utils/date-utils";
 import { getMarkdownStylesheetAssets } from "@utils/markdown-assets";
 import { getSourceMarkdownSyntaxSnapshot } from "@utils/markdown-source-syntaxes.mjs";
@@ -63,7 +63,6 @@ if (!rawSlug) {
 }
 const slug = decodeURIComponent(rawSlug).trim().replace(/^\/+|\/+$/g, "").replace(/\.(md|mdx|html)$/i, "");
 
-const apiBase = resolveApiBase(Astro.request);
 const cookieToken = Astro.cookies.get("shirine_token")?.value;
 const rawCookie = Astro.request.headers.get("cookie") || "";
 const cookieHeader = rawCookie || (cookieToken ? `shirine_token=${cookieToken}` : "");
@@ -75,26 +74,18 @@ if (!authHeader && cookieToken) {
 // Fetch authoritative post detail from backend API first (O(1))
 let dynamicDetail: any = null;
 let apiPostNotFound = false;
-if (apiBase) {
-	try {
-		const res = await fetch(`${apiBase}/posts/${encodeURIComponent(slug)}`, {
-			headers: {
-				...(cookieHeader ? { cookie: cookieHeader } : {}),
-				...(authHeader ? { authorization: authHeader } : {}),
-			},
-			signal: AbortSignal.timeout(3000),
-		});
-		if (res.ok) {
-			const json = await res.json();
-			if (json.success && (json.data || json.post)) {
-				dynamicDetail = json.data || json.post;
-			}
-		} else if (res.status === 404) {
-			apiPostNotFound = true;
+try {
+	const res = await fetchApi(`/posts/${encodeURIComponent(slug)}`, Astro.request);
+	if (res && res.ok) {
+		const json = await res.json();
+		if (json.success && (json.data || json.post)) {
+			dynamicDetail = json.data || json.post;
 		}
-	} catch (e) {
-		console.error("Failed to fetch post detail from API:", e);
+	} else if (res && res.status === 404) {
+		apiPostNotFound = true;
 	}
+} catch (e) {
+	console.error("Failed to fetch post detail from API:", e);
 }
 
 const isDynamicProd = Boolean(import.meta.env.PROD && import.meta.env.PUBLIC_API_URL);

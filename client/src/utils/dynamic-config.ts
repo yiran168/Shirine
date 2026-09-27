@@ -5,7 +5,7 @@ import { announcementConfig } from "@/config/announcementConfig";
 import { footerConfig } from "@/config/footerConfig";
 import type { TrackDescriptor } from "@/types/musicConfig";
 import { setSiteLang } from "@/i18n/translation";
-import { resolveApiBase } from "./content-utils";
+import { fetchApi } from "./content-utils";
 
 function deepMerge<T extends Record<string, any>>(target: T, source: any): T {
   if (!source || typeof source !== "object") return target;
@@ -53,23 +53,9 @@ export async function getDynamicSiteConfig(request?: Request): Promise<DynamicSi
   }
 
   const fetchConfig = async (): Promise<DynamicSiteConfigResult> => {
-    const apiBase = resolveApiBase(request);
-
-    if (!apiBase) {
-      return {
-        site: siteConfig,
-        profile: profileConfig,
-        music: musicConfig,
-        announcement: announcementConfig,
-        footer: footerConfig,
-      };
-    }
-
     try {
-      const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
-        signal: AbortSignal.timeout(3000),
-      });
-      if (res.ok) {
+      const res = await fetchApi("/config/site", request);
+      if (res && res.ok) {
         const json = await res.json();
         const data = json.data || json.config;
         if (json.success && data) {

@@ -107,10 +107,20 @@ setSiteLang(lang);
 siteConfig.lang = lang as any;
 const siteLang = lang.replace("_", "-");
 const fontRoleStyle = createFontRoleStyle(resolvedFontOptions);
+const runtimeBinding =
+	(Astro.locals as any)?.runtime?.env?.SHIRINE_SERVER ||
+	(Astro.locals as any)?.runtime?.env?.BACKEND ||
+	(Astro.locals as any)?.runtime?.env?.API;
+if (runtimeBinding && typeof runtimeBinding.fetch === "function") {
+	(globalThis as any).__SHIRINE_SERVICE_BINDING__ = runtimeBinding;
+}
 const runtimeApiUrl =
 	(Astro.locals as any)?.runtime?.env?.PUBLIC_API_URL ||
 	import.meta.env.PUBLIC_API_URL ||
 	"";
+if (runtimeApiUrl && !(globalThis as any).__SHIRINE_RUNTIME_API_URL__) {
+	(globalThis as any).__SHIRINE_RUNTIME_API_URL__ = runtimeApiUrl;
+}
 ---
 
 <!DOCTYPE html>
@@ -278,7 +288,7 @@ const runtimeApiUrl =
 				const loader = document.getElementById('furina-global-loader');
 				if (!loader) return;
 				const start = Date.now();
-				const minMs = 650;
+				const minMs = 150;
 				let done = false;
 				function dismiss() {
 					if (done) return;
@@ -287,7 +297,7 @@ const runtimeApiUrl =
 					const delay = Math.max(0, minMs - elapsed);
 					setTimeout(function() {
 						loader.classList.add('opacity-0', 'pointer-events-none');
-						setTimeout(function() { loader.style.display = 'none'; }, 400);
+						setTimeout(function() { loader.style.display = 'none'; }, 300);
 					}, delay);
 				}
 				if (document.readyState === 'complete' || document.readyState === 'interactive') {
@@ -296,8 +306,10 @@ const runtimeApiUrl =
 					document.addEventListener('DOMContentLoaded', dismiss, { once: true });
 					window.addEventListener('load', dismiss, { once: true });
 				}
+				loader.addEventListener('click', dismiss, { once: true });
+				window.addEventListener('keydown', function(e) { if (e.key === 'Escape') dismiss(); }, { once: true });
 				// Absolute unconditional fail-safe timeout
-				setTimeout(dismiss, 1500);
+				setTimeout(dismiss, 1000);
 			})();
 		</script>
 
@@ -397,7 +409,7 @@ document.addEventListener("click", async (event) => {
 });
 
 const furinaLoaderStartTime = Date.now();
-const MIN_INITIAL_LOADER_MS = 650;
+const MIN_INITIAL_LOADER_MS = 150;
 
 function dismissFurinaLoader(minDisplayMs = 0) {
 	const loader = document.getElementById('furina-global-loader');
@@ -410,7 +422,7 @@ function dismissFurinaLoader(minDisplayMs = 0) {
 		loader.classList.add('opacity-0', 'pointer-events-none');
 		setTimeout(() => {
 			loader.style.display = 'none';
-		}, 500);
+		}, 300);
 	}, delay);
 }
 
@@ -442,11 +454,12 @@ function finishFurinaTopProgressBar() {
 	}, 200);
 }
 
-if (document.readyState === 'complete') {
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
 	dismissFurinaLoader(MIN_INITIAL_LOADER_MS);
 } else {
+	window.addEventListener('DOMContentLoaded', () => dismissFurinaLoader(MIN_INITIAL_LOADER_MS));
 	window.addEventListener('load', () => dismissFurinaLoader(MIN_INITIAL_LOADER_MS));
-	setTimeout(() => dismissFurinaLoader(0), 3000);
+	setTimeout(() => dismissFurinaLoader(0), 1000);
 }
 
 const setup = () => {
@@ -470,6 +483,12 @@ const setup = () => {
 		visitActive = true;
 		scrollStarted = false;
 		document.getElementById('page-height-extend')?.classList.remove('hidden');
+		window.setTimeout(() => {
+			if (visitActive) {
+				finishFurinaTopProgressBar();
+				finishVisit();
+			}
+		}, 4000);
 	});
 	window.swup.hooks.on('visit:end', () => {
 		finishFurinaTopProgressBar();

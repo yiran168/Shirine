@@ -18,12 +18,19 @@ export const ALL: APIRoute = async ({ request, params, locals }) => {
 
   const cleanPath = (params.path || "").replace(/^\/+|\/+$/g, "");
   const incomingUrl = new URL(request.url);
+  const isSameHost = configuredBase && (() => {
+    try {
+      return new URL(configuredBase).hostname.toLowerCase() === incomingUrl.hostname.toLowerCase();
+    } catch {
+      return false;
+    }
+  })();
 
   const hasBody = request.method !== "GET" && request.method !== "HEAD";
 
   // 1. Service Binding proxy fallback on Cloudflare Pages
-  const serviceBinding = runtimeEnv.SHIRINE_SERVER || runtimeEnv.BACKEND || runtimeEnv.API;
-  if (!configuredBase && serviceBinding && typeof serviceBinding.fetch === "function") {
+  const serviceBinding = runtimeEnv.SHIRINE_SERVER || runtimeEnv.BACKEND || runtimeEnv.API || (globalThis as any).__SHIRINE_SERVICE_BINDING__;
+  if ((!configuredBase || isSameHost) && serviceBinding && typeof serviceBinding.fetch === "function") {
     const targetUrl = cleanPath
       ? `https://shirine-internal/api/${cleanPath}${incomingUrl.search}`
       : `https://shirine-internal/api${incomingUrl.search}`;
@@ -60,7 +67,7 @@ export const ALL: APIRoute = async ({ request, params, locals }) => {
     }
   }
 
-  if (!configuredBase) {
+  if (!configuredBase || isSameHost) {
     return new Response(
       JSON.stringify({
         success: false,

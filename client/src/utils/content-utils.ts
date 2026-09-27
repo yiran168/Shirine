@@ -14,6 +14,17 @@ import { normalizeApiUrl, getAuthKey } from "@/services/api";
 
 export { normalizeApiUrl, getAuthKey };
 
+export function isSameOriginSubrequest(apiUrl: string, request?: Request): boolean {
+	if (typeof window !== "undefined" || !request) return false;
+	try {
+		const reqUrl = new URL(request.url);
+		const targetUrl = new URL(apiUrl);
+		return reqUrl.hostname.toLowerCase() === targetUrl.hostname.toLowerCase();
+	} catch {
+		return false;
+	}
+}
+
 export function resolveApiBase(request?: Request): string {
 	if (import.meta.env.PUBLIC_API_URL) {
 		return normalizeApiUrl(import.meta.env.PUBLIC_API_URL);
@@ -36,9 +47,73 @@ export function resolveApiBase(request?: Request): string {
 	return "http://127.0.0.1:11498/api";
 }
 
+export async function fetchApi(
+	endpoint: string,
+	request?: Request,
+	init?: RequestInit
+): Promise<Response | null> {
+	const cleanPath = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+
+	// 1. Service Binding proxy fallback on Cloudflare Pages
+	const serviceBinding = (globalThis as any).__SHIRINE_SERVICE_BINDING__;
+	if (serviceBinding && typeof serviceBinding.fetch === "function") {
+		try {
+			const targetUrl = `https://shirine-internal/api${cleanPath}`;
+			const headers = new Headers(init?.headers);
+			if (request) {
+				const cookie = request.headers.get("cookie");
+				if (cookie && !headers.has("cookie")) headers.set("cookie", cookie);
+				const auth = request.headers.get("authorization");
+				if (auth && !headers.has("authorization")) headers.set("authorization", auth);
+			}
+			headers.delete("host");
+			const res = await serviceBinding.fetch(targetUrl, {
+				...init,
+				headers,
+				signal: init?.signal || AbortSignal.timeout(2500),
+			});
+			if (res && res.status < 500) {
+				return res;
+			}
+		} catch {}
+	}
+
+	// 2. HTTP proxy forwarding or direct fetch
+	const runtimeApi = (globalThis as any).__SHIRINE_RUNTIME_API_URL__;
+	const apiBase = runtimeApi || resolveApiBase(request);
+	if (!apiBase) return null;
+
+	// In SSR: Never make an outbound HTTP request to oneself inside Cloudflare Pages (deadlock prevention)
+	if (isSameOriginSubrequest(apiBase, request)) {
+		return null;
+	}
+
+	try {
+		const baseClean = apiBase.replace(/\/+$/, "");
+		const url = `${baseClean}${cleanPath}`;
+		const headers = new Headers(init?.headers);
+		if (request) {
+			const cookie = request.headers.get("cookie");
+			if (cookie && !headers.has("cookie")) headers.set("cookie", cookie);
+			const auth = request.headers.get("authorization");
+			if (auth && !headers.has("authorization")) headers.set("authorization", auth);
+		}
+		const res = await fetch(url, {
+			...init,
+			headers,
+			signal: init?.signal || AbortSignal.timeout(2500),
+		});
+		return res;
+	} catch {
+		return null;
+	}
+}
+
 const POSTS_CACHE_TTL_MS = 2_000;
 let cachedPostsMap = new Map<string, { time: number; data: CollectionEntry<"posts">[] }>();
 let inFlightPostsPromise = new Map<string, Promise<CollectionEntry<"posts">[]>>();
+let cachedPages: { time: number; data: any[] } | null = null;
+let inFlightPagesPromise: Promise<any[]> | null = null;
 
 export function clearContentCache() {
 	cachedPostsMap.clear();
@@ -64,27 +139,13 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 	}
 
 	const fetchPromise = (async () => {
-		const apiBase = resolveApiBase(request);
-
 		let apiPosts: CollectionEntry<"posts">[] = [];
 		let apiConnected = false;
-		if (apiBase) {
-			try {
-				const headers: Record<string, string> = {};
-				if (request) {
-					const cookie = request.headers.get("cookie");
-					if (cookie) headers["cookie"] = cookie;
-					const auth = request.headers.get("authorization");
-					if (auth) headers["authorization"] = auth;
-				}
-
-				const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts?pageSize=500`, {
-					headers,
-					signal: AbortSignal.timeout(3000),
-				});
-				if (res.ok) {
-					const json = await res.json();
-					if (json.success && Array.isArray(json.data)) {
+		try {
+			const res = await fetchApi("/posts?pageSize=500", request);
+			if (res && res.ok) {
+				const json = await res.json();
+				if (json.success && Array.isArray(json.data)) {
 						apiConnected = true;
 						apiPosts = json.data.map((p: any) => ({
 							id: p.slug || String(p.id),
@@ -125,7 +186,6 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 					}
 				}
 			} catch {}
-		}
 
 		let localPosts: CollectionEntry<"posts">[] = [];
 		try {
@@ -346,41 +406,27 @@ export async function getSortedMoments(request?: Request): Promise<MomentItem[]>
 	}
 
 	const promise = (async () => {
-		const apiBase = resolveApiBase(request);
-
 		let apiMoments: MomentItem[] = [];
 		let apiConnected = false;
-		if (apiBase) {
-			try {
-				const headers: Record<string, string> = {};
-				if (request) {
-					const cookie = request.headers.get("cookie");
-					if (cookie) headers["cookie"] = cookie;
-					const auth = request.headers.get("authorization");
-					if (auth) headers["authorization"] = auth;
+		try {
+			const res = await fetchApi("/moments", request);
+			if (res && res.ok) {
+				const json = await res.json();
+				if (json.success && Array.isArray(json.data)) {
+					apiConnected = true;
+					apiMoments = json.data.map((m: any) => ({
+						id: String(m.id),
+						published: new Date(m.createdAt).toISOString(),
+						html: renderDynamicMarkdown(m.content || ""),
+						pinned: Boolean(m.pinned),
+						location: m.location || "",
+						mood: m.mood || "",
+						tags: Array.isArray(m.tags) ? m.tags : [],
+						images: Array.isArray(m.images) ? m.images.map(withMomentThumbnails) : [],
+					}));
 				}
-				const res = await fetch(`${apiBase.replace(/\/$/, "")}/moments`, {
-					headers,
-					signal: AbortSignal.timeout(3000),
-				});
-				if (res.ok) {
-					const json = await res.json();
-					if (json.success && Array.isArray(json.data)) {
-						apiConnected = true;
-						apiMoments = json.data.map((m: any) => ({
-							id: String(m.id),
-							published: new Date(m.createdAt).toISOString(),
-							html: renderDynamicMarkdown(m.content || ""),
-							pinned: Boolean(m.pinned),
-							location: m.location || "",
-							mood: m.mood || "",
-							tags: Array.isArray(m.tags) ? m.tags : [],
-							images: Array.isArray(m.images) ? m.images.map(withMomentThumbnails) : [],
-						}));
-					}
-				}
-			} catch {}
-		}
+			}
+		} catch {}
 
 		let momentsToUse: MomentItem[] = [];
 		if (apiConnected && apiMoments.length > 0) {
@@ -441,40 +487,27 @@ export async function getDynamicFriends(request?: Request): Promise<FriendItem[]
 		return cachedFriends.data;
 	}
 
-	const apiBase = resolveApiBase(request);
 	let allFriends: FriendItem[] = [];
 	let apiConnected = false;
 
-	if (apiBase) {
-		try {
-			const headers: Record<string, string> = {};
-			if (request) {
-				const cookie = request.headers.get("cookie");
-				if (cookie) headers["cookie"] = cookie;
-				const auth = request.headers.get("authorization");
-				if (auth) headers["authorization"] = auth;
+	try {
+		const res = await fetchApi("/friends", request);
+		if (res && res.ok) {
+			const json = await res.json();
+			const list = json.data || json.friends || [];
+			if (Array.isArray(list)) {
+				apiConnected = true;
+				allFriends = list.map((f: any) => ({
+					id: f.id,
+					title: f.name,
+					imgurl: f.avatar,
+					desc: f.desc || "",
+					siteurl: f.url,
+					tags: Array.isArray(f.tags) ? f.tags : ["Friend"],
+				}));
 			}
-			const res = await fetch(`${apiBase.replace(/\/$/, "")}/friends`, {
-				headers,
-				signal: AbortSignal.timeout(3000),
-			});
-			if (res.ok) {
-				const json = await res.json();
-				const list = json.data || json.friends || [];
-				if (Array.isArray(list)) {
-					apiConnected = true;
-					allFriends = list.map((f: any) => ({
-						id: f.id,
-						title: f.name,
-						imgurl: f.avatar,
-						desc: f.desc || "",
-						siteurl: f.url,
-						tags: Array.isArray(f.tags) ? f.tags : ["Friend"],
-					}));
-				}
-			}
-		} catch {}
-	}
+		}
+	} catch {}
 
 	if (!apiConnected || allFriends.length === 0) {
 		try {
@@ -500,42 +533,29 @@ export async function getDynamicAlbums(request?: Request): Promise<any[]> {
 		return cached.data;
 	}
 
-	const apiBase = resolveApiBase(request);
 	let dynamicAlbums: any[] = [];
 	let apiConnected = false;
 
-	if (apiBase) {
-		try {
-			const headers: Record<string, string> = {};
-			if (request) {
-				const cookie = request.headers.get("cookie");
-				if (cookie) headers["cookie"] = cookie;
-				const auth = request.headers.get("authorization");
-				if (auth) headers["authorization"] = auth;
-			}
-
-			const res = await fetch(`${apiBase.replace(/\/$/, "")}/albums`, {
-				headers,
-				signal: AbortSignal.timeout(3000),
-			});
-			if (res.ok) {
-				const json = await res.json();
-				if (json.success && Array.isArray(json.data)) {
-					apiConnected = true;
-					dynamicAlbums = json.data.map((a: any) => ({
-						id: a.slug || String(a.id),
-						dbId: a.id,
-						title: a.title,
-						description: a.description || "",
-						cover: a.cover || "",
-						count: a.photoCount ?? 0,
-						photoCount: a.photoCount ?? 0,
-						permissionType: a.permissionType || "public",
-						requiredPoints: a.requiredPoints || 0,
-						isUnlocked: Boolean(a.isUnlocked),
-						protected: a.permissionType !== "public" || Boolean(a.requiresPassword),
-						requiresPassword: Boolean(a.requiresPassword),
-						passwordHint: a.passwordHint || undefined,
+	try {
+		const res = await fetchApi("/albums", request);
+		if (res && res.ok) {
+			const json = await res.json();
+			if (json.success && Array.isArray(json.data)) {
+				apiConnected = true;
+				dynamicAlbums = json.data.map((a: any) => ({
+					id: a.slug || String(a.id),
+					dbId: a.id,
+					title: a.title,
+					description: a.description || "",
+					cover: a.cover || "",
+					count: a.photoCount ?? 0,
+					photoCount: a.photoCount ?? 0,
+					permissionType: a.permissionType || "public",
+					requiredPoints: a.requiredPoints || 0,
+					isUnlocked: Boolean(a.isUnlocked),
+					protected: a.permissionType !== "public" || Boolean(a.requiresPassword),
+					requiresPassword: Boolean(a.requiresPassword),
+					passwordHint: a.passwordHint || undefined,
 						tags: Array.isArray(a.tags) ? a.tags : [],
 						layout: a.layout || "masonry",
 						columns: a.columns || 3,
@@ -544,7 +564,6 @@ export async function getDynamicAlbums(request?: Request): Promise<any[]> {
 				}
 			}
 		} catch {}
-	}
 
 	let localAlbums: any[] = [];
 	if (!apiConnected || dynamicAlbums.length === 0) {
@@ -573,37 +592,24 @@ export async function getDiscoveryCandidates(request?: Request): Promise<any[]> 
 	}
 
 	const promise = (async () => {
-		const apiBase = resolveApiBase(request);
 		let candidates: any[] = [];
-		if (apiBase) {
-			try {
-				const headers: Record<string, string> = {};
-				if (request) {
-					const cookie = request.headers.get("cookie");
-					if (cookie) headers["cookie"] = cookie;
-					const auth = request.headers.get("authorization");
-					if (auth) headers["authorization"] = auth;
+		try {
+			const discRes = await fetchApi("/posts?pageSize=10", request);
+			if (discRes && discRes.ok) {
+				const discJson = await discRes.json();
+				if (discJson.success && Array.isArray(discJson.data)) {
+					candidates = discJson.data.map((p: any) => ({
+						slug: p.slug || String(p.id),
+						data: {
+							title: p.title,
+							published: new Date(p.createdAt),
+							category: p.category || "",
+							tags: Array.isArray(p.tags) ? p.tags : [],
+						},
+					}));
 				}
-				const discRes = await fetch(`${apiBase}/posts?pageSize=10`, {
-					headers,
-					signal: AbortSignal.timeout(2000),
-				});
-				if (discRes.ok) {
-					const discJson = await discRes.json();
-					if (discJson.success && Array.isArray(discJson.data)) {
-						candidates = discJson.data.map((p: any) => ({
-							slug: p.slug || String(p.id),
-							data: {
-								title: p.title,
-								published: new Date(p.createdAt),
-								category: p.category || "",
-								tags: Array.isArray(p.tags) ? p.tags : [],
-							},
-						}));
-					}
-				}
-			} catch {}
-		}
+			}
+		} catch {}
 		cachedDiscovery = { time: Date.now(), data: candidates };
 		return candidates;
 	})();
@@ -616,121 +622,66 @@ export async function getDiscoveryCandidates(request?: Request): Promise<any[]> 
 	}
 }
 
+async function getRawSiteConfigData(request?: Request): Promise<any> {
+	try {
+		const res = await fetchApi("/config/site", request);
+		if (res && res.ok) {
+			const json = await res.json();
+			return json.data || json.site || json.config || null;
+		}
+	} catch {}
+	return null;
+}
+
 export async function getDynamicCompass(request?: Request): Promise<any[]> {
-	const apiBase = resolveApiBase(request);
-	if (apiBase) {
-		try {
-			const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
-				signal: AbortSignal.timeout(2000),
-			});
-			if (res.ok) {
-				const json = await res.json();
-				const siteCfg = json.data || json.site;
-				if (siteCfg && Array.isArray(siteCfg.compass)) {
-					return siteCfg.compass;
-				}
-			}
-		} catch {}
+	const siteCfg = await getRawSiteConfigData(request);
+	if (siteCfg && Array.isArray(siteCfg.compass)) {
+		return siteCfg.compass;
 	}
 	const { compassData } = await import("../data/compass");
 	return compassData;
 }
 
 export async function getDynamicAnime(request?: Request): Promise<any[]> {
-	const apiBase = resolveApiBase(request);
-	if (apiBase) {
-		try {
-			const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
-				signal: AbortSignal.timeout(2000),
-			});
-			if (res.ok) {
-				const json = await res.json();
-				const siteCfg = json.data || json.site;
-				if (siteCfg && Array.isArray(siteCfg.anime)) {
-					return siteCfg.anime;
-				}
-			}
-		} catch {}
+	const siteCfg = await getRawSiteConfigData(request);
+	if (siteCfg && Array.isArray(siteCfg.anime)) {
+		return siteCfg.anime;
 	}
 	const { getAnimeList } = await import("./anime-data");
 	return await getAnimeList();
 }
 
 export async function getDynamicProjects(request?: Request): Promise<any[]> {
-	const apiBase = resolveApiBase(request);
-	if (apiBase) {
-		try {
-			const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
-				signal: AbortSignal.timeout(2000),
-			});
-			if (res.ok) {
-				const json = await res.json();
-				const siteCfg = json.data || json.site;
-				if (siteCfg && Array.isArray(siteCfg.projects)) {
-					return siteCfg.projects;
-				}
-			}
-		} catch {}
+	const siteCfg = await getRawSiteConfigData(request);
+	if (siteCfg && Array.isArray(siteCfg.projects)) {
+		return siteCfg.projects;
 	}
 	const { projectsData } = await import("../data/projects");
 	return projectsData;
 }
 
 export async function getDynamicDevices(request?: Request): Promise<any[]> {
-	const apiBase = resolveApiBase(request);
-	if (apiBase) {
-		try {
-			const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
-				signal: AbortSignal.timeout(2000),
-			});
-			if (res.ok) {
-				const json = await res.json();
-				const siteCfg = json.data || json.site;
-				if (siteCfg && Array.isArray(siteCfg.devices)) {
-					return siteCfg.devices;
-				}
-			}
-		} catch {}
+	const siteCfg = await getRawSiteConfigData(request);
+	if (siteCfg && Array.isArray(siteCfg.devices)) {
+		return siteCfg.devices;
 	}
 	const { devicesData } = await import("../data/devices");
 	return devicesData;
 }
 
 export async function getDynamicSkills(request?: Request): Promise<any[]> {
-	const apiBase = resolveApiBase(request);
-	if (apiBase) {
-		try {
-			const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
-				signal: AbortSignal.timeout(2000),
-			});
-			if (res.ok) {
-				const json = await res.json();
-				const siteCfg = json.data || json.site;
-				if (siteCfg && Array.isArray(siteCfg.skills)) {
-					return siteCfg.skills;
-				}
-			}
-		} catch {}
+	const siteCfg = await getRawSiteConfigData(request);
+	if (siteCfg && Array.isArray(siteCfg.skills)) {
+		return siteCfg.skills;
 	}
 	const { skillsData } = await import("../data/skills");
 	return skillsData;
 }
 
 export async function getDynamicTimeline(request?: Request): Promise<any[]> {
-	const apiBase = resolveApiBase(request);
-	if (apiBase) {
-		try {
-			const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
-				signal: AbortSignal.timeout(2000),
-			});
-			if (res.ok) {
-				const json = await res.json();
-				const siteCfg = json.data || json.site;
-				if (siteCfg && Array.isArray(siteCfg.timeline)) {
-					return siteCfg.timeline;
-				}
-			}
-		} catch {}
+	const siteCfg = await getRawSiteConfigData(request);
+	if (siteCfg && Array.isArray(siteCfg.timeline)) {
+		return siteCfg.timeline;
 	}
 	const { timelineData } = await import("../data/timeline");
 	return timelineData;
@@ -748,39 +699,25 @@ export async function getDynamicFriendApplyInfo(request?: Request): Promise<{
 		avatar: "/assets/images/demo-avatar.webp",
 		desc: "The rain remembers what the sky forgot to say.",
 	};
-	const apiBase = resolveApiBase(request);
-	if (apiBase) {
-		try {
-			const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
-				signal: AbortSignal.timeout(2000),
-			});
-			if (res.ok) {
-				const json = await res.json();
-				const siteCfg = json.data || json.site;
-				if (siteCfg && siteCfg.friendApplyInfo && typeof siteCfg.friendApplyInfo === "object") {
-					return {
-						name: siteCfg.friendApplyInfo.name || defaultInfo.name,
-						url: siteCfg.friendApplyInfo.url || defaultInfo.url,
-						avatar: siteCfg.friendApplyInfo.avatar || defaultInfo.avatar,
-						desc: siteCfg.friendApplyInfo.desc || defaultInfo.desc,
-					};
-				}
-				if (siteCfg) {
-					return {
-						name: siteCfg.title || siteCfg.name || defaultInfo.name,
-						url: siteCfg.site || defaultInfo.url,
-						avatar: siteCfg.avatar || siteCfg.profile?.avatar || defaultInfo.avatar,
-						desc: siteCfg.bio || siteCfg.profile?.bio || siteCfg.subtitle || defaultInfo.desc,
-					};
-				}
-			}
-		} catch {}
+	const siteCfg = await getRawSiteConfigData(request);
+	if (siteCfg && siteCfg.friendApplyInfo && typeof siteCfg.friendApplyInfo === "object") {
+		return {
+			name: siteCfg.friendApplyInfo.name || defaultInfo.name,
+			url: siteCfg.friendApplyInfo.url || defaultInfo.url,
+			avatar: siteCfg.friendApplyInfo.avatar || defaultInfo.avatar,
+			desc: siteCfg.friendApplyInfo.desc || defaultInfo.desc,
+		};
+	}
+	if (siteCfg) {
+		return {
+			name: siteCfg.title || siteCfg.name || defaultInfo.name,
+			url: siteCfg.site || defaultInfo.url,
+			avatar: siteCfg.avatar || siteCfg.profile?.avatar || defaultInfo.avatar,
+			desc: siteCfg.bio || siteCfg.profile?.bio || siteCfg.subtitle || defaultInfo.desc,
+		};
 	}
 	return defaultInfo;
 }
-
-let cachedPages: { time: number; data: any[] } | null = null;
-let inFlightPagesPromise: Promise<any[]> | null = null;
 
 export async function getDynamicPages(request?: Request): Promise<any[]> {
 	const now = Date.now();
@@ -792,22 +729,17 @@ export async function getDynamicPages(request?: Request): Promise<any[]> {
 	}
 
 	const promise = (async () => {
-		const apiBase = resolveApiBase(request);
-		if (apiBase) {
-			try {
-				const res = await fetch(`${apiBase.replace(/\/$/, "")}/pages`, {
-					signal: AbortSignal.timeout(2000),
-				});
-				if (res.ok) {
-					const json = await res.json();
-					if (json.success && Array.isArray(json.data)) {
-						const publishedPages = json.data.filter((p: any) => !p.draft && p.status !== "draft");
-						cachedPages = { time: Date.now(), data: publishedPages };
-						return publishedPages;
-					}
+		try {
+			const res = await fetchApi("/pages", request);
+			if (res && res.ok) {
+				const json = await res.json();
+				if (json.success && Array.isArray(json.data)) {
+					const publishedPages = json.data.filter((p: any) => !p.draft && p.status !== "draft");
+					cachedPages = { time: Date.now(), data: publishedPages };
+					return publishedPages;
 				}
-			} catch {}
-		}
+			}
+		} catch {}
 		cachedPages = { time: Date.now(), data: [] };
 		return [];
 	})();

@@ -7,36 +7,24 @@ import MainGridLayout from "@layouts/MainGridLayout.astro";
 import { renderDynamicMarkdown } from "@utils/dynamic-markdown";
 import { formatDateToYYYYMMDD } from "@utils/date-utils";
 import type { PageDto } from "@/types/dto";
-import { resolveApiBase } from "@utils/content-utils";
+import { fetchApi } from "@utils/content-utils";
 
 const { slug } = Astro.params;
 if (!slug) {
 	return Astro.redirect("/404");
 }
 
-const apiBase = resolveApiBase(Astro.request);
 let pageData: PageDto | null = null;
-
-if (apiBase) {
-	try {
-		const cookieHeader = Astro.request.headers.get("cookie") || "";
-		const authHeader = Astro.request.headers.get("authorization") || "";
-		const headers: Record<string, string> = {};
-		if (cookieHeader) headers["cookie"] = cookieHeader;
-		if (authHeader) headers["authorization"] = authHeader;
-		const res = await fetch(`${apiBase.replace(/\/$/, "")}/pages/${slug}`, {
-			headers,
-			signal: AbortSignal.timeout(3000),
-		});
-		if (res.ok) {
-			const json = await res.json();
-			if (json.success && (json.data || json.page)) {
-				pageData = json.data || json.page;
-			}
+try {
+	const res = await fetchApi(`/pages/${encodeURIComponent(slug)}`, Astro.request);
+	if (res && res.ok) {
+		const json = await res.json();
+		if (json.success && (json.data || json.page)) {
+			pageData = json.data || json.page;
 		}
-	} catch (e) {
-		console.error(`Failed to fetch custom page [${slug}]:`, e);
 	}
+} catch (e) {
+	console.error(`Failed to fetch custom page [${slug}]:`, e);
 }
 
 if (!pageData) {

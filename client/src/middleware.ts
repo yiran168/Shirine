@@ -3,6 +3,17 @@ import { setSiteLang } from "./i18n/translation";
 import { getDynamicSiteConfig } from "./utils/dynamic-config";
 
 export const onRequest = defineMiddleware(async (context, next) => {
+  const runtimeEnv = (context.locals as any)?.runtime?.env;
+  if (runtimeEnv) {
+    const binding = runtimeEnv.SHIRINE_SERVER || runtimeEnv.BACKEND || runtimeEnv.API;
+    if (binding && typeof binding.fetch === "function") {
+      (globalThis as any).__SHIRINE_SERVICE_BINDING__ = binding;
+    }
+    if (runtimeEnv.PUBLIC_API_URL && !import.meta.env.PUBLIC_API_URL) {
+      (globalThis as any).__SHIRINE_RUNTIME_API_URL__ = runtimeEnv.PUBLIC_API_URL;
+    }
+  }
+
   const cookieLang = context.cookies.get("shirine_lang")?.value;
   const queryLang = context.url.searchParams.get("lang");
   let lang = queryLang || cookieLang;
