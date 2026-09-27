@@ -19,7 +19,12 @@ export function isSameOriginSubrequest(apiUrl: string, request?: Request): boole
 	try {
 		const reqUrl = new URL(request.url);
 		const targetUrl = new URL(apiUrl);
-		return reqUrl.hostname.toLowerCase() === targetUrl.hostname.toLowerCase();
+		const reqHost = reqUrl.hostname.toLowerCase();
+		const targetHost = targetUrl.hostname.toLowerCase();
+		if (reqHost === targetHost) return true;
+		if (reqHost.endsWith(".pages.dev") && targetHost.endsWith(".pages.dev")) return true;
+		if ((reqHost === "localhost" || reqHost === "127.0.0.1") && (targetHost === "localhost" || targetHost === "127.0.0.1")) return true;
+		return false;
 	} catch {
 		return false;
 	}
@@ -70,7 +75,7 @@ export async function fetchApi(
 			const res = await serviceBinding.fetch(targetUrl, {
 				...init,
 				headers,
-				signal: init?.signal || AbortSignal.timeout(2500),
+				signal: init?.signal || AbortSignal.timeout(800),
 			});
 			if (res && res.status < 500) {
 				return res;
@@ -101,7 +106,7 @@ export async function fetchApi(
 		const res = await fetch(url, {
 			...init,
 			headers,
-			signal: init?.signal || AbortSignal.timeout(2500),
+			signal: init?.signal || AbortSignal.timeout(800),
 		});
 		return res;
 	} catch {

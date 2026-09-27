@@ -263,12 +263,12 @@ if (runtimeApiUrl && !(globalThis as any).__SHIRINE_RUNTIME_API_URL__) {
 		<!-- Global Furina Anime Loading Screen (512x512 Seamless Loop, placed at top of body for immediate first paint) -->
 		<style is:inline>
 			#furina-global-loader {
-				animation: furina-loader-auto-fade 0.3s ease-out 0.4s forwards;
+				animation: furina-loader-auto-fade 0.25s ease-out 0.3s forwards;
 			}
 			@keyframes furina-loader-auto-fade {
 				0% { opacity: 1; }
 				99% { opacity: 0; pointer-events: none; }
-				100% { opacity: 0; pointer-events: none; display: none !important; visibility: hidden; }
+				100% { opacity: 0; pointer-events: none; visibility: hidden; }
 			}
 		</style>
 		<div

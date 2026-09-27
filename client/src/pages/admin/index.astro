@@ -32,9 +32,19 @@ const htmlLang = currentAdminLang.replace("_", "-");
 	</head>
 	<body class="h-full antialiased bg-[var(--surface-container-lowest,#f8fafc)] text-[var(--on-surface,#0f172a)]">
 		<!-- Global Furina Anime Loading Screen for Admin Console -->
+		<style is:inline>
+			#furina-admin-loader {
+				animation: furina-admin-loader-auto-fade 0.25s ease-out 0.4s forwards;
+			}
+			@keyframes furina-admin-loader-auto-fade {
+				0% { opacity: 1; }
+				99% { opacity: 0; pointer-events: none; }
+				100% { opacity: 0; pointer-events: none; visibility: hidden; }
+			}
+		</style>
 		<div
 			id="furina-admin-loader"
-			class="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[var(--surface-container-lowest,#f8fafc)]/90 backdrop-blur-xl transition-all duration-500 ease-out select-none"
+			class="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[var(--surface-container-lowest,#f8fafc)]/90 backdrop-blur-xl transition-all duration-300 ease-out select-none"
 			aria-label="管理后台加载中..."
 			role="status"
 		>
@@ -55,18 +65,23 @@ const htmlLang = currentAdminLang.replace("_", "-");
 		<script is:inline>
 			const adminLoader = document.getElementById('furina-admin-loader');
 			if (adminLoader) {
-				const start = Date.now();
+				let dismissed = false;
 				const dismiss = () => {
-					const elapsed = Date.now() - start;
-					const delay = Math.max(0, 600 - elapsed);
+					if (dismissed) return;
+					dismissed = true;
+					adminLoader.classList.add('opacity-0', 'pointer-events-none');
 					setTimeout(() => {
-						adminLoader.classList.add('opacity-0', 'pointer-events-none');
-						setTimeout(() => { adminLoader.style.display = 'none'; }, 500);
-					}, delay);
+						adminLoader.style.display = 'none';
+						try { adminLoader.remove(); } catch {}
+					}, 200);
 				};
-				if (document.readyState === 'complete') dismiss();
-				else window.addEventListener('load', dismiss);
-				setTimeout(dismiss, 2500);
+				if (document.readyState === 'complete' || document.readyState === 'interactive') {
+					dismiss();
+				} else {
+					window.addEventListener('DOMContentLoaded', dismiss, { once: true });
+					window.addEventListener('load', dismiss, { once: true });
+				}
+				setTimeout(dismiss, 500);
 			}
 		</script>
 	</body>

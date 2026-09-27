@@ -20,7 +20,9 @@ export const ALL: APIRoute = async ({ request, params, locals }) => {
   const incomingUrl = new URL(request.url);
   const isSameHost = configuredBase && (() => {
     try {
-      return new URL(configuredBase).hostname.toLowerCase() === incomingUrl.hostname.toLowerCase();
+      const cfgHost = new URL(configuredBase).hostname.toLowerCase();
+      const inHost = incomingUrl.hostname.toLowerCase();
+      return cfgHost === inHost || (cfgHost.endsWith(".pages.dev") && inHost.endsWith(".pages.dev"));
     } catch {
       return false;
     }

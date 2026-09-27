@@ -121,6 +121,7 @@ const cloudflareWorkerManifestIntegration = {
 				exclude: [
 					"/_astro/*",
 					"/assets/*",
+					"/avatars/*",
 					"/images/*",
 					"/favicon/*",
 					"/logo/*",

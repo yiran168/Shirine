@@ -32,11 +32,31 @@ onMount(() => {
 	document.addEventListener("swup:visit:start", show);
 	document.addEventListener("swup:page:view", hide);
 	document.addEventListener("swup:visit:end", hide);
+
+	const bindSwup = () => {
+		const swup = (window as any).swup;
+		if (swup?.hooks) {
+			swup.hooks.on("visit:start", show);
+			swup.hooks.on("page:view", hide);
+			swup.hooks.on("visit:end", hide);
+		}
+	};
+	bindSwup();
+	document.addEventListener("swup:enable", bindSwup, { once: true });
+
 	return () => {
 		clearTimeout(autoHideTimer);
 		document.removeEventListener("swup:visit:start", show);
 		document.removeEventListener("swup:page:view", hide);
 		document.removeEventListener("swup:visit:end", hide);
+		const swup = (window as any).swup;
+		if (swup?.hooks) {
+			try {
+				swup.hooks.off("visit:start", show);
+				swup.hooks.off("page:view", hide);
+				swup.hooks.off("visit:end", hide);
+			} catch {}
+		}
 	};
 });
 </script>
