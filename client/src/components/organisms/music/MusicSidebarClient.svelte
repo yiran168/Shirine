@@ -130,6 +130,13 @@ onMount(() => {
 					const dynOptions = resolveMusicOptions(data.music);
 					if (dynOptions && active) {
 						options = dynOptions;
+						snapshot = {
+							...snapshot,
+							playlist: dynOptions.playlist,
+							currentIndex: dynOptions.playlist.length > 0 ? 0 : -1,
+							currentTrack: dynOptions.playlist[0] ?? null,
+							duration: dynOptions.playlist[0]?.duration ?? 0,
+						};
 					}
 				}
 			}

@@ -901,8 +901,9 @@ configRouter.put("/site", requireAdmin, async (c) => {
         musicUpdates.tracks = body.musicTracks;
       }
       if (body.musicMetingId !== undefined || body.musicMetingServer !== undefined) {
+        const rawServer = String(body.musicMetingServer || "netease").toLowerCase().trim();
         musicUpdates.meting = {
-          server: body.musicMetingServer || "netease",
+          server: rawServer === "qq" ? "tencent" : rawServer,
           type: "playlist",
           id: String(body.musicMetingId || "14164869977"),
         };

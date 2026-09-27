@@ -38,7 +38,8 @@ export interface DynamicSiteConfigResult {
 
 let cachedPromise: Promise<DynamicSiteConfigResult> | null = null;
 let cachedTime = 0;
-const CACHE_TTL_MS = 2000;
+let lastKnownApiBase = "";
+const CACHE_TTL_MS = 2500;
 
 export function clearDynamicConfigCache(): void {
   cachedPromise = null;
@@ -47,7 +48,7 @@ export function clearDynamicConfigCache(): void {
 
 export async function getDynamicSiteConfig(request?: Request): Promise<DynamicSiteConfigResult> {
   const now = Date.now();
-  if (!request && cachedPromise && now - cachedTime < CACHE_TTL_MS) {
+  if (cachedPromise && now - cachedTime < CACHE_TTL_MS) {
     return cachedPromise;
   }
 
@@ -57,7 +58,11 @@ export async function getDynamicSiteConfig(request?: Request): Promise<DynamicSi
       try {
         const origin = new URL(request.url).origin;
         apiBase = `${origin}/api`;
+        lastKnownApiBase = apiBase;
       } catch {}
+    }
+    if (!apiBase && lastKnownApiBase) {
+      apiBase = lastKnownApiBase;
     }
     if (!apiBase && import.meta.env.PUBLIC_API_URL) {
       const raw = import.meta.env.PUBLIC_API_URL.replace(/\/$/, "");
@@ -105,11 +110,7 @@ export async function getDynamicSiteConfig(request?: Request): Promise<DynamicSi
     };
   };
 
-  if (!request) {
-    cachedTime = now;
-    cachedPromise = fetchConfig();
-    return cachedPromise;
-  }
-
-  return fetchConfig();
+  cachedTime = now;
+  cachedPromise = fetchConfig();
+  return cachedPromise;
 }

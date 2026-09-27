@@ -23,7 +23,7 @@ const className = Astro.props.class;
 const style = Astro.props.style;
 const priority = Astro.props.priority ?? false;
 
-const { profile: config } = await getDynamicSiteConfig();
+const { profile: config } = await getDynamicSiteConfig(Astro.request);
 const avatarAsset = await resolveImageAsset(config.avatar ?? "");
 let avatarUrl = typeof avatarAsset === "string" ? avatarAsset : avatarAsset.src;
 let avatarSrcset: string | undefined;

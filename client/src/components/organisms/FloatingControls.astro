@@ -27,7 +27,7 @@ interface Props {
 
 const { headings = [], page, hasComments } = Astro.props;
 
-const { music: dynamicMusic } = await getDynamicSiteConfig();
+const { music: dynamicMusic } = await getDynamicSiteConfig(Astro.request);
 const activeMusicConfig = dynamicMusic ?? staticMusicConfig;
 const musicOptions = activeMusicConfig?.enable ? resolveMusicOptions(activeMusicConfig) : null;
 

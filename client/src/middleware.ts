@@ -6,13 +6,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const cookieLang = context.cookies.get("shirine_lang")?.value;
   const queryLang = context.url.searchParams.get("lang");
   let lang = queryLang || cookieLang;
-  if (!lang) {
-    try {
-      const { site } = await getDynamicSiteConfig();
+  try {
+    const { site } = await getDynamicSiteConfig(context.request);
+    if (!lang) {
       lang = site?.lang || "zh_CN";
-    } catch {
-      lang = "zh_CN";
     }
+  } catch {
+    if (!lang) lang = "zh_CN";
   }
 
   if (queryLang && queryLang !== cookieLang) {

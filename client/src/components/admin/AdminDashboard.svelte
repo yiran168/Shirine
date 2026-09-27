@@ -1263,11 +1263,13 @@
     if (file) {
       try {
         const probe = new Audio(URL.createObjectURL(file));
+        probe.preload = "metadata";
         probe.onloadedmetadata = () => {
           if (probe.duration && !isNaN(probe.duration) && isFinite(probe.duration)) {
             track.duration = Math.round(probe.duration);
           }
         };
+        probe.load();
       } catch {}
     }
     handleGenericUpload(e, (url) => {
@@ -1282,6 +1284,7 @@
     }
     try {
       const probe = new Audio(track.source);
+      probe.preload = "metadata";
       probe.onloadedmetadata = () => {
         if (probe.duration && !isNaN(probe.duration) && isFinite(probe.duration)) {
           track.duration = Math.round(probe.duration);
@@ -1293,6 +1296,7 @@
       probe.onerror = () => {
         showMessage("无法探测该音频（可能存在跨域限制），请手动输入秒数", true);
       };
+      probe.load();
     } catch {
       showMessage("探测音频时长异常，请手动输入秒数", true);
     }
@@ -1922,6 +1926,13 @@
         : `已有动态内容:\n${(momentModalOpen ? editMomentForm.content : momentContent).slice(0, 1000)}`;
 
       const token = localStorage.getItem("shirine_token") || "";
+      const abortController = new AbortController();
+      let activityTimeout = setTimeout(() => abortController.abort(), 180000);
+      const resetActivityTimeout = () => {
+        clearTimeout(activityTimeout);
+        activityTimeout = setTimeout(() => abortController.abort(), 60000);
+      };
+
       const response = await fetch("/api/admin/ai/generate", {
         method: "POST",
         headers: {
@@ -1936,10 +1947,11 @@
           systemPrompt: "你是一个专业的个人博客写作助手。根据用户指令帮助润色、续写或整理博客内容，直接输出 Markdown 格式，不要废话。",
           stream: true,
         }),
-        signal: AbortSignal.timeout(60000),
+        signal: abortController.signal,
       });
 
       if (!response.ok) {
+        clearTimeout(activityTimeout);
         const errJson = await response.json().catch(() => null);
         showMessage(errJson?.error || `AI 请求失败 (${response.status})`, true);
         return;
@@ -1953,6 +1965,7 @@
 
         while (true) {
           const { done, value } = await reader.read();
+          resetActivityTimeout();
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
@@ -2250,7 +2263,7 @@
   });
 </script>
 
-<div class="min-h-screen bg-[var(--surface-container-lowest)] text-[var(--on-surface)] flex flex-col font-sans transition-colors duration-200">
+<div class="h-screen overflow-hidden bg-[var(--surface-container-lowest)] text-[var(--on-surface)] flex flex-col font-sans transition-colors duration-200">
   <!-- Toast Messages -->
   {#if errorMsg}
     <div class="fixed top-5 right-5 z-[100] px-5 py-3 rounded-2xl bg-rose-600 text-white shadow-2xl flex items-center gap-3 animate-fade-in border border-white/20">
@@ -2266,7 +2279,7 @@
   {/if}
 
   <!-- Admin Header -->
-  <header class="h-16 px-6 border-b border-[var(--outline-variant)]/20 bg-[var(--surface)]/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-30">
+  <header class="h-16 shrink-0 px-6 border-b border-[var(--outline-variant)]/20 bg-[var(--surface)]/80 backdrop-blur-md flex items-center justify-between z-30">
     <div class="flex items-center gap-4">
       <a href="/" class="flex items-center gap-2 text-primary font-bold text-lg hover:opacity-80 transition-opacity">
         <span class="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">S</span>
@@ -2468,9 +2481,9 @@
     {/if}
   {:else}
     <!-- Main Admin Layout -->
-    <div class="flex-1 flex flex-col md:flex-row">
+    <div class="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
       <!-- Sidebar Navigation -->
-      <aside class="w-full md:w-64 border-r border-[var(--outline-variant)]/20 bg-[var(--surface-container-lowest)] p-4 flex md:flex-col gap-1 overflow-x-auto shrink-0 md:sticky md:top-16 md:h-[calc(100vh-4rem)] md:overflow-y-auto relative z-50 pointer-events-auto">
+      <aside class="w-full md:w-64 border-r border-[var(--outline-variant)]/20 bg-[var(--surface-container-lowest)] p-4 flex md:flex-col gap-1 overflow-x-auto shrink-0 md:h-full md:overflow-y-auto relative z-20 pointer-events-auto">
         <button
           onclick={() => switchTab("overview")}
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'overview' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
@@ -2601,7 +2614,7 @@
       </aside>
 
       <!-- Main Workspace -->
-      <main class="flex-1 p-6 md:p-8 overflow-y-auto">
+      <main class="flex-1 p-6 md:p-8 overflow-y-auto min-h-0">
         {#if currentTab === "overview"}
           <!-- Overview Cards -->
           <div class="mb-8">
@@ -5259,6 +5272,7 @@
                                 <input
                                   type="text"
                                   bind:value={track.source}
+                                  onchange={() => probeTrackDuration(track)}
                                   placeholder="音频 URL (/assets/music/... 或 https://...)"
                                   class="flex-1 px-3 py-1.5 rounded-lg border border-[var(--outline-variant)]/20 bg-[var(--surface)] text-xs outline-none font-mono"
                                 />

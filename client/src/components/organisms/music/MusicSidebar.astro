@@ -18,7 +18,7 @@ interface Props {
 
 const className = Astro.props.class;
 const style = Astro.props.style;
-const { music: dynamicMusic } = await getDynamicSiteConfig();
+const { music: dynamicMusic } = await getDynamicSiteConfig(Astro.request);
 const musicConfig = dynamicMusic ?? staticMusicConfig;
 const options = resolveMusicOptions(musicConfig);
 const configuredTracks =

@@ -28,7 +28,8 @@ export function buildMetingUrl(config: MetingMusicConfig): string | null {
 	if (!id) return null;
 
 	const api = config.api?.trim() || DEFAULT_METING_API;
-	const server = config.server?.trim() || DEFAULT_METING_SERVER;
+	let server = (config.server?.trim() || DEFAULT_METING_SERVER).toLowerCase();
+	if (server === "qq") server = "tencent";
 	const type = config.type?.trim() || DEFAULT_METING_TYPE;
 	const random = Date.now().toString();
 
@@ -54,10 +55,15 @@ export function parseMetingSong(
 	const source = (song.url ?? "").trim();
 	if (!title || !source) return null;
 
-	const id =
-		song.id !== undefined && song.id !== null && String(song.id).trim() !== ""
-			? `meting-${server}-${String(song.id).trim()}`
-			: `meting-${server}-${index}-${Math.random().toString(36).slice(2, 8)}`;
+	let rawId = song.id !== undefined && song.id !== null ? String(song.id).trim() : "";
+	if (!rawId && song.url) {
+		const match = /[?&]id=([^&]+)/.exec(song.url);
+		if (match) rawId = match[1];
+	}
+
+	const id = rawId
+		? `meting-${server}-${rawId}`
+		: `meting-${server}-${index}`;
 
 	const artist = (song.artist ?? song.author ?? "").trim() || undefined;
 	const cover = (song.pic ?? "").trim() || undefined;
@@ -121,7 +127,8 @@ export async function fetchMetingTracks(
 	config: MetingMusicConfig,
 	customFetch: typeof fetch = fetch,
 ): Promise<readonly TrackDescriptor[]> {
-	const server = config.server || DEFAULT_METING_SERVER;
+	let server = (config.server?.trim() || DEFAULT_METING_SERVER).toLowerCase();
+	if (server === "qq") server = "tencent";
 	const type = config.type || DEFAULT_METING_TYPE;
 	const id = config.id?.trim();
 	if (!id) return [];

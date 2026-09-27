@@ -305,14 +305,30 @@
     if (!e.data) return;
     if (e.data.type === 'l2d-wake') {
       try {
-        if (widgetInstance && typeof widgetInstance.wakeUp === 'function') {
+        if (widgetInstance && typeof widgetInstance.wake === 'function') {
+          widgetInstance.wake();
+        } else if (widgetInstance && typeof widgetInstance.wakeUp === 'function') {
           widgetInstance.wakeUp();
         } else if (widgetInstance && typeof widgetInstance.show === 'function') {
           widgetInstance.show();
         }
       } catch (err) {}
       var canvas = document.querySelector('canvas');
-      if (canvas) canvas.style.display = 'block';
+      if (canvas) {
+        canvas.style.display = 'block';
+        canvas.style.pointerEvents = 'auto';
+        if (canvas.parentElement) {
+          canvas.parentElement.style.transform = 'translateY(0)';
+          canvas.parentElement.style.opacity = '1';
+          canvas.parentElement.style.pointerEvents = 'auto';
+        }
+      }
+      var restTabs = document.querySelectorAll('div[style*="fixed"]');
+      restTabs.forEach(function(el) {
+        if (el.textContent && el.textContent.indexOf('正在休息') !== -1) {
+          el.click();
+        }
+      });
       notifyLoaded();
       return;
     }
@@ -332,7 +348,7 @@
       activeConfigKey = '';
       loadingConfigKey = '';
     }
-    var configKey = JSON.stringify(config);
+    var configKey = JSON.stringify({ config: config, lang: currentLang, quotes: e.data.quotes || [] });
 
     if (widgetInstance && activeConfigKey === configKey) {
       if (widgetLoaded) notifyLoaded();

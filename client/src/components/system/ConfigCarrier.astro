@@ -2,7 +2,7 @@
 import { resolveTextureOptions } from "@/config";
 import { getDynamicSiteConfig } from "@utils/dynamic-config";
 
-const { site: siteConfig } = await getDynamicSiteConfig();
+const { site: siteConfig } = await getDynamicSiteConfig(Astro.request);
 const textureOptions = resolveTextureOptions(siteConfig.texture, siteConfig.displaySettings?.texture);
 ---
 

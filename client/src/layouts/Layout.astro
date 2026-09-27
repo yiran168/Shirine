@@ -17,7 +17,7 @@ import {
 import { getDynamicSiteConfig } from "@utils/dynamic-config";
 import { setSiteLang } from "@i18n/translation";
 
-const { site: siteConfig, profile: profileConfig } = await getDynamicSiteConfig();
+const { site: siteConfig, profile: profileConfig } = await getDynamicSiteConfig(Astro.request);
 import type { SidebarPage } from "@/types/sidebarConfig";
 import {
 	AUTO_MODE,

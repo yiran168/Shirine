@@ -10,7 +10,7 @@ import { getDynamicSiteConfig } from "@utils/dynamic-config";
 import rawFooterHtml from "@/config/FooterConfig.html?raw";
 import packageMetadata from "../../../package.json";
 
-const { profile: profileConfig, footer: dynamicFooterConfig } = await getDynamicSiteConfig();
+const { profile: profileConfig, footer: dynamicFooterConfig } = await getDynamicSiteConfig(Astro.request);
 const footerConfig = dynamicFooterConfig || staticFooterConfig;
 
 const currentYear = new Date().getFullYear();

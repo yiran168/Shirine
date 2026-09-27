@@ -13,7 +13,7 @@ import { getDynamicNavBarConfig } from "@/config/navBarConfig";
 import { getCurrentLang } from "@i18n/translation";
 import { Icon } from "astro-icon/components";
 
-const { site: siteConfig } = await getDynamicSiteConfig();
+const { site: siteConfig } = await getDynamicSiteConfig(Astro.request);
 import DisplaySettings from "./DisplaySettings.svelte";
 import LightDarkSwitch from "./LightDarkSwitch.svelte";
 import Search from "./Search.svelte";

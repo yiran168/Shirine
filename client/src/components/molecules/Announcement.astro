@@ -6,7 +6,7 @@ import { i18n } from "@/i18n/translation";
 import { url } from "@utils/url-utils";
 import WidgetLayout from "./WidgetLayout.astro";
 
-const { announcement: config } = await getDynamicSiteConfig();
+const { announcement: config } = await getDynamicSiteConfig(Astro.request);
 
 interface Props {
 	class?: string;

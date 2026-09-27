@@ -47,12 +47,15 @@
     if (savedPos) {
       try {
         const parsed = JSON.parse(savedPos);
-        if (typeof parsed.x === "number" && !isNaN(parsed.x)) posX = Math.max(0, Math.min(window.innerWidth - WIDGET_WIDTH, parsed.x));
+        if (typeof parsed.x === "number" && !isNaN(parsed.x)) posX = Math.max(mode === "admin" ? 280 : 0, Math.min(window.innerWidth - WIDGET_WIDTH, parsed.x));
         if (typeof parsed.y === "number" && !isNaN(parsed.y)) posY = Math.max(0, Math.min(window.innerHeight - 100, parsed.y));
       } catch {
         posX = defaultRightX;
         posY = defaultY;
       }
+    }
+    if (mode === "admin" && posX < 280) {
+      posX = Math.max(280, defaultRightX);
     }
 
     // 2. Fetch backend configuration
@@ -67,8 +70,9 @@
         if (conf?.live2dLang) {
           live2dLang = conf.live2dLang;
         }
-        if (conf?.live2dQuotes) {
-          live2dQuotes = Array.isArray(conf.live2dQuotes) ? conf.live2dQuotes : [conf.live2dQuotes];
+        const quotesCandidate = conf?.live2dQuotes ?? conf?.live2d?.quotes;
+        if (quotesCandidate) {
+          live2dQuotes = Array.isArray(quotesCandidate) ? quotesCandidate : [quotesCandidate];
         }
       } else {
         const res = await configApi.getSystem();
@@ -80,8 +84,9 @@
         if (conf?.live2dLang) {
           live2dLang = conf.live2dLang;
         }
-        if (conf?.live2dQuotes) {
-          live2dQuotes = Array.isArray(conf.live2dQuotes) ? conf.live2dQuotes : [conf.live2dQuotes];
+        const quotesCandidate = conf?.live2dQuotes ?? conf?.live2d?.quotes;
+        if (quotesCandidate) {
+          live2dQuotes = Array.isArray(quotesCandidate) ? quotesCandidate : [quotesCandidate];
         }
       }
     } catch {
@@ -108,7 +113,7 @@
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
       } else if (e.data?.type === "l2d-drag") {
-        posX = Math.max(0, Math.min(window.innerWidth - WIDGET_WIDTH, posX + (e.data.dx || 0)));
+        posX = Math.max(mode === "admin" ? 280 : 0, Math.min(window.innerWidth - WIDGET_WIDTH, posX + (e.data.dx || 0)));
         posY = Math.max(0, Math.min(window.innerHeight - 100, posY - (e.data.dy || 0)));
         localStorage.setItem("shirine_live2d_pos", JSON.stringify({ x: posX, y: posY }));
       }
@@ -159,7 +164,7 @@
       const curY = "touches" in ev ? ev.touches[0].clientY : ev.clientY;
       const deltaX = curX - dragStartX;
       const deltaY = dragStartY - curY;
-      posX = Math.max(0, Math.min(window.innerWidth - WIDGET_WIDTH, initialPosX + deltaX));
+      posX = Math.max(mode === "admin" ? 280 : 0, Math.min(window.innerWidth - WIDGET_WIDTH, initialPosX + deltaX));
       posY = Math.max(0, Math.min(window.innerHeight - 100, initialPosY + deltaY));
     };
 
@@ -212,7 +217,9 @@
       if (iframeEl?.contentWindow) {
         iframeEl.contentWindow.postMessage({ type: "l2d-wake" }, "*");
       }
-      initWidget(true);
+      if (!isLoaded) {
+        initWidget(true);
+      }
     }
   }
 
