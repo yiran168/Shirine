@@ -93,6 +93,7 @@ export function createMusicRuntime(
 	const failedTrackIds = new Set<string>();
 	const knownDurations = new Map<string, number>();
 	let metingFetched = false;
+	let consecutiveErrors = 0;
 
 	function snapshot(): MusicSnapshot {
 		return Object.freeze({
@@ -190,6 +191,7 @@ export function createMusicRuntime(
 					audio.pause();
 					return;
 				}
+				consecutiveErrors = 0;
 				patch({ status: "playing", error: null });
 			},
 			pause: () => {
@@ -437,13 +439,39 @@ export function createMusicRuntime(
 	}
 
 	async function recoverFromSourceError(): Promise<void> {
+		consecutiveErrors += 1;
 		const currentTrack = currentPlaylist[state.currentIndex];
 		if (!currentTrack) {
 			patch({ status: "error", error: "empty-playlist" });
 			return;
 		}
+
+		if (
+			audio &&
+			currentTrack.id.includes("netease") &&
+			!failedTrackIds.has(`${currentTrack.id}-fallback`)
+		) {
+			const rawId = currentTrack.id.replace(/^meting-netease-/, "");
+			if (rawId && /^\d+$/.test(rawId)) {
+				failedTrackIds.add(`${currentTrack.id}-fallback`);
+				const outerUrl = `https://music.163.com/song/media/outer/url?id=${rawId}.mp3`;
+				if (audio.src !== outerUrl) {
+					audio.src = outerUrl;
+					audio.load();
+					try {
+						await audio.play();
+						return;
+					} catch {}
+				}
+			}
+		}
+
 		failedTrackIds.add(currentTrack.id);
-		if (failedTrackIds.size >= currentPlaylist.length) {
+		if (
+			failedTrackIds.size >= currentPlaylist.length ||
+			consecutiveErrors > Math.min(3, currentPlaylist.length)
+		) {
+			consecutiveErrors = 0;
 			patch({ status: "error", error: "source-unavailable" });
 			return;
 		}
@@ -452,10 +480,12 @@ export function createMusicRuntime(
 			const candidate = (state.currentIndex + offset) % currentPlaylist.length;
 			const track = currentPlaylist[candidate];
 			if (track && !failedTrackIds.has(track.id)) {
+				await new Promise((r) => setTimeout(r, 300));
 				await selectInternal(candidate, true);
 				return;
 			}
 		}
+		consecutiveErrors = 0;
 		patch({ status: "error", error: "source-unavailable" });
 	}
 
@@ -600,16 +630,29 @@ export function createMusicRuntime(
 }
 
 let sharedRuntime: MusicRuntime | null = null;
-let sharedOptions: ResolvedMusicOptions | null = null;
+let sharedOptionsKey = "";
+
+function resolveOptionsKey(options: ResolvedMusicOptions): string {
+	return [
+		options.provider,
+		options.defaultMode,
+		options.defaultVolume,
+		options.meting?.server,
+		options.meting?.type,
+		options.meting?.id,
+		options.playlist.length,
+	].join(":");
+}
 
 export function getMusicRuntime(options: ResolvedMusicOptions): MusicRuntime {
-	if (sharedRuntime && sharedOptions !== options) {
+	const key = resolveOptionsKey(options);
+	if (sharedRuntime && sharedOptionsKey && sharedOptionsKey !== key) {
 		sharedRuntime.destroy();
 		sharedRuntime = null;
 	}
 	if (!sharedRuntime) {
 		sharedRuntime = createMusicRuntime(options);
-		sharedOptions = options;
+		sharedOptionsKey = key;
 	}
 	return sharedRuntime;
 }
@@ -617,5 +660,5 @@ export function getMusicRuntime(options: ResolvedMusicOptions): MusicRuntime {
 export function destroyMusicRuntime(): void {
 	sharedRuntime?.destroy();
 	sharedRuntime = null;
-	sharedOptions = null;
+	sharedOptionsKey = "";
 }

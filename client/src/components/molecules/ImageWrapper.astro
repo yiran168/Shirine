@@ -38,13 +38,22 @@ const {
 } = Astro.props;
 const className = Astro.props.class;
 
+let resolvedSrc = src;
+if (src.startsWith("uploads/")) {
+	resolvedSrc = `/api/blob/${src}`;
+} else if (src.startsWith("/uploads/")) {
+	resolvedSrc = `/api/blob${src}`;
+} else if (src.startsWith("assets/")) {
+	resolvedSrc = `/${src}`;
+}
+
 const isLocal = !(
-	src.startsWith("/") ||
-	src.startsWith("http") ||
-	src.startsWith("https") ||
-	src.startsWith("data:")
+	resolvedSrc.startsWith("/") ||
+	resolvedSrc.startsWith("http") ||
+	resolvedSrc.startsWith("https") ||
+	resolvedSrc.startsWith("data:")
 );
-const isPublic = src.startsWith("/");
+const isPublic = resolvedSrc.startsWith("/");
 
 // TODO temporary workaround for images dynamic import
 // https://github.com/withastro/astro/issues/3373
@@ -117,14 +126,13 @@ const resolvedAspectRatio = aspectRatio ?? (!isLocal ? "16 / 9" : undefined);
 	)}
     {!isLocal && (
 		<img
-			src={isPublic ? url(src) : src}
+			src={isPublic ? url(resolvedSrc) : resolvedSrc}
 			alt={alt || ""}
 			class={imageClass}
 			style={imageStyle}
 			loading={loading}
 			fetchpriority={fetchPriority}
 			onload={bloomEnabled ? "this.classList.add('image-bloom-img--loaded'); this.parentElement?.querySelector('.image-bloom-layer')?.classList.add('image-bloom-layer--loaded');" : undefined}
-			onerror="this.onerror=null; this.src='/assets/images/banner/desktop/1.webp';"
 		/>
 	)}
 </div>

@@ -37,6 +37,9 @@ export type SiteConfig = {
 	/** 显示设置浮层各切换项的前端可见性控制 */
 	displaySettings?: DisplaySettingsConfig;
 
+	/** 液态毛玻璃特效模式："none"（默认关闭）| "subtle"（轻量微透液态毛玻璃）| "vibrant"（高透折射流体液态毛玻璃） */
+	liquidGlassMode?: "none" | "subtle" | "vibrant";
+
 	lang:
 		| "en"
 		| "zh_CN"

@@ -52,8 +52,11 @@ export function parseMetingSong(
 	if (!song || typeof song !== "object") return null;
 
 	const title = (song.name ?? song.title ?? "").trim();
-	const source = (song.url ?? "").trim();
+	let source = (song.url ?? "").trim();
 	if (!title || !source) return null;
+	if (source.startsWith("http://")) {
+		source = "https://" + source.slice(7);
+	}
 
 	let rawId = song.id !== undefined && song.id !== null ? String(song.id).trim() : "";
 	if (!rawId && song.url) {
@@ -61,12 +64,19 @@ export function parseMetingSong(
 		if (match) rawId = match[1];
 	}
 
+	if (server === "netease" && rawId && (source.includes("music.126.net") || source.includes("wsSecret") || !source.startsWith("http"))) {
+		source = `https://music.163.com/song/media/outer/url?id=${rawId}.mp3`;
+	}
+
 	const id = rawId
 		? `meting-${server}-${rawId}`
 		: `meting-${server}-${index}`;
 
 	const artist = (song.artist ?? song.author ?? "").trim() || undefined;
-	const cover = (song.pic ?? "").trim() || undefined;
+	let cover = (song.pic ?? "").trim() || undefined;
+	if (cover && cover.startsWith("http://")) {
+		cover = "https://" + cover.slice(7);
+	}
 
 	let duration: number | undefined;
 	if (typeof song.duration === "number" && Number.isFinite(song.duration)) {

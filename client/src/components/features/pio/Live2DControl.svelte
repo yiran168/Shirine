@@ -38,9 +38,9 @@
       userVisible = false; // Collapse by default on narrow mobile screens to avoid screen blockage
     }
 
-    const defaultRightX = Math.max(0, window.innerWidth - WIDGET_WIDTH - 24);
+    const defaultLeftX = mode === "admin" ? 280 : 24;
     const defaultY = 24;
-    posX = defaultRightX;
+    posX = defaultLeftX;
     posY = defaultY;
 
     const savedPos = localStorage.getItem("shirine_live2d_pos");
@@ -50,12 +50,12 @@
         if (typeof parsed.x === "number" && !isNaN(parsed.x)) posX = Math.max(mode === "admin" ? 280 : 0, Math.min(window.innerWidth - WIDGET_WIDTH, parsed.x));
         if (typeof parsed.y === "number" && !isNaN(parsed.y)) posY = Math.max(0, Math.min(window.innerHeight - 100, parsed.y));
       } catch {
-        posX = defaultRightX;
+        posX = defaultLeftX;
         posY = defaultY;
       }
     }
     if (mode === "admin" && posX < 280) {
-      posX = Math.max(280, defaultRightX);
+      posX = Math.max(280, defaultLeftX);
     }
 
     // 2. Fetch backend configuration
@@ -70,9 +70,15 @@
         if (conf?.live2dLang) {
           live2dLang = conf.live2dLang;
         }
+        const parseQuotes = (candidate: any): string[] => {
+          if (Array.isArray(candidate)) return candidate;
+          if (typeof candidate === "string") return candidate.split("\n").map((s: string) => s.trim()).filter(Boolean);
+          return [];
+        };
         const quotesCandidate = conf?.live2dQuotes ?? conf?.live2d?.quotes;
         if (quotesCandidate) {
-          live2dQuotes = Array.isArray(quotesCandidate) ? quotesCandidate : [quotesCandidate];
+          const parsed = parseQuotes(quotesCandidate);
+          if (parsed.length > 0) live2dQuotes = parsed;
         }
       } else {
         const res = await configApi.getSystem();
@@ -84,9 +90,15 @@
         if (conf?.live2dLang) {
           live2dLang = conf.live2dLang;
         }
+        const parseQuotes = (candidate: any): string[] => {
+          if (Array.isArray(candidate)) return candidate;
+          if (typeof candidate === "string") return candidate.split("\n").map((s: string) => s.trim()).filter(Boolean);
+          return [];
+        };
         const quotesCandidate = conf?.live2dQuotes ?? conf?.live2d?.quotes;
         if (quotesCandidate) {
-          live2dQuotes = Array.isArray(quotesCandidate) ? quotesCandidate : [quotesCandidate];
+          const parsed = parseQuotes(quotesCandidate);
+          if (parsed.length > 0) live2dQuotes = parsed;
         }
       }
     } catch {
@@ -218,7 +230,7 @@
         iframeEl.contentWindow.postMessage({ type: "l2d-wake" }, "*");
       }
       if (!isLoaded) {
-        initWidget(true);
+        initWidget(false);
       }
     }
   }
@@ -227,10 +239,28 @@
 </script>
 
 {#if enabledByBackend}
+  {#if !userVisible}
+    <!-- Fixed summon button pinned directly to bottom-left corner -->
+    <div
+      class="fixed pointer-events-auto transition-all duration-300"
+      style="z-index: 99999 !important; left: {mode === 'admin' ? 280 : 24}px; bottom: 24px;"
+    >
+      <button
+        type="button"
+        onclick={toggleVisible}
+        class="w-10 h-10 rounded-full bg-[var(--surface-container-high)]/95 hover:bg-[var(--surface-container)] border border-[var(--outline-variant)]/60 text-[var(--on-surface)] shadow-lg hover:shadow-xl backdrop-blur-md flex items-center justify-center transition-all hover:scale-110 active:scale-95 group focus:outline-none"
+        title="呼唤看板娘"
+        aria-label="呼唤看板娘"
+      >
+        <span class="text-base group-hover:scale-125 transition-transform select-none">✨</span>
+      </button>
+    </div>
+  {/if}
+
   <!-- Draggable Live2D Container with supreme stacking priority -->
   <div
-    class="fixed select-none pointer-events-none"
-    style="z-index: 99999 !important; left: {posX}px; bottom: {posY}px;"
+    class="fixed select-none pointer-events-none transition-opacity duration-300"
+    style="z-index: 99999 !important; left: {posX}px; bottom: {posY}px; opacity: {userVisible ? '1' : '0'}; visibility: {userVisible ? 'visible' : 'hidden'};"
   >
     <!-- Live2D Host Iframe (Sandboxed) -->
     <iframe
@@ -241,7 +271,7 @@
       title="Shirine Live2D 看板娘"
       allowtransparency="true"
       class="border-none transition-opacity duration-300 block"
-      style="width: {WIDGET_WIDTH}px; height: {iframeHeight}px; opacity: {shouldShow && isLoaded ? '1' : '0'}; pointer-events: {shouldShow && isLoaded ? 'auto' : 'none'}; visibility: {shouldShow ? 'visible' : 'hidden'};"
+      style="width: {WIDGET_WIDTH}px; height: {iframeHeight}px; opacity: {userVisible && isLoaded ? '1' : '0'}; pointer-events: {userVisible && isLoaded ? 'auto' : 'none'};"
     ></iframe>
 
     <!-- Drag Handle and Toggle Button Bar with supreme z-index -->
@@ -249,23 +279,19 @@
       class="absolute bottom-4 left-4 flex items-center gap-1.5 pointer-events-auto"
       style="z-index: 99999 !important;"
     >
-      <!-- Toggle Visibility Button -->
+      <!-- Collapse Button -->
       <button
         type="button"
         onclick={toggleVisible}
         class="w-9 h-9 rounded-full bg-[var(--surface-container-high)]/90 hover:bg-[var(--surface-container)] border border-[var(--outline-variant)]/40 text-[var(--on-surface)] shadow-md hover:shadow-lg backdrop-blur-md flex items-center justify-center transition-all hover:scale-110 active:scale-95 group focus:outline-none"
-        title={userVisible ? "收起看板娘" : "呼唤看板娘"}
-        aria-label={userVisible ? "收起看板娘" : "呼唤看板娘"}
+        title="收起看板娘"
+        aria-label="收起看板娘"
       >
-        {#if userVisible}
-          <span class="text-sm group-hover:rotate-12 transition-transform select-none">🌸</span>
-        {:else}
-          <span class="text-sm opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all select-none">✨</span>
-        {/if}
+        <span class="text-sm group-hover:rotate-12 transition-transform select-none">🌸</span>
       </button>
 
       <!-- Move / Drag Handle Button -->
-      {#if shouldShow && isLoaded}
+      {#if isLoaded}
         <button
           type="button"
           onmousedown={startDrag}

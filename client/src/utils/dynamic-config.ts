@@ -5,6 +5,7 @@ import { announcementConfig } from "@/config/announcementConfig";
 import { footerConfig } from "@/config/footerConfig";
 import type { TrackDescriptor } from "@/types/musicConfig";
 import { setSiteLang } from "@/i18n/translation";
+import { resolveApiBase } from "./content-utils";
 
 function deepMerge<T extends Record<string, any>>(target: T, source: any): T {
   if (!source || typeof source !== "object") return target;
@@ -52,21 +53,7 @@ export async function getDynamicSiteConfig(request?: Request): Promise<DynamicSi
   }
 
   const fetchConfig = async (): Promise<DynamicSiteConfigResult> => {
-    let apiBase = "";
-    if (import.meta.env.PUBLIC_API_URL) {
-      const raw = import.meta.env.PUBLIC_API_URL.replace(/\/$/, "");
-      apiBase = raw.endsWith("/api") ? raw : `${raw}/api`;
-    } else if (typeof window !== "undefined" && window.location) {
-      apiBase = `${window.location.origin}/api`;
-    } else if (request?.url) {
-      try {
-        const u = new URL(request.url);
-        if (u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.port === "4321") {
-          apiBase = "http://127.0.0.1:11498/api";
-        }
-        // In production SSR on Cloudflare Pages, never fetch same origin to prevent recursive deadlock
-      } catch {}
-    }
+    const apiBase = resolveApiBase(request);
 
     if (!apiBase) {
       return {
@@ -79,14 +66,18 @@ export async function getDynamicSiteConfig(request?: Request): Promise<DynamicSi
     }
 
     try {
-      const res = await fetch(`${apiBase}/config/site`, {
-        signal: AbortSignal.timeout(800),
+      const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
+        signal: AbortSignal.timeout(3000),
       });
       if (res.ok) {
         const json = await res.json();
         const data = json.data || json.config;
         if (json.success && data) {
-          const mergedSite = deepMerge(siteConfig, data.site || {});
+          const rawSite = data.site || {};
+          const mergedSite = deepMerge(siteConfig, {
+            ...rawSite,
+            liquidGlassMode: data.liquidGlassMode || rawSite.liquidGlassMode || siteConfig.liquidGlassMode || "none",
+          });
           if (mergedSite.title && (!mergedSite.banner?.homeText?.title || mergedSite.banner.homeText.title === siteConfig.title)) {
             if (!mergedSite.banner) mergedSite.banner = {} as any;
             if (!mergedSite.banner.homeText) mergedSite.banner.homeText = {} as any;

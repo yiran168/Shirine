@@ -7,7 +7,18 @@ import type {
 	AlbumPhoto,
 } from "@/types/album";
 
-const ALBUM_ROOT = path.resolve(process.cwd(), "public/images/albums");
+function resolveAlbumRoot(): string {
+	const candidates = [
+		path.resolve(process.cwd(), "client/public/images/albums"),
+		path.resolve(process.cwd(), "public/images/albums"),
+	];
+	for (const candidate of candidates) {
+		if (fs.existsSync(candidate)) return candidate;
+	}
+	return candidates[0];
+}
+
+const ALBUM_ROOT = resolveAlbumRoot();
 const IMAGE_EXTENSIONS = new Set([
 	".jpg",
 	".jpeg",

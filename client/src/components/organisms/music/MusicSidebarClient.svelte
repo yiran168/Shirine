@@ -143,9 +143,8 @@ onMount(() => {
 		} catch {}
 
 		if (!active) return;
-		const { getMusicRuntime, destroyMusicRuntime } = await import("@utils/music");
+		const { getMusicRuntime } = await import("@utils/music");
 		if (!active) return;
-		destroyMusicRuntime();
 		runtime = getMusicRuntime(options);
 		unsubscribe = runtime.subscribe((next) => {
 			snapshot = next;

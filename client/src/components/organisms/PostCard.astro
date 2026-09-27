@@ -25,7 +25,7 @@ interface Props {
 	pinned: boolean;
 	tags: string[];
 	category: string | null;
-	image: string;
+	image?: string;
 	description: string;
 	draft: boolean;
 	style: string;
@@ -69,75 +69,87 @@ if ((!remarkPluginFrontmatter.words || remarkPluginFrontmatter.words === 0) && (
 }
 
 // 解析封面：本地相对路径 → 构建产物 URL（与 ImageWrapper 同法）
-let coverUrl = image;
+let coverUrl: string | undefined = image;
 let coverSrcset: string | undefined;
 let coverAvifSrcset: string | undefined;
 let coverWidth: number | undefined;
 let coverHeight: number | undefined;
 if (image) {
-	const isLocal = !(
-		image.startsWith("/") ||
-		image.startsWith("http") ||
-		image.startsWith("https") ||
-		image.startsWith("data:")
-	);
-	if (isLocal) {
-		const files = import.meta.glob<ImageMetadata>(
-			"../../**/*.{png,jpg,jpeg,webp,avif,svg,gif}",
-			{
-				import: "default",
-			},
+	if (image.startsWith("uploads/")) {
+		coverUrl = `/api/blob/${image}`;
+	} else if (image.startsWith("/uploads/")) {
+		coverUrl = `/api/blob${image}`;
+	} else if (image.startsWith("assets/")) {
+		coverUrl = `/${image}`;
+	} else {
+		const isLocal = !(
+			image.startsWith("/") ||
+			image.startsWith("http") ||
+			image.startsWith("https") ||
+			image.startsWith("data:")
 		);
-		const normalizedPath = path
-			.normalize(path.join("../../", imageBasePath, image))
-			.replace(/\\/g, "/");
-		let file =
-			files[normalizedPath] ?? getProjectImageLoader(image, imageBasePath);
-		if (!file) {
-			const fallbackPath = path
-				.normalize(path.join("../../content/posts", entry.id, image))
+		if (isLocal) {
+			const files = import.meta.glob<ImageMetadata>(
+				"../../**/*.{png,jpg,jpeg,webp,avif,svg,gif}",
+				{
+					import: "default",
+				},
+			);
+			const normalizedPath = path
+				.normalize(path.join("../../", imageBasePath, image))
 				.replace(/\\/g, "/");
-			file = files[fallbackPath] ?? getProjectImageLoader(image, path.join("content/posts", entry.id));
-		}
-		if (file) {
-			const mod = await file();
-			try {
-				const widths = [
-					...new Set([
-						...[320, 480, 640].filter((width) => width <= mod.width),
-						Math.min(mod.width, 640),
-					]),
-				].sort((a, b) => a - b);
-				const createCandidates = async (
-					format: "avif" | "webp",
-					quality: number,
-				) =>
-					Promise.all(
-						widths.map(async (width) => ({
-							width,
-							image: await getImage({ src: mod, format, width, quality }),
-						})),
-					);
-				const [avif, webp] = await Promise.all([
-					createCandidates("avif", 55),
-					createCandidates("webp", 68),
-				]);
-				coverUrl = webp.at(-1)?.image.src ?? mod.src;
-				coverSrcset = webp
-					.map(({ image, width }) => `${image.src} ${width}w`)
-					.join(", ");
-				coverAvifSrcset = avif
-					.map(({ image, width }) => `${image.src} ${width}w`)
-					.join(", ");
-				coverWidth = mod.width;
-				coverHeight = mod.height;
-			} catch {
-				coverUrl = (mod as unknown as { src: string }).src;
+			let file =
+				files[normalizedPath] ?? getProjectImageLoader(image, imageBasePath);
+			if (!file) {
+				const fallbackPath = path
+					.normalize(path.join("../../content/posts", entry.id, image))
+					.replace(/\\/g, "/");
+				file = files[fallbackPath] ?? getProjectImageLoader(image, path.join("content/posts", entry.id));
 			}
-		} else {
-			coverUrl = "/assets/images/banner/desktop/1.webp";
+			if (file) {
+				const mod = await file();
+				try {
+					const widths = [
+						...new Set([
+							...[320, 480, 640].filter((width) => width <= mod.width),
+							Math.min(mod.width, 640),
+						]),
+					].sort((a, b) => a - b);
+					const createCandidates = async (
+						format: "avif" | "webp",
+						quality: number,
+					) =>
+						Promise.all(
+							widths.map(async (width) => ({
+								width,
+								image: await getImage({ src: mod, format, width, quality }),
+							})),
+						);
+					const [avif, webp] = await Promise.all([
+						createCandidates("avif", 55),
+						createCandidates("webp", 68),
+					]);
+					coverUrl = webp.at(-1)?.image.src ?? mod.src;
+					coverSrcset = webp
+						.map(({ image, width }) => `${image.src} ${width}w`)
+						.join(", ");
+					coverAvifSrcset = avif
+						.map(({ image, width }) => `${image.src} ${width}w`)
+						.join(", ");
+					coverWidth = mod.width;
+					coverHeight = mod.height;
+				} catch {
+					coverUrl = (mod as unknown as { src: string }).src;
+				}
+			} else if (image.startsWith("./")) {
+				coverUrl = `/content/posts/${entry.id}/${image.replace(/^\.\//, "")}`;
+			} else {
+				coverUrl = image;
+			}
 		}
 	}
+} else {
+	coverUrl = undefined;
 }
 
 const categoryLink = category

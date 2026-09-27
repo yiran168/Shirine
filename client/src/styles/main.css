@@ -213,3 +213,56 @@ html.motion-reduced *::after {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
 }
+
+/* ==========================================================================
+   Liquid Frosted Glass Effects (Material 3 Liquid Glass)
+   - subtle: 轻量微透液态毛玻璃
+   - vibrant: 深邃高透折射流体毛玻璃
+   - Applied to widget cards & navigation shells, keeping post article prose completely clean!
+   ========================================================================== */
+body[data-liquid-glass="subtle"] .card-base:not(.prose *),
+body[data-liquid-glass="subtle"] #top-app-bar,
+body[data-liquid-glass="subtle"] .nav-menu-panel,
+body[data-liquid-glass="subtle"] #display-setting,
+body[data-liquid-glass="subtle"] #search-panel {
+    background-color: color-mix(in srgb, var(--surface) 75%, transparent) !important;
+    backdrop-filter: blur(14px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(140%) !important;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.06), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25) !important;
+    border: 1px solid color-mix(in srgb, var(--outline-variant) 30%, transparent) !important;
+}
+
+body[data-liquid-glass="vibrant"] .card-base:not(.prose *),
+body[data-liquid-glass="vibrant"] #top-app-bar,
+body[data-liquid-glass="vibrant"] .nav-menu-panel,
+body[data-liquid-glass="vibrant"] #display-setting,
+body[data-liquid-glass="vibrant"] #search-panel {
+    background-color: color-mix(in srgb, var(--surface) 58%, transparent) !important;
+    backdrop-filter: blur(22px) saturate(180%) contrast(105%) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(180%) contrast(105%) !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.12), inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.4) !important;
+    border: 1px solid color-mix(in srgb, var(--outline-variant) 45%, transparent) !important;
+}
+
+/* Ensure blog post prose text and code remain pristine and crystal clear with ZERO glass distortion */
+.prose,
+.markdown-content,
+#markdown-content,
+article .prose,
+.custom-md {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* Furina Initial Entry Progress Animation */
+@keyframes furina-progress-slide {
+    0% { transform: translateX(-100%); }
+    50% { transform: translateX(0%); }
+    100% { transform: translateX(100%); }
+}
+
+.animate-furina-progress {
+    width: 60%;
+    animation: furina-progress-slide 1.5s ease-in-out infinite;
+}
+

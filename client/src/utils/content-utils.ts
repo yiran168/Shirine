@@ -30,11 +30,10 @@ export function resolveApiBase(request?: Request): string {
 			if (u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.port === "4321") {
 				return "http://127.0.0.1:11498/api";
 			}
-			// In production SSR on Cloudflare Pages, never fetch same origin to prevent recursive deadlock
-			return "";
+			return `${u.origin}/api`;
 		} catch {}
 	}
-	return "";
+	return "http://127.0.0.1:11498/api";
 }
 
 const POSTS_CACHE_TTL_MS = 2_000;
@@ -81,7 +80,7 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 
 				const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts?pageSize=500`, {
 					headers,
-					signal: AbortSignal.timeout(800),
+					signal: AbortSignal.timeout(3000),
 				});
 				if (res.ok) {
 					const json = await res.json();
@@ -139,7 +138,15 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 		let postsToUse: CollectionEntry<"posts">[] = [];
 		if (apiConnected && apiPosts.length > 0) {
 			postsToUse = apiPosts.map((ap) => {
-				const local = localPostsMap.get(ap.id);
+				const local =
+					localPostsMap.get(ap.id) ||
+					Array.from(localPostsMap.values()).find(
+						(lp) =>
+							lp.id === ap.id ||
+							(lp.data as any)?.slug === ap.id ||
+							lp.id.replace(/\.[^/.]+$/, "") === ap.id ||
+							lp.id.split("/").pop() === ap.id,
+					);
 				if (local) {
 					if (!ap.body || ap.body.trim().length === 0) {
 						ap.body = local.body;
@@ -354,7 +361,7 @@ export async function getSortedMoments(request?: Request): Promise<MomentItem[]>
 				}
 				const res = await fetch(`${apiBase.replace(/\/$/, "")}/moments`, {
 					headers,
-					signal: AbortSignal.timeout(800),
+					signal: AbortSignal.timeout(3000),
 				});
 				if (res.ok) {
 					const json = await res.json();
@@ -707,6 +714,26 @@ export async function getDynamicSkills(request?: Request): Promise<any[]> {
 	}
 	const { skillsData } = await import("../data/skills");
 	return skillsData;
+}
+
+export async function getDynamicTimeline(request?: Request): Promise<any[]> {
+	const apiBase = resolveApiBase(request);
+	if (apiBase) {
+		try {
+			const res = await fetch(`${apiBase.replace(/\/$/, "")}/config/site`, {
+				signal: AbortSignal.timeout(2000),
+			});
+			if (res.ok) {
+				const json = await res.json();
+				const siteCfg = json.data || json.site;
+				if (siteCfg && Array.isArray(siteCfg.timeline)) {
+					return siteCfg.timeline;
+				}
+			}
+		} catch {}
+	}
+	const { timelineData } = await import("../data/timeline");
+	return timelineData;
 }
 
 export async function getDynamicFriendApplyInfo(request?: Request): Promise<{

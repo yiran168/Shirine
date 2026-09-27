@@ -17,6 +17,7 @@ export const defaultSiteConfig = {
     lang: "zh_CN",
     timeZone: "Asia/Shanghai",
     publicR2Url: "",
+    liquidGlassMode: "none",
     topAppBar: { contentAlign: "center" },
     displaySettings: {
       colorStyle: true,
@@ -656,6 +657,7 @@ configRouter.get("/site", async (c) => {
       fallbackR2Url,
       title: flatSite.title,
       subtitle: flatSite.subtitle,
+      liquidGlassMode: flatSite.liquidGlassMode || "none",
     };
 
     return c.json({
@@ -735,7 +737,8 @@ configRouter.put("/site", requireAdmin, async (c) => {
       "bannerDesktop" in body ||
       "bannerMobile" in body ||
       "bannerSubtitles" in body ||
-      "publicR2Url" in body
+      "publicR2Url" in body ||
+      "liquidGlassMode" in body
     ) {
       const existingRow = await db.query.siteConfigs.findFirst({
         where: eq(schema.siteConfigs.key, "site"),
@@ -757,6 +760,9 @@ configRouter.put("/site", requireAdmin, async (c) => {
       if (body.subtitle !== undefined) siteUpdates.subtitle = body.subtitle;
       if (body.lang !== undefined || body.defaultLang !== undefined) {
         siteUpdates.lang = body.lang || body.defaultLang;
+      }
+      if (body.liquidGlassMode !== undefined) {
+        siteUpdates.liquidGlassMode = body.liquidGlassMode;
       }
       if (body.themeHue !== undefined || body.themeStyle !== undefined) {
         const existingTheme = baseSite.themeColor || {};

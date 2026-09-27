@@ -287,6 +287,7 @@
     title: "Shirine",
     subtitle: "A Material 3 anime blog",
     lang: "zh_CN",
+    liquidGlassMode: "none" as "none" | "subtle" | "vibrant",
     themeHue: 315,
     themeStyle: "tonalSpot",
     topAppBarAlign: "center",
@@ -419,6 +420,42 @@
   let mediaFilter = $state<"all" | "image" | "audio" | "preset" | "uploaded">("all");
   let mediaSearch = $state("");
   let mediaUploading = $state(false);
+  let previewModalImage = $state<string | null>(null);
+  let customMediaNames = $state<Record<string, string>>({});
+  let audioDurations = $state<Record<string, number>>({});
+
+  function setMediaCustomName(key: string, name: string) {
+    customMediaNames = { ...customMediaNames, [key]: name.trim() };
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("shirine_media_custom_names", JSON.stringify(customMediaNames));
+      } catch {}
+    }
+  }
+
+  function probeAudioDuration(key: string, url: string) {
+    if (audioDurations[key] !== undefined) return;
+    try {
+      const a = new Audio();
+      a.preload = "metadata";
+      const onDuration = () => {
+        if (a.duration && isFinite(a.duration) && a.duration > 0) {
+          audioDurations = { ...audioDurations, [key]: Math.round(a.duration) };
+        }
+      };
+      a.onloadedmetadata = onDuration;
+      a.ondurationchange = onDuration;
+      a.src = url;
+      a.load();
+    } catch {}
+  }
+
+  function formatAudioDurationBadge(sec?: number): string {
+    if (!sec || isNaN(sec) || sec <= 0) return "--:--";
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`;
+  }
 
   const filteredMediaFiles = $derived.by(() => {
     let list = mediaFiles || [];
@@ -570,6 +607,7 @@
             title: s.title ?? siteConfigState.title,
             subtitle: s.subtitle ?? siteConfigState.subtitle,
             lang: s.lang ?? siteConfigState.lang,
+            liquidGlassMode: s.liquidGlassMode ?? siteConfigState.liquidGlassMode,
             themeHue: s.themeColor?.hue ?? siteConfigState.themeHue,
             themeStyle: s.themeColor?.style ?? siteConfigState.themeStyle,
             topAppBarAlign: s.topAppBar?.contentAlign ?? siteConfigState.topAppBarAlign,
@@ -1380,6 +1418,16 @@
     }
   }
 
+  function resetCompassToDefault() {
+    siteConfigState.compass = JSON.parse(JSON.stringify(compassData));
+    showMessage("已恢复全部 4 个默认罗盘预设分组，请点击右上角保存生效");
+  }
+
+  function resetAnimeToDefault() {
+    siteConfigState.anime = JSON.parse(JSON.stringify(animeData));
+    showMessage("已恢复全部 5 部默认番剧预设条目，请点击右上角保存生效");
+  }
+
   // --- Compass Operations ---
   function addCompassShelf() {
     siteConfigState.compass = [
@@ -1796,6 +1844,29 @@
         url: `${r2Base}/${p.key.replace(/^\/+/, "")}`,
       }));
       mediaFiles = [...uploadedList, ...presets];
+      if (typeof window !== "undefined") {
+        try {
+          const savedNames = localStorage.getItem("shirine_media_custom_names");
+          if (savedNames) customMediaNames = JSON.parse(savedNames);
+        } catch {}
+      }
+      const presetDurations: Record<string, number> = {
+        "audio/dazbee.mp3": 241,
+        "audio/hitori.mp3": 253,
+        "audio/xryx.mp3": 245,
+        "audio/cl.mp3": 242,
+        "audio/Baka.wav": 1,
+        "audio/Ciallo.wav": 1,
+        "audio/Ehe.wav": 1,
+        "audio/Imoi.wav": 1,
+        "audio/Zako.wav": 1,
+      };
+      audioDurations = { ...presetDurations, ...audioDurations };
+      for (const file of mediaFiles) {
+        if (/\.(mp3|flac|wav|ogg|m4a|aac)$/i.test(file.key) && !audioDurations[file.key]) {
+          probeAudioDuration(file.key, file.url);
+        }
+      }
     } catch (err: any) {
       console.error(err);
       const r2Base = getR2Base();
@@ -2107,6 +2178,19 @@
       showMessage(err.message, true);
     } finally {
       loading = false;
+    }
+  }
+
+  function jumpToGuideSection(id: string) {
+    const target = document.getElementById(id);
+    const mainEl = document.querySelector("main");
+    if (target && mainEl) {
+      const mainRect = mainEl.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const targetScrollTop = mainEl.scrollTop + (targetRect.top - mainRect.top) - 20;
+      mainEl.scrollTo({ top: Math.max(0, targetScrollTop), behavior: "smooth" });
+    } else if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
 
@@ -2850,7 +2934,7 @@
           </div>
 
           <!-- Quick Moment Publisher -->
-          <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm mb-8 max-w-2xl">
+          <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm mb-8 max-w-4xl">
             <div class="flex items-center justify-between mb-2">
               <span class="text-xs font-semibold text-[var(--on-surface)]">撰写动态日记</span>
               <div class="flex items-center gap-2">
@@ -2883,12 +2967,12 @@
             {#if momentEditorTab === "edit"}
               <textarea
                 bind:value={momentContent}
-                rows="3"
+                rows="12"
                 placeholder="分享今天的灵感与日常..."
-                class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none resize-none"
+                class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none min-h-[280px] resize-y"
               ></textarea>
             {:else}
-              <div class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] min-h-[90px] text-sm prose dark:prose-invert max-w-none">
+              <div class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] min-h-[280px] text-sm prose dark:prose-invert max-w-none">
                 {#if momentPreviewHtml}
                   {@html momentPreviewHtml}
                 {:else}
@@ -3992,6 +4076,14 @@
               <p class="text-xs text-[var(--on-surface-variant)] mt-1">管理前台 /compass/ 站点罗盘导航的分组与网址磁贴，支持实时增删改查</p>
             </div>
             <div class="flex items-center gap-3">
+              <button
+                type="button"
+                onclick={resetCompassToDefault}
+                class="px-4 py-2 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] text-xs font-semibold transition-all text-[var(--on-surface-variant)] hover:text-primary"
+                title="恢复全套 4 个罗盘官方默认预设分组"
+              >
+                🔄 恢复默认预设
+              </button>
               <a
                 href="/compass/"
                 target="_blank"
@@ -4196,6 +4288,14 @@
               <p class="text-xs text-[var(--on-surface-variant)] mt-1">管理前台 /anime/ 番剧清单的追番状态、评分与播放进度，支持实时增删改查</p>
             </div>
             <div class="flex items-center gap-3">
+              <button
+                type="button"
+                onclick={resetAnimeToDefault}
+                class="px-4 py-2 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] text-xs font-semibold transition-all text-[var(--on-surface-variant)] hover:text-primary"
+                title="恢复全套 5 部番剧官方默认预设条目"
+              >
+                🔄 恢复默认预设
+              </button>
               <a
                 href="/anime/"
                 target="_blank"
@@ -4795,6 +4895,17 @@
                     {/each}
                   </select>
                 </div>
+                <div>
+                  <label class="text-xs font-semibold block mb-1.5">液态毛玻璃特效 (Liquid Frosted Glass)</label>
+                  <select
+                    bind:value={siteConfigState.liquidGlassMode}
+                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
+                  >
+                    <option value="none">关闭 (标准 Material 3)</option>
+                    <option value="subtle">轻量微透液态毛玻璃 (Subtle)</option>
+                    <option value="vibrant">深邃高透折射流体毛玻璃 (Vibrant)</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -4843,7 +4954,7 @@
                   </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
                     <label class="text-xs font-semibold block mb-1.5">全站壁纸呈现模式</label>
                     <select
@@ -4865,6 +4976,17 @@
                       <option value="dot">波点阵列 (Dot)</option>
                       <option value="grid">极细网格 (Grid)</option>
                       <option value="none">无纹理 (None)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-xs font-semibold block mb-1.5">液态毛玻璃特效 (Liquid Glass)</label>
+                    <select
+                      bind:value={siteConfigState.liquidGlassMode}
+                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-medium"
+                    >
+                      <option value="none">关闭特效 (默认)</option>
+                      <option value="subtle">柔和液态流光 (Subtle)</option>
+                      <option value="vibrant">通透高光液态 (Vibrant)</option>
                     </select>
                   </div>
                   <div>
@@ -5746,22 +5868,32 @@
                 <div class="rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface)] overflow-hidden shadow-sm flex flex-col group hover:shadow-md transition-shadow">
                   <div class="h-32 bg-[var(--surface-container)] relative overflow-hidden flex items-center justify-center">
                     {#if isImage}
-                      <img
-                        src={file.url}
-                        alt={file.key}
-                        onerror={(e) => {
-                          const target = e.currentTarget as HTMLImageElement;
-                          if (file.fallbackUrl && target.src !== file.fallbackUrl) {
-                            target.src = file.fallbackUrl;
-                          }
-                        }}
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
+                      <button
+                        type="button"
+                        onclick={() => (previewModalImage = file.url)}
+                        class="w-full h-full block cursor-zoom-in group/img"
+                        title="点击打开大图预览"
+                      >
+                        <img
+                          src={file.url}
+                          alt={customMediaNames[file.key] || file.key}
+                          onerror={(e) => {
+                            const target = e.currentTarget as HTMLImageElement;
+                            if (file.fallbackUrl && target.src !== file.fallbackUrl) {
+                              target.src = file.fallbackUrl;
+                            }
+                          }}
+                          class="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      </button>
                     {:else if isAudio}
-                      <div class="flex flex-col items-center gap-1.5 text-primary p-2 w-full">
+                      <div class="flex flex-col items-center gap-1 text-primary p-2 w-full">
                         <span class="text-2xl">🎵</span>
                         <span class="text-[10px] font-mono text-[var(--on-surface-variant)] truncate max-w-[100px]">{file.key.split('.').pop()?.toUpperCase()}</span>
+                        <span class="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-[var(--surface-container-high)] text-primary font-semibold">
+                          ⏱️ {formatAudioDurationBadge(audioDurations[file.key])}
+                        </span>
                       </div>
                     {:else}
                       <div class="flex flex-col items-center gap-1 text-[var(--on-surface-variant)]">
@@ -5779,10 +5911,38 @@
 
                   <div class="p-3 flex-1 flex flex-col justify-between">
                     <div>
-                      <p class="text-xs font-semibold text-[var(--on-surface)] truncate" title={file.key}>{file.key.split("/").pop() || file.key}</p>
-                      <p class="text-[10px] text-[var(--on-surface-variant)] font-mono truncate mt-0.5" title={file.url}>{file.url}</p>
+                      <div class="flex items-center justify-between gap-1 mb-1">
+                        <p class="text-xs font-semibold text-[var(--on-surface)] truncate" title={customMediaNames[file.key] || file.key.split("/").pop() || file.key}>
+                          {customMediaNames[file.key] || file.key.split("/").pop() || file.key}
+                        </p>
+                        <button
+                          type="button"
+                          onclick={() => {
+                            const cur = customMediaNames[file.key] || file.key.split("/").pop() || file.key;
+                            const next = prompt("为此媒体自定义显示名称：", cur);
+                            if (next !== null && next.trim()) {
+                              setMediaCustomName(file.key, next.trim());
+                            }
+                          }}
+                          class="p-1 text-[var(--on-surface-variant)] hover:text-primary rounded hover:bg-[var(--surface-container)] shrink-0 transition-colors"
+                          title="自定义显示名字"
+                        >
+                          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        </button>
+                      </div>
+                      <p class="text-[10px] text-[var(--on-surface-variant)] font-mono truncate" title={file.url}>{file.url}</p>
                       {#if isAudio}
-                        <audio controls preload="metadata" class="w-full mt-2 h-7 rounded">
+                        <audio
+                          controls
+                          preload="metadata"
+                          class="w-full mt-2 h-7 rounded"
+                          onloadedmetadata={(e) => {
+                            const d = (e.currentTarget as HTMLAudioElement).duration;
+                            if (d && isFinite(d) && d > 0) {
+                              audioDurations = { ...audioDurations, [file.key]: Math.round(d) };
+                            }
+                          }}
+                        >
                           <source src={file.url} />
                           {#if file.fallbackUrl}
                             <source src={file.fallbackUrl} />
@@ -5825,6 +5985,43 @@
             </div>
           {/if}
 
+          <!-- Image Lightbox Preview Modal -->
+          {#if previewModalImage}
+            <div
+              class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+              onclick={() => (previewModalImage = null)}
+              role="dialog"
+            >
+              <div class="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onclick={(e) => e.stopPropagation()}>
+                <img src={previewModalImage} alt="Preview" class="max-w-full max-h-[75vh] object-contain rounded-2xl shadow-2xl border border-white/20" />
+                <div class="mt-4 flex items-center gap-3 flex-wrap justify-center">
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard(previewModalImage!)}
+                    class="px-4 py-2 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-semibold backdrop-blur-sm transition-all"
+                  >
+                    📋 复制图片 URL
+                  </button>
+                  <a
+                    href={previewModalImage}
+                    target="_blank"
+                    rel="noreferrer"
+                    class="px-4 py-2 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-semibold backdrop-blur-sm transition-all"
+                  >
+                    在新标签页打开 ↗
+                  </a>
+                  <button
+                    type="button"
+                    onclick={() => (previewModalImage = null)}
+                    class="px-5 py-2 rounded-full bg-white text-black text-xs font-bold hover:bg-white/90 transition-all"
+                  >
+                    关闭预览
+                  </button>
+                </div>
+              </div>
+            </div>
+          {/if}
+
         {:else if currentTab === "guide"}
           <!-- Markdown Syntax Guide Panel -->
           <div class="mb-6 flex items-center justify-between">
@@ -5834,9 +6031,9 @@
             </div>
           </div>
 
-          <div class="flex flex-col xl:flex-row gap-6 items-start">
+                    <div class="flex flex-col xl:flex-row gap-6 items-start">
             <div class="space-y-6 flex-1 max-w-4xl min-w-0">
-              <!-- Frontmatter Template -->
+              <!-- 1. Frontmatter Template -->
               <div id="guide-frontmatter" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
                 <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                   <h2 class="text-base font-bold flex items-center gap-2">
@@ -5844,7 +6041,7 @@
                   </h2>
                   <button
                     type="button"
-                    onclick={() => copyToClipboard(`---\ntitle: "新博文标题"\npublished: 2026-09-24\ndescription: "文章精炼摘要描述，用于前台卡片展示与 SEO 元数据"\ncategory: "技术探索"\ntags: ["Astro", "Shirine", "Svelte"]\nimage: "./cover.webp"\ndraft: false\npinned: false\n---\n`)}
+                    onclick={() => copyToClipboard('---\ntitle: "新博文标题"\npublished: 2026-09-24\ndescription: "文章精炼摘要描述，用于前台卡片展示与 SEO 元数据"\ncategory: "技术探索"\ntags: ["Astro", "Shirine", "Svelte"]\nimage: "./cover.webp"\ndraft: false\npinned: false\npermissionType: "public"\n---\n')}
                     class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
                   >
                     📋 复制 Frontmatter
@@ -5860,25 +6057,38 @@ tags: ["Astro", "Shirine", "Svelte"]
 image: "./cover.webp"
 draft: false
 pinned: false
+permissionType: "public"
 ---</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 flex flex-wrap gap-2 items-center">
+                    <span class="px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold">📑 新博文标题</span>
+                    <span class="px-2.5 py-1 rounded-lg bg-[var(--surface-container)] text-[var(--on-surface-variant)] text-xs">📅 2026-09-24</span>
+                    <span class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium">🏷️ 技术探索</span>
+                    <span class="px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-mono">#Astro #Shirine</span>
+                    <span class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs">🌐 公开可见</span>
+                  </div>
+                </div>
               </div>
 
-              <!-- Basic Formatting -->
+              <!-- 2. Basic Formatting -->
               <div id="guide-basic" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
                 <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                   <h2 class="text-base font-bold flex items-center gap-2">
                     <span>🖋️ 基础文本排版 (Headings, Bold, Lists, Tables)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard(`## 二级标题\n### 三级标题\n\n**加粗文字**，*斜体文字*，~~删除线~~，==高亮标记==。\n\n> 这是一个经典引用段落。\n\n- 无序列表项 A\n- 无序列表项 B\n  - 嵌套列表项\n\n1. 有序编号 1\n2. 有序编号 2\n\n- [x] 已完成的任务\n- [ ] 待完成的任务清单`)}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制基础语法
-                </button>
-              </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">支持标准 GFM（GitHub Flavored Markdown）所有排版特性，包括表格、任务清单与脚注。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>## 二级标题
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('## 二级标题\n### 三级标题\n\n**加粗文字**，*斜体文字*，~~删除线~~，==高亮标记==。\n\n> 这是一个经典引用段落。\n\n- 无序列表项 A\n- 无序列表项 B\n  - 嵌套列表项\n\n1. 有序编号 1\n2. 有序编号 2\n\n- [x] 已完成的任务\n- [ ] 待完成的任务清单\n\n| 模块名称 | 状态 | 说明 |\n| :--- | :---: | ---: |\n| 认证授权 | ✅ 已就绪 | JWT + Session 双模 |\n| 罗盘导航 | ✅ 已就绪 | 4 组预设 |')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制基础语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">支持标准 GFM（GitHub Flavored Markdown）所有排版特性，包括表格、任务清单与脚注。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>## 二级标题
 ### 三级标题
 
 **加粗文字**，*斜体文字*，~~删除线~~，==高亮标记==。
@@ -5895,12 +6105,34 @@ pinned: false
 - [x] 已完成的任务
 - [ ] 待完成的任务清单
 
-| 表头一 | 表头二 | 表头三 |
+| 模块名称 | 状态 | 说明 |
 | :--- | :---: | ---: |
-| 左对齐 | 居中对齐 | 右对齐 |</code></pre>
+| 认证授权 | ✅ 已就绪 | JWT + Session 双模 |</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 space-y-3">
+                    <h3 class="text-base font-bold text-[var(--on-surface)] border-b border-[var(--outline-variant)]/10 pb-1">示例二级标题</h3>
+                    <p class="text-xs text-[var(--on-surface-variant)]">
+                      <strong class="text-[var(--on-surface)]">加粗文字</strong>，<em>斜体文字</em>，<del class="line-through opacity-70">删除线</del>，<mark class="bg-primary/20 text-primary px-1 rounded">高亮标记</mark>。
+                    </p>
+                    <blockquote class="border-l-4 border-primary pl-3 py-1 text-xs text-[var(--on-surface-variant)] bg-primary/5 rounded-r-xl">
+                      这是一个经典引用段落。
+                    </blockquote>
+                    <div class="flex items-center gap-4 text-xs">
+                      <label class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                        <input type="checkbox" checked disabled class="rounded" /> 已完成任务
+                      </label>
+                      <label class="flex items-center gap-1.5 text-[var(--on-surface-variant)]">
+                        <input type="checkbox" disabled class="rounded" /> 待完成任务
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <!-- Keyboard & Super/Subscript -->
+              <!-- 3. Keyboard & Super/Subscript -->
               <div id="guide-kbd" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
                 <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                   <h2 class="text-base font-bold flex items-center gap-2">
@@ -5919,13 +6151,26 @@ pinned: false
 Mac 用户请按下 &lt;kbd&gt;⌘&lt;/kbd&gt; + &lt;kbd&gt;K&lt;/kbd&gt; 唤出全局检索。
 
 水分子化学式为 H&lt;sub&gt;2&lt;/sub&gt;O，爱因斯坦方程 E = mc&lt;sup&gt;2&lt;/sup&gt;。</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 space-y-2 text-xs">
+                    <p>
+                      全局搜索快捷键：
+                      <kbd class="px-2 py-0.5 rounded-lg border border-[var(--outline)]/40 bg-[var(--surface-container)] shadow-sm font-mono text-[11px] font-semibold text-[var(--on-surface)]">Ctrl</kbd> + 
+                      <kbd class="px-2 py-0.5 rounded-lg border border-[var(--outline)]/40 bg-[var(--surface-container)] shadow-sm font-mono text-[11px] font-semibold text-[var(--on-surface)]">K</kbd>
+                    </p>
+                    <p>化学式：H<sub>2</sub>O ｜ 经典力学：E = mc<sup>2</sup></p>
+                  </div>
+                </div>
               </div>
 
-              <!-- Footnotes -->
+              <!-- 4. Footnotes -->
               <div id="guide-footnotes" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
                 <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                   <h2 class="text-base font-bold flex items-center gap-2">
-                    <span>📑 引用段落与文末脚注 (Blockquotes & Footnotes)</span>
+                    <span>⚓ 引用段落与文末脚注 (Blockquotes & Footnotes)</span>
                   </h2>
                   <button
                     type="button"
@@ -5938,31 +6183,37 @@ Mac 用户请按下 &lt;kbd&gt;⌘&lt;/kbd&gt; + &lt;kbd&gt;K&lt;/kbd&gt; 唤出
                 <p class="text-xs text-[var(--on-surface-variant)]">在正文使用 <code>[^1]</code> 标记，并在文末编写对应解释，读者点击即可平滑跳转到文末注释并返回。</p>
                 <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>这是一个带有学术来源的声明观点[^1]，以及另一个解释词汇[^2]。
 
-> 这是一个经典引用区块。
->> 支持嵌套多级引用。
->
-> — 鲁迅
-
 [^1]: 这是脚注的具体文献出处或详细背景注解。
 [^2]: 这是第二个脚注的解释内容。点击后可双向锚点跳转。</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 space-y-2 text-xs">
+                    <p>Shirine 架构全面支持边缘分布式存储技术<sup class="text-primary font-bold cursor-pointer hover:underline">[1]</sup>与全栈无感 SSR。</p>
+                    <div class="pt-2 border-t border-[var(--outline-variant)]/20 text-[11px] text-[var(--on-surface-variant)]">
+                      <p><span class="font-bold text-primary">[1]</span> Cloudflare D1 分布式数据库规范。 <span class="text-primary cursor-pointer">↩</span></p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <!-- Admonitions -->
+              <!-- 5. Admonitions -->
               <div id="guide-admonitions" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
                 <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
                   <h2 class="text-base font-bold flex items-center gap-2">
-                    <span>💡 警告与提示卡片 (Admonitions)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard(`:::note[说明标注]\n这是一个通用的说明信息标注卡片。\n:::\n\n:::tip[实用技巧]\n推荐在编写教程时使用此提示框，突出核心操作秘诀。\n:::\n\n:::important[重要提醒]\n特别关键的注意要点，提醒读者切勿遗漏。\n:::\n\n:::warning[警示信息]\n操作过程中可能出现的意外隐患与警告。\n:::\n\n:::caution[危险操作]\n可能导致数据丢失或严重异常的高危操作提醒。\n:::`)}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制全套卡片语法
-                </button>
-              </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">采用 Directive 风格三冒号包裹，内置 note, tip, important, warning, caution 5 大语义配色及 Material 3 图标。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::note[说明标注]
+                    <span>💡 警告与提示卡片 (Admonitions: note, tip, important, warning, caution)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard(':::note[说明标注]\n这是一个通用的说明信息标注卡片。\n:::\n\n:::tip[实用技巧]\n推荐在编写教程时使用此提示框，突出核心操作秘诀。\n:::\n\n:::important[重要提醒]\n特别关键的注意要点，提醒读者切勿遗漏。\n:::\n\n:::warning[警示信息]\n操作过程中可能出现的意外隐患与警告。\n:::\n\n:::caution[危险操作]\n可能导致数据丢失或严重异常的高危操作提醒。\n:::')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制全套卡片语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">采用 Directive 风格三冒号包裹，内置 note, tip, important, warning, caution 5 大语义配色及 Material 3 图标。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::note[说明标注]
 这是一个通用的说明信息标注卡片。
 :::
 
@@ -5970,64 +6221,97 @@ Mac 用户请按下 &lt;kbd&gt;⌘&lt;/kbd&gt; + &lt;kbd&gt;K&lt;/kbd&gt; 唤出
 推荐在编写教程时使用此提示框，突出核心操作秘诀。
 :::
 
-:::important[重要提醒]
-特别关键的注意要点，提醒读者切勿遗漏。
-:::
-
 :::warning[警示信息]
 操作过程中可能出现的意外隐患与警告。
-:::
-
-:::caution[危险操作]
-可能导致数据丢失或严重异常的高危操作提醒。
 :::</code></pre>
-            </div>
-
-            <!-- Expressive Code -->
-            <div id="guide-code" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>💻 增强代码块 (Expressive Code)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard('```ts title="src/utils/demo.ts" {2,4-5}\nexport function greeting(name: string): string {\n  // 这一行将被高亮标注\n  const message = `Hello, ${name}!`;\n  console.log(message);\n  return message;\n}\n```')}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制代码块语法
-                </button>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="space-y-2 text-xs">
+                    <div class="p-3.5 rounded-2xl bg-blue-500/10 border-l-4 border-blue-500 text-blue-900 dark:text-blue-100 flex items-start gap-2.5">
+                      <span class="text-blue-500 text-base">📘</span>
+                      <div><strong class="block font-semibold">说明标注</strong>通用的辅助信息卡片，补充上下文背景。</div>
+                    </div>
+                    <div class="p-3.5 rounded-2xl bg-emerald-500/10 border-l-4 border-emerald-500 text-emerald-900 dark:text-emerald-100 flex items-start gap-2.5">
+                      <span class="text-emerald-500 text-base">💡</span>
+                      <div><strong class="block font-semibold">实用技巧</strong>推荐在编写技术教程时使用，突出核心操作快捷方式。</div>
+                    </div>
+                    <div class="p-3.5 rounded-2xl bg-amber-500/10 border-l-4 border-amber-500 text-amber-900 dark:text-amber-100 flex items-start gap-2.5">
+                      <span class="text-amber-500 text-base">⚠️</span>
+                      <div><strong class="block font-semibold">警示信息</strong>注意环境变量填写规范，避免线上构建异常中断。</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">支持文件名标题栏 <code>title="..."</code>、指定行高亮 <code>&#123;1,3-5&#125;</code>、差异标记 <code>// [!code ++]</code> 与终端命令复制。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>```ts title="src/utils/demo.ts" &#123;2,4-5&#125;
+
+              <!-- 6. Expressive Code -->
+              <div id="guide-code" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>💻 增强代码块 (Expressive Code)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('```ts title="src/utils/demo.ts" {2,4-5}\nexport function greeting(name: string): string {\n  // 这一行将被高亮标注\n  const message = `Hello, ${name}!`;\n  console.log(message);\n  return message;\n}\n```')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制代码块语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">支持文件名标题栏 <code>title="..."</code>、指定行高亮 <code>&#123;1,3-5&#125;</code>、差异标记 <code>// [!code ++]</code> 与终端命令复制。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>```ts title="src/utils/demo.ts" &#123;2,4-5&#125;
 export function greeting(name: string): string &#123;
   // 这一行将被高亮标注
-  const message = `Hello, $&#123;name&#125;!`;
+  const message = \`Hello, $&#123;name&#125;!\`;
   console.log(message);
   return message;
 &#125;
 ```</code></pre>
-            </div>
-
-            <!-- Math & Mermaid -->
-            <div id="guide-math" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>📐 数学公式与 Mermaid 流程图 (KaTeX & Diagrams)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard('行内公式如质能方程：$E = mc^2$\n\n块级复杂公式：\n$$\n\\sum_{n=1}^{\\infty} \\frac{1}{n^2} = \\frac{\\pi^2}{6}\n$$\n\n```mermaid\ngraph TD;\n    A[编写文章] --> B(实时渲染预览);\n    B --> C{是否发布?};\n    C -- 是 --> D[前台访客浏览];\n    C -- 否 --> E[存为草稿];\n```')}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制公式图表语法
-                </button>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="rounded-2xl border border-[var(--outline-variant)]/30 bg-[#1e1e2e] text-[#cdd6f4] font-mono text-xs overflow-hidden shadow-md">
+                    <div class="flex items-center justify-between px-4 py-2 bg-[#181825] border-b border-[#313244] text-[11px] text-[#a6adc8]">
+                      <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                        <span class="ml-2 font-medium text-white/90">src/utils/demo.ts</span>
+                      </div>
+                      <span class="text-[10px] bg-white/10 px-2 py-0.5 rounded">TypeScript</span>
+                    </div>
+                    <div class="p-3 leading-relaxed">
+                      <div class="text-[#a6adc8]"><span class="inline-block w-6 text-[#585b70] text-right mr-3">1</span><span class="text-[#cba6f7]">export function</span> <span class="text-[#89b4fa]">greeting</span>(name: <span class="text-[#f9e2af]">string</span>) &#123;</div>
+                      <div class="bg-primary/20 text-white font-semibold -mx-3 px-3 border-l-2 border-primary"><span class="inline-block w-6 text-primary text-right mr-3">2</span>  <span class="text-[#a6adc8]">// 这一行已被高亮标注</span></div>
+                      <div><span class="inline-block w-6 text-[#585b70] text-right mr-3">3</span>  <span class="text-[#cba6f7]">return</span> \`Hello, $&#123;name&#125;!\`;</div>
+                      <div><span class="inline-block w-6 text-[#585b70] text-right mr-3">4</span>&#125;</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">原生内置 KaTeX 渲染引擎与 Mermaid 图表引擎，无须手动引入任何额外外部脚本。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>行内公式如质能方程：$E = mc^2$
+
+              <!-- 7. Math & Mermaid -->
+              <div id="guide-math" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>📐 数学公式与 Mermaid 流程图 (KaTeX & Diagrams)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('行内公式如质能方程：$E = mc^2$\n\n块级复杂公式：\n$$\n\\sum_{n=1}^{\\infty} \\frac{1}{n^2} = \\frac{\\pi^2}{6}\n$$\n\n```mermaid\ngraph TD;\n    A[编写文章] --> B(实时渲染预览);\n    B --> C{是否发布?};\n    C -- 是 --> D[前台访客浏览];\n    C -- 否 --> E[存为草稿];\n```')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制公式图表语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">原生内置 KaTeX 渲染引擎与 Mermaid 图表引擎，无须手动引入任何额外外部脚本。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>行内公式如质能方程：$E = mc^2$
 
 块级复杂公式：
 $$
-\sum_&#123;n=1&#125;^\infty \frac&#123;1&#125;&#123;n^2&#125; = \frac&#123;\pi^2&#125;&#123;6&#125;
+\\sum_&#123;n=1&#125;^\\infty \\frac&#123;1&#125;&#123;n^2&#125; = \\frac&#123;\\pi^2&#125;&#123;6&#125;
 $$
 
 ```mermaid
@@ -6035,26 +6319,44 @@ graph TD;
     A[编写文章] --> B(实时渲染预览);
     B --> C&#123;是否发布?&#125;;
     C -- 是 --> D[前台访客浏览];
-    C -- 否 --> E[存为草稿];
 ```</code></pre>
-            </div>
-
-            <!-- Collapse Panels & Tabs -->
-            <div id="guide-tabs" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>📂 折叠面板与分栏选项卡 (Collapse & Tabs)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard(':::collapse[点击展开阅读详情与配置说明]\n这里是折叠内部的详细长文本内容，默认收起，保持页面清爽。\n:::\n\n:::tabs\n== pnpm\n```bash\npnpm install\n```\n== bun\n```bash\nbun install\n```\n== npm\n```bash\nnpm install\n```\n:::')}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制折叠分栏语法
-                </button>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 space-y-3">
+                    <div class="text-center py-2 font-serif text-sm bg-[var(--surface-container)]/50 rounded-xl">
+                      <span class="italic font-bold">E</span> = <span class="italic font-bold">m</span><span class="italic font-bold">c</span><sup>2</sup>
+                      &nbsp;&nbsp;｜&nbsp;&nbsp;
+                      <span>∑<sub>n=1</sub><sup>∞</sup> 1/n² = π² / 6</span>
+                    </div>
+                    <div class="flex items-center justify-center gap-2 text-xs py-2">
+                      <span class="px-3 py-1 rounded-lg bg-primary text-white font-medium">编写文章</span>
+                      <span>➔</span>
+                      <span class="px-3 py-1 rounded-lg bg-[var(--surface-container-high)] text-[var(--on-surface)]">实时预览</span>
+                      <span>➔</span>
+                      <span class="px-3 py-1 rounded-lg bg-emerald-600 text-white font-medium">发布呈现</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">用于长篇内容折叠隐藏、以及多包管理器命令对比切换。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::collapse[点击展开阅读详情与配置说明]
+
+              <!-- 8. Collapse Panels & Tabs -->
+              <div id="guide-tabs" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>📂 折叠面板与分栏选项卡 (Collapse & Tabs)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard(':::collapse[点击展开阅读详情与配置说明]\n这里是折叠内部的详细长文本内容，默认收起，保持页面清爽。\n:::\n\n:::tabs\n== pnpm\n```bash\npnpm install\n```\n== bun\n```bash\nbun install\n```\n== npm\n```bash\nnpm install\n```\n:::')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制折叠分栏语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">用于长篇内容折叠隐藏、以及多包管理器命令对比切换。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::collapse[点击展开阅读详情与配置说明]
 这里是折叠内部的详细长文本内容，默认收起，保持页面清爽。
 :::
 
@@ -6067,143 +6369,163 @@ pnpm install
 ```bash
 bun install
 ```
-== npm
-```bash
-npm install
-```
 :::</code></pre>
-            </div>
-
-            <!-- Video & Audio Embeds -->
-            <div id="guide-media" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>🎬 视频、音频与画廊组件 (Media Embeds)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard('::bilibili[BV1GJ411x7h7]\n\n::youtube[dQw4w9WgXcQ]\n\n::audio[https://example.com/song.mp3]{title="曲目名" artist="歌手"}\n\n:::image-grid{cols=2}\n![示例 1](https://example.com/image1.webp)\n![示例 2](https://example.com/image2.webp)\n:::\n\n::spoiler[这是一段鼠标滑过才显示的剧透遮罩文字]')}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制多媒体语法
-                </button>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 space-y-3">
+                    <details class="group rounded-xl border border-[var(--outline-variant)]/30 p-3 bg-[var(--surface)]">
+                      <summary class="font-semibold text-xs text-[var(--on-surface)] cursor-pointer list-none flex items-center justify-between">
+                        <span>▶ 点击展开阅读详情与配置说明</span>
+                        <span class="text-[10px] text-primary">展开/收起</span>
+                      </summary>
+                      <p class="mt-2 text-xs text-[var(--on-surface-variant)] border-t border-[var(--outline-variant)]/15 pt-2">
+                        这里是折叠内部的详细长文本内容，默认收起，保持页面清爽与阅读沉浸感。
+                      </p>
+                    </details>
+                    <div class="rounded-xl border border-[var(--outline-variant)]/30 overflow-hidden">
+                      <div class="flex bg-[var(--surface-container-high)] text-xs border-b border-[var(--outline-variant)]/20">
+                        <span class="px-4 py-1.5 font-bold text-primary border-b-2 border-primary bg-[var(--surface)]">pnpm</span>
+                        <span class="px-4 py-1.5 text-[var(--on-surface-variant)]">bun</span>
+                        <span class="px-4 py-1.5 text-[var(--on-surface-variant)]">npm</span>
+                      </div>
+                      <div class="p-3 bg-[var(--surface-container-low)] font-mono text-xs text-[var(--on-surface)]">pnpm install</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">支持一行嵌入 B 站、YouTube 响应式视频，以及双列画廊和剧透刮刮乐。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>::bilibili[BV1GJ411x7h7]
+
+              <!-- 9. Video Embeds (NEW) -->
+              <div id="guide-video" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🎬 视频平台内嵌 (Bilibili, YouTube & HTML5 Video)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('::bilibili[BV1GJ411x7h7]\n\n::youtube[dQw4w9WgXcQ]\n\n::artplayer{src="https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev/video/demo.mp4" title="Shirine 演示视频" preload="auto"}')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制视频嵌入语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">一行命令极速嵌入 B 站 BV 号高清播放器、YouTube 视频或直链 MP4，自动自适应 16:9 比例与夜间模式。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>::bilibili[BV1GJ411x7h7]
 
 ::youtube[dQw4w9WgXcQ]
 
-::audio[https://example.com/song.mp3]&#123;title="曲目名" artist="歌手"&#125;
-
-:::image-grid&#123;cols=2&#125;
-![示例 1](https://example.com/image1.webp)
-![示例 2](https://example.com/image2.webp)
-:::
-
-::spoiler[这是一段鼠标滑过才显示的剧透遮罩文字]</code></pre>
-            </div>
-
-            <!-- Steps Flow -->
-            <div id="guide-steps" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>🪜 序号导轨步骤条 (Steps Flow)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard(':::steps{title="部署流程"}\n1. **安装项目依赖**\n\n   在终端执行 `bun install` 安装所有必须的运行时模块。\n\n2. **配置环境变量**\n\n   根据 `.env.example` 填入 Cloudflare D1、R2 凭证与鉴权密钥。\n\n3. **执行发布构建**\n\n   运行 `bun run build` 生成生产就绪静态文件并推送到 Cloudflare Pages。\n:::')}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制步骤条语法
-                </button>
+::artplayer&#123;src="https://example.com/video.mp4" title="演示视频"&#125;</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20">
+                    <div class="aspect-video w-full rounded-2xl bg-black/80 flex flex-col items-center justify-center text-white relative overflow-hidden group shadow-lg">
+                      <div class="absolute top-3 left-3 flex items-center gap-2 z-10">
+                        <span class="px-2 py-0.5 rounded-full bg-pink-500/90 text-[10px] font-bold">📺 哔哩哔哩 Bilibili</span>
+                        <span class="text-xs font-medium text-white/90">【高清实机】Shirine 响应式演示</span>
+                      </div>
+                      <div class="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl group-hover:scale-110 group-hover:bg-primary transition-all">
+                        ▶
+                      </div>
+                      <div class="absolute bottom-2 left-3 right-3 flex items-center justify-between text-[10px] text-white/70">
+                        <span>02:18 / 04:35</span>
+                        <span>1080P 高清</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">将有序列表渲染为 Material 3 Expressive 序号导轨流，适合撰写环境配置、安装教程与工作流。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::steps&#123;title="部署流程"&#125;
-1. **安装项目依赖**
 
-   在终端执行 `bun install` 安装所有必须的运行时模块。
+              <!-- 10. Audio Reader (NEW) -->
+              <div id="guide-audio-reader" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🎧 有声朗读与音频播放器 (Audio Player & Reader)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard(':audio-reader[试听《口笛で愛は歌えない》音频片段]{src="https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev/audio/dazbee.mp3"}\n\n::audio[https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev/audio/demo.mp3]{title="心做し" artist="GUMI"}')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制音频语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">支持紧凑型行内有声语音朗读胶囊，以及带封面、歌名与声波指示器的标准音频播放卡片。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:audio-reader[试听《口笛で愛は歌えない》音频片段]&#123;src="https://example.com/audio.mp3"&#125;
 
-2. **配置环境变量**
-
-   根据 `.env.example` 填入 Cloudflare D1、R2 凭证与鉴权密钥。
-
-3. **执行发布构建**
-
-   运行 `bun run build` 生成生产就绪静态文件并推送到 Cloudflare Pages。
-:::</code></pre>
-            </div>
-
-            <!-- File Tree -->
-            <div id="guide-file-tree" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>🌲 交互式目录树 (File Tree)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard(':::file-tree{title="Shirine 源码目录结构" icon="colored"}\n- client/\n  - src/\n    - components/\n      - PostCard.astro\n      - Header.astro\n    - content/\n      - posts/ # 博客正文 Markdown\n    - styles/\n  - public/\n    - favicon.svg\n- server/\n  - src/\n    - routes/\n- wrangler.jsonc\n:::')}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制目录树语法
-                </button>
+::audio[https://example.com/audio.mp3]&#123;title="心做し" artist="GUMI"&#125;</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 space-y-3">
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/25 text-primary text-xs font-semibold hover:bg-primary/20 cursor-pointer transition-all">
+                      <span class="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center text-[10px]">▶</span>
+                      <span>试听《口笛で愛は歌えない》音频片段</span>
+                      <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-primary/20">⏱️ 03:42</span>
+                    </div>
+                    <div class="p-3 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 flex items-center gap-3 shadow-sm">
+                      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-white text-base font-bold shadow-sm">🎵</div>
+                      <div class="flex-1 min-w-0">
+                        <div class="text-xs font-bold text-[var(--on-surface)] truncate">心做し (Kokoronashi)</div>
+                        <div class="text-[10px] text-[var(--on-surface-variant)] truncate">GUMI ｜ 44.1kHz Hi-Res</div>
+                      </div>
+                      <div class="text-xs font-mono text-primary font-bold">01:24 / 04:30</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">使用 Markdown 嵌套列表或代码围栏即可生成带多彩图标的可折叠项目目录树。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::file-tree&#123;title="Shirine 源码目录结构" icon="colored"&#125;
-- client/
-  - src/
-    - components/
-      - PostCard.astro
-      - Header.astro
-    - content/
-      - posts/ # 博客正文 Markdown
-    - styles/
-  - public/
-    - favicon.svg
-- server/
-  - src/
-    - routes/
-- wrangler.jsonc
-:::</code></pre>
-            </div>
 
-            <!-- Artplayer & Audio Reader -->
-            <div id="guide-artplayer" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>🎥 Artplayer 视频播放器与 Audio Reader 行内朗读</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard('::artplayer{src="https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev/video/demo.mp4" title="Shirine 演示视频" preload="auto"}\n\n:audio-reader[试听《口笛で愛は歌えない》音频片段]{src="https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev/audio/dazbee.mp3"}')}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制音视频语法
-                </button>
+              <!-- 11. Spoiler Masks (NEW) -->
+              <div id="guide-spoiler" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🙈 防剧透遮罩与黑幕效果 (Spoiler Blurs & Masks)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('::spoiler[这是一段防剧透遮罩文字，鼠标悬停或轻触即可揭晓真相！]\n\n也可以在正文中标记：真相往往是 ||大侦探自己才是真正的幕后推手||。')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制防剧透语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">用于动漫剧情点评、推理游戏解答或彩蛋提示，默认模糊黑幕遮蔽，悬停平滑展开。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>::spoiler[这是一段防剧透遮罩文字，鼠标悬停或轻触即可揭晓真相！]
+
+真相往往是 ||大侦探自己才是真正的幕后推手||。</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览 (鼠标悬浮试看)：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 text-xs leading-relaxed">
+                    在剧情高潮阶段，
+                    <span class="inline-block px-2 py-0.5 rounded bg-zinc-800 text-zinc-800 hover:text-white hover:bg-zinc-700 select-none hover:select-text cursor-pointer transition-all duration-300 filter blur-[3px] hover:blur-0 mx-1">
+                      大反派其实一直在暗中保护主角团
+                    </span>
+                    的伏笔终于浮出水面！
+                  </div>
+                </div>
               </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">Shirine 原生支持接入 R2 直链的 HTML5 原生极速播放器与紧凑型行内发音朗读器。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>::artplayer&#123;src="https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev/video/demo.mp4" title="Shirine 演示视频" preload="auto"&#125;
 
-:audio-reader[试听《口笛で愛は歌えない》音频片段]&#123;src="https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev/audio/dazbee.mp3"&#125;</code></pre>
-            </div>
-
-            <!-- GitHub Card & Field Group -->
-            <div id="guide-github" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>🐙 GitHub 仓库卡片与参数属性清单 (Field Cards)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard('::github{repo="yiran168/Shirine"}\n\n:::: field-group\n\n::: field title\n@type string\n@required\n\n博文或页面的主标题，将渲染在文章卡片与顶部 AppBar 中。\n:::\n\n::: field draft\n@type boolean\n@default false\n@optional\n\n是否存为草稿。当设为 true 时，仅管理员登录后可见，普通访客不可访问。\n:::\n\n::::')}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制卡片语法
-                </button>
-              </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">一行代码自动拉取并渲染 GitHub 仓库信息，以及编写 API 文档专用的结构化参数属性卡片。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>::github&#123;repo="yiran168/Shirine"&#125;
-
-:::: field-group
+              <!-- 12. Field Group (NEW) -->
+              <div id="guide-field-group" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>📋 结构化字段属性卡片组 (Field Cards & API Docs)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard(':::: field-group\n\n::: field title\n@type string\n@required\n\n博文或页面的主标题，将渲染在文章卡片与顶部 AppBar 中。\n:::\n\n::: field draft\n@type boolean\n@default false\n@optional\n\n是否存为草稿。当设为 true 时，仅管理员登录后可见。\n:::\n\n::::')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制字段卡片语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">专为编写技术设计文档、SDK 参数说明与 RESTful API 接口定制的参数属性卡片容器。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::: field-group
 
 ::: field title
 @type string
@@ -6217,190 +6539,463 @@ npm install
 @default false
 @optional
 
-是否存为草稿。当设为 true 时，仅管理员登录后可见，普通访客不可访问。
+是否存为草稿。当设为 true 时，仅管理员登录后可见。
 :::
 
 ::::</code></pre>
-            </div>
-
-            <!-- Annotations & Marker Highlights -->
-            <div id="guide-marker" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>🏷️ 荧光笔高亮与悬浮术语注解 (Marker & Annotations)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard('Shirine 采用了现代化 Material 3 动态取色算法 [+m3e]。\n\n[+m3e]:\n  Material 3 Expressive 设计规范，根据主色相自动生成全套对比度适配的色彩变量。\n\n==主题主色荧光标记==\n==错误警示标记=={.error}\n==实用技巧标记=={.tip}\n==第三强调色标记=={.tertiary}')}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制高亮与注解语法
-                </button>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 space-y-3">
+                    <div class="p-3.5 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/25 space-y-1.5">
+                      <div class="flex items-center justify-between">
+                        <span class="font-mono text-xs font-bold text-primary">title</span>
+                        <div class="flex items-center gap-1.5">
+                          <span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono text-[10px]">string</span>
+                          <span class="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 font-semibold text-[10px]">必填 required</span>
+                        </div>
+                      </div>
+                      <p class="text-xs text-[var(--on-surface-variant)]">博文或页面的主标题，将渲染在文章卡片与顶部 AppBar 中。</p>
+                    </div>
+                    <div class="p-3.5 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/25 space-y-1.5">
+                      <div class="flex items-center justify-between">
+                        <span class="font-mono text-xs font-bold text-primary">draft</span>
+                        <div class="flex items-center gap-1.5">
+                          <span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono text-[10px]">boolean</span>
+                          <span class="px-2 py-0.5 rounded-full bg-zinc-500/10 text-zinc-500 font-mono text-[10px]">默认 false</span>
+                        </div>
+                      </div>
+                      <p class="text-xs text-[var(--on-surface-variant)]">是否存为草稿。当设为 true 时，仅管理员登录后可见。</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">支持 4 种语义的荧光笔高亮标注，以及鼠标悬停即刻弹出浮层解释的行内术语注解。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>Shirine 采用了现代化 Material 3 动态取色算法 [+m3e]。
 
-[+m3e]:
-  Material 3 Expressive 设计规范，根据主色相自动生成全套对比度适配的色彩变量。
+              <!-- 13. Gallery & Image Grid (NEW) -->
+              <div id="guide-gallery" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🖼️ 响应式画廊图集 (Responsive Image Gallery & Grid)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard(':::gallery{cols=3}\n![二次元壁纸 1](/assets/images/banner/desktop/1.webp)\n![二次元壁纸 2](/assets/images/banner/mobile/1.webp)\n![二次元壁纸 3](/assets/images/demo-avatar.webp)\n:::\n\n:::image-grid{cols=2}\n![图 1](/assets/images/banner/desktop/1.webp)\n![图 2](/assets/images/banner/mobile/1.webp)\n:::')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制画廊语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">支持 2 列或 3 列自适应响应式画廊网格，自动集成点击全屏高画质灯箱 Lightbox 预览。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::gallery&#123;cols=3&#125;
+![示例 1](/assets/images/banner/desktop/1.webp)
+![示例 2](/assets/images/banner/mobile/1.webp)
+![示例 3](/assets/images/demo-avatar.webp)
+:::
 
-==主题主色荧光标记==
+:::image-grid&#123;cols=2&#125;
+![图 A](/assets/images/banner/desktop/1.webp)
+![图 B](/assets/images/banner/mobile/1.webp)
+:::</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20">
+                    <div class="grid grid-cols-3 gap-3">
+                      <div class="aspect-video rounded-xl bg-gradient-to-tr from-sky-400 to-indigo-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                        🌸 图集 A
+                      </div>
+                      <div class="aspect-video rounded-xl bg-gradient-to-tr from-pink-400 to-rose-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                        ✨ 图集 B
+                      </div>
+                      <div class="aspect-video rounded-xl bg-gradient-to-tr from-amber-400 to-emerald-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                        🌊 图集 C
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 14. Steps Flow -->
+              <div id="guide-steps" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🪜 序号导轨步骤条 (Steps Flow)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard(':::steps{title="部署流程"}\n1. **安装项目依赖**\n\n   在终端执行 `bun install` 安装所有必须的运行时模块。\n\n2. **配置环境变量**\n\n   根据 `.env.example` 填入 Cloudflare D1、R2 凭证与鉴权密钥。\n\n3. **执行发布构建**\n\n   运行 `bun run build` 生成生产就绪静态文件并推送到 Cloudflare Pages。\n:::')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制步骤条语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">将有序列表渲染为 Material 3 Expressive 序号导轨流，适合撰写环境配置、安装教程与工作流。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::steps&#123;title="部署流程"&#125;
+1. **安装项目依赖**
+   在终端执行 `bun install` 安装所有模块。
+
+2. **配置环境变量**
+   填入 Cloudflare D1 与 R2 凭证。
+:::</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 space-y-4">
+                    <div class="flex gap-3">
+                      <div class="flex flex-col items-center">
+                        <div class="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold shadow-sm">1</div>
+                        <div class="w-0.5 flex-1 bg-primary/30 my-1"></div>
+                      </div>
+                      <div class="pb-3 text-xs">
+                        <strong class="text-[var(--on-surface)] block mb-0.5">安装项目依赖</strong>
+                        <span class="text-[var(--on-surface-variant)]">执行 <code>bun install</code> 一键拉取所有包。</span>
+                      </div>
+                    </div>
+                    <div class="flex gap-3">
+                      <div class="flex flex-col items-center">
+                        <div class="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold shadow-sm">2</div>
+                      </div>
+                      <div class="text-xs">
+                        <strong class="text-[var(--on-surface)] block mb-0.5">执行发布构建</strong>
+                        <span class="text-[var(--on-surface-variant)]">运行 <code>bun run build</code> 产生极速边缘构建包。</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 15. File Tree -->
+              <div id="guide-file-tree" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🌲 交互式目录树 (File Tree)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard(':::file-tree{title="Shirine 源码目录结构" icon="colored"}\n- client/\n  - src/\n    - components/\n      - PostCard.astro\n      - Header.astro\n    - content/\n      - posts/ # 博客正文 Markdown\n    - styles/\n  - public/\n    - favicon.svg\n- server/\n  - src/\n    - routes/\n- wrangler.jsonc\n:::')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制目录树语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">使用 Markdown 嵌套列表或代码围栏即可生成带多彩图标的可折叠项目目录树。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::file-tree&#123;title="Shirine 源码目录结构" icon="colored"&#125;
+- client/
+  - src/
+    - components/
+      - PostCard.astro
+    - content/
+      - posts/
+- server/
+:::</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 font-mono text-xs space-y-1.5">
+                    <div class="text-amber-500 font-bold">📁 client/</div>
+                    <div class="pl-4 text-amber-500">📁 src/</div>
+                    <div class="pl-8 text-amber-500">📁 components/</div>
+                    <div class="pl-12 text-blue-500">📄 PostCard.astro</div>
+                    <div class="pl-8 text-amber-500">📁 content/posts/</div>
+                    <div class="text-amber-500 font-bold">📁 server/</div>
+                    <div class="pl-4 text-emerald-500">📄 wrangler.jsonc</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 16. Artplayer -->
+              <div id="guide-artplayer" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🎥 Artplayer 现代化视频播放器 (Advanced Player)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('::artplayer{src="https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev/video/demo.mp4" title="Shirine 演示视频" preload="auto"}')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制 Artplayer 语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">Shirine 原生支持接入 R2 直链的 HTML5 原生极速播放器，支持画中画、倍速播放与全屏。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>::artplayer&#123;src="https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev/video/demo.mp4" title="Shirine 演示视频" preload="auto"&#125;</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20">
+                    <div class="aspect-video w-full rounded-2xl bg-zinc-900 border border-white/10 flex flex-col justify-between p-3 text-white shadow-md">
+                      <div class="flex items-center justify-between text-xs">
+                        <span class="font-bold flex items-center gap-1.5">🎬 Shirine 演示视频</span>
+                        <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded">R2 极速流媒体</span>
+                      </div>
+                      <div class="flex items-center justify-center">
+                        <div class="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center text-xl shadow-lg">▶</div>
+                      </div>
+                      <div class="space-y-1">
+                        <div class="w-full h-1 bg-white/20 rounded-full overflow-hidden">
+                          <div class="w-1/3 h-full bg-primary"></div>
+                        </div>
+                        <div class="flex justify-between text-[10px] text-white/60">
+                          <span>01:15 / 03:40</span>
+                          <span>1.0x ｜ 🔊 ｜ ⛶ 全屏</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 17. GitHub Card -->
+              <div id="guide-github" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🐙 GitHub 仓库卡片与生态集成 (GitHub Repo Card)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('::github{repo="yiran168/Shirine"}')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制 GitHub 卡片语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">一行代码自动拉取并渲染 GitHub 仓库信息、Star 星数、Fork 派生数与语言标记。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>::github&#123;repo="yiran168/Shirine"&#125;</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20">
+                    <div class="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 flex items-center justify-between shadow-sm">
+                      <div class="flex items-center gap-3">
+                        <span class="text-2xl">🐙</span>
+                        <div>
+                          <div class="text-xs font-bold text-primary">yiran168/Shirine</div>
+                          <div class="text-[11px] text-[var(--on-surface-variant)]">A Material 3 Expressive dynamic anime blog</div>
+                        </div>
+                      </div>
+                      <div class="flex items-center gap-2 text-xs">
+                        <span class="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold">⭐ Star</span>
+                        <span class="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold">🍴 Fork</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 18. Marker Highlights -->
+              <div id="guide-marker" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🏷️ 荧光笔高亮与悬浮术语注解 (Marker & Annotations)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('Shirine 采用了现代化 Material 3 动态取色算法 [+m3e]。\n\n[+m3e]:\n  Material 3 Expressive 设计规范，根据主色相自动生成全套对比度适配的色彩变量。\n\n==主题主色荧光标记==\n==错误警示标记=={.error}\n==实用技巧标记=={.tip}\n==第三强调色标记=={.tertiary}')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制高亮语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">支持 4 种语义的荧光笔高亮标注，以及鼠标悬停即刻弹出浮层解释的行内术语注解。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>==主题主色荧光标记==
 ==错误警示标记==&#123;.error&#125;
 ==实用技巧标记==&#123;.tip&#125;
 ==第三强调色标记==&#123;.tertiary&#125;</code></pre>
-            </div>
-
-            <!-- Multi-tab Sync & Accordion FAQ -->
-            <div id="guide-accordion" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>❓ 手风琴问答组与同步代码选项卡 (Accordion & Option Groups)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard(':::collapse[❓ 常见问题 1：全站多媒体如何直传 Cloudflare R2？]\n配置 Cloudflare R2 绑定凭证并在 `wrangler.jsonc` 中指定 `PUBLIC_R2_URL`，系统上传的所有图片、音频与预设文件均全量使用 R2 CDN 直链。\n:::\n\n:::collapse[❓ 常见问题 2：为什么管理员无需输入密码或积分即可直读加密内容？]\nShirine 现已全面升级权限流：当检测到当前访客具有管理员（admin / superadmin）身份时，SSR 端自动透传特权直出完整正文，无需解密密码或扣除积分！\n:::\n\n::: tabs#package-manager\n\n@tab:active pnpm#pnpm\n```bash\npnpm install\npnpm dev\n```\n\n@tab Bun#bun\n```bash\nbun install\nbun dev\n```\n\n@tab npm#npm\n```bash\nnpm install\nnpm run dev\n```\n\n:::')}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制问答与选项卡语法
-                </button>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 flex flex-wrap gap-2 text-xs">
+                    <span class="bg-primary/25 text-primary font-bold px-2 py-0.5 rounded">主题主色荧光标记</span>
+                    <span class="bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold px-2 py-0.5 rounded">错误警示标记</span>
+                    <span class="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold px-2 py-0.5 rounded">实用技巧标记</span>
+                    <span class="bg-purple-500/20 text-purple-600 dark:text-purple-400 font-bold px-2 py-0.5 rounded">第三强调色标记</span>
+                  </div>
+                </div>
               </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">带有记忆能力的多选项卡，以及可自由折叠展开的手风琴问答列表。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::collapse[❓ 常见问题 1：全站多媒体如何直传 Cloudflare R2？]
-配置 Cloudflare R2 绑定凭证并在 `wrangler.jsonc` 中指定 `PUBLIC_R2_URL`，系统上传的所有图片、音频与预设文件均全量使用 R2 CDN 直链。
-:::
 
-:::collapse[❓ 常见问题 2：为什么管理员无需输入密码或积分即可直读加密内容？]
-Shirine 现已全面升级权限流：当检测到当前访客具有管理员（admin / superadmin）身份时，SSR 端自动透传特权直出完整正文，无需解密密码或扣除积分！
-:::
-
-::: tabs#package-manager
-
-@tab:active pnpm#pnpm
-```bash
-pnpm install
-pnpm dev
-```
-
-@tab Bun#bun
-```bash
-bun install
-bun dev
-```
-
-@tab npm#npm
-```bash
-npm install
-npm run dev
-```
-
+              <!-- 19. Accordion FAQ -->
+              <div id="guide-accordion" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>❓ 手风琴问答组与同步代码选项卡 (Accordion & Option Groups)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard(':::collapse[❓ 常见问题 1：全站多媒体如何直传 Cloudflare R2？]\n配置 Cloudflare R2 绑定凭证并在 `wrangler.jsonc` 中指定 `PUBLIC_R2_URL`，系统上传的所有图片、音频与预设文件均全量使用 R2 CDN 直链。\n:::\n\n:::collapse[❓ 常见问题 2：为什么管理员无需输入密码或积分即可直读加密内容？]\nShirine 现已全面升级权限流：当检测到当前访客具有管理员身份时，SSR 端自动透传特权直出完整正文！\n:::')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制问答语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">带有记忆能力的多选项卡，以及可自由折叠展开的手风琴问答列表。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::collapse[❓ 常见问题 1：全站多媒体如何直传 Cloudflare R2？]
+配置 Cloudflare R2 凭证并在 wrangler.jsonc 中指定 PUBLIC_R2_URL。
 :::</code></pre>
-            </div>
-
-            <!-- Code Trees & Diff Trees -->
-            <div id="guide-diff-tree" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>🌳 代码架构与文件变更树 (Code Trees & Diff Trees)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard(':::file-tree{title="Shirine 项目源码结构" icon="colored"}\n- src/\n  - components/\n    - ++ Header.svelte # 新增组件\n    - -- OldNav.svelte # 移除旧版导航\n    - PostCard.astro\n  - content/\n    - posts/\n      - markdown-enhancements.md\n  - layouts/\n    - MainGridLayout.astro\n- wrangler.jsonc\n- package.json\n:::')}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制代码树语法
-                </button>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 space-y-2">
+                    <details class="p-3 rounded-xl bg-[var(--surface)] border border-[var(--outline-variant)]/20 text-xs">
+                      <summary class="font-bold text-[var(--on-surface)] cursor-pointer">❓ 全站多媒体如何直传 Cloudflare R2？</summary>
+                      <p class="mt-2 text-[var(--on-surface-variant)] border-t border-[var(--outline-variant)]/10 pt-2">配置 Cloudflare R2 绑定凭证并在 wrangler.jsonc 中指定 PUBLIC_R2_URL 即可。</p>
+                    </details>
+                  </div>
+                </div>
               </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">支持使用 <code>++</code> 和 <code>--</code> 标注新增与删除的文件变更差异，自动附带文件类型专属色彩图标与目录折叠能力。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::file-tree&#123;title="Shirine 项目源码结构" icon="colored"&#125;
+
+              <!-- 20. Diff Trees -->
+              <div id="guide-diff-tree" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🌳 代码架构与文件变更树 (Code Trees & Diff Trees)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard(':::file-tree{title="Shirine 项目源码结构" icon="colored"}\n- src/\n  - components/\n    - ++ Header.svelte # 新增组件\n    - -- OldNav.svelte # 移除旧版导航\n    - PostCard.astro\n  - content/\n    - posts/\n- wrangler.jsonc\n:::')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制代码树语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">支持使用 <code>++</code> 和 <code>--</code> 标注新增与删除的文件变更差异，自动附带文件类型专属色彩图标。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::file-tree&#123;title="Shirine 项目源码结构" icon="colored"&#125;
 - src/
   - components/
     - ++ Header.svelte # 新增组件
     - -- OldNav.svelte # 移除旧版导航
     - PostCard.astro
-  - content/
-    - posts/
-      - markdown-enhancements.md
-  - layouts/
-    - MainGridLayout.astro
-- wrangler.jsonc
-- package.json
 :::</code></pre>
-            </div>
-
-            <!-- Badges & Status Pills -->
-            <div id="guide-badges" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>🏷️ 徽章与胶囊标记 (Badges & Status Pills)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard('<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">M3E Release</span>\n<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Active</span>\n<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">Pending</span>\n\n[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)\n[![Cloudflare Pages](https://img.shields.io/badge/Deploy-Cloudflare%20Pages-orange)](https://pages.cloudflare.com)')}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制徽章标记语法
-                </button>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 font-mono text-xs space-y-1">
+                    <div class="text-amber-500 font-bold">📁 src/components/</div>
+                    <div class="pl-4 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded font-semibold">+ Header.svelte (新增组件)</div>
+                    <div class="pl-4 text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded font-semibold line-through">- OldNav.svelte (移除旧版)</div>
+                    <div class="pl-4 text-[var(--on-surface-variant)] px-2 py-0.5">  PostCard.astro</div>
+                  </div>
+                </div>
               </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">支持原生 M3E 语义胶囊徽章以及 Shields.io 动态矢量徽章，用于展示版本、构建状态与技术栈标签。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>&lt;span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20"&gt;M3E Release&lt;/span&gt;
-&lt;span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"&gt;Active&lt;/span&gt;
-&lt;span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"&gt;Pending&lt;/span&gt;
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Cloudflare Pages](https://img.shields.io/badge/Deploy-Cloudflare%20Pages-orange)](https://pages.cloudflare.com)</code></pre>
-            </div>
-
-            <!-- Abbreviations -->
-            <div id="guide-abbr" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
-              <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
-                <h2 class="text-base font-bold flex items-center gap-2">
-                  <span>🔤 缩略语全名术语卡 (Abbreviations Glossary)</span>
-                </h2>
-                <button
-                  type="button"
-                  onclick={() => copyToClipboard('Shirine 运用了先进的 AST 编译器与 M3E 设计规范，全面部署于 CF Pages 与 D1。\n\n*[AST]: Abstract Syntax Tree（抽象语法树）\n*[M3E]: Material 3 Expressive（谷歌最新动态设计标准）\n*[CF]: Cloudflare 全球边缘分发网络\n*[D1]: Cloudflare Serverless SQLite 分布式数据库')}
-                  class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
-                >
-                  📋 复制缩略语语法
-                </button>
+              <!-- 21. Badges -->
+              <div id="guide-badges" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🏷️ 徽章与胶囊标记 (Badges & Status Pills)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">M3E Release</span>\n<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Active</span>\n<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">Pending</span>\n\n[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制徽章标记语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">支持原生 M3E 语义胶囊徽章以及 Shields.io 动态矢量徽章，用于展示版本、构建状态与技术栈标签。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>&lt;span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20"&gt;M3E Release&lt;/span&gt;
+&lt;span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"&gt;Active&lt;/span&gt;</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 flex flex-wrap gap-2 items-center">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/25">
+                      <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+                      M3E Release
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      Active
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                      <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                      Pending
+                    </span>
+                  </div>
+                </div>
               </div>
-              <p class="text-xs text-[var(--on-surface-variant)]">Markdown 标准缩略语语法。在正文任意位置提及缩写词，读者鼠标悬浮即可展示全称与详细中文释义。</p>
-              <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>Shirine 运用了先进的 AST 编译器与 M3E 设计规范，全面部署于 CF Pages 与 D1。
+
+              <!-- 22. Abbreviations -->
+              <div id="guide-abbr" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🔤 缩略语全名术语卡 (Abbreviations Glossary)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('Shirine 运用了先进的 AST 编译器与 M3E 设计规范，全面部署于 CF Pages 与 D1。\n\n*[AST]: Abstract Syntax Tree（抽象语法树）\n*[M3E]: Material 3 Expressive（谷歌最新动态设计标准）\n*[CF]: Cloudflare 全球边缘分发网络\n*[D1]: Cloudflare Serverless SQLite 分布式数据库')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制缩略语语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">Markdown 标准缩略语语法。在正文任意位置提及缩写词，读者鼠标悬浮即可展示全称与详细中文释义。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>Shirine 运用了先进的 AST 编译器与 M3E 设计规范，全面部署于 CF Pages 与 D1。
 
 *[AST]: Abstract Syntax Tree（抽象语法树）
 *[M3E]: Material 3 Expressive（谷歌最新动态设计标准）
 *[CF]: Cloudflare 全球边缘分发网络
 *[D1]: Cloudflare Serverless SQLite 分布式数据库</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 text-xs">
+                    Shirine 运用了先进的
+                    <abbr title="Abstract Syntax Tree（抽象语法树）" class="underline decoration-dotted decoration-primary cursor-help font-semibold text-primary">AST</abbr>
+                    编译器与
+                    <abbr title="Material 3 Expressive（谷歌最新动态设计标准）" class="underline decoration-dotted decoration-primary cursor-help font-semibold text-primary">M3E</abbr>
+                    设计规范，全面部署于
+                    <abbr title="Cloudflare 全球边缘分发网络" class="underline decoration-dotted decoration-primary cursor-help font-semibold text-primary">CF</abbr>
+                    Pages 与
+                    <abbr title="Cloudflare Serverless SQLite 分布式数据库" class="underline decoration-dotted decoration-primary cursor-help font-semibold text-primary">D1</abbr>。
+                  </div>
+                </div>
+              </div>
             </div>
+
+            <!-- Sticky Quick Jump Table of Contents (Fixed: Uses Smooth Scroll Into View on Main Container) -->
+            <aside class="hidden xl:block w-72 shrink-0 sticky top-20 p-5 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-3">
+              <div class="flex items-center gap-2 pb-2 border-b border-[var(--outline-variant)]/20">
+                <span class="text-base">📑</span>
+                <span class="text-sm font-bold">快速目录导航</span>
+              </div>
+              <nav class="space-y-1 text-xs max-h-[calc(100vh-12rem)] overflow-y-auto pr-1">
+                <button type="button" onclick={() => jumpToGuideSection('guide-frontmatter')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">📑 文章元数据 (Frontmatter)</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-basic')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🖋️ 基础文本排版</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-kbd')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">⌨️ 键盘快捷键与上下标</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-footnotes')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">⚓ 脚注与学术引用</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-admonitions')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">💡 警告与提示卡片</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-code')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">💻 增强代码块 (Expressive Code)</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-math')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">📐 数学公式与 Mermaid</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-tabs')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">📂 折叠面板与分栏选项卡</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-video')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🎬 视频平台内嵌 (B站/油管)</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-audio-reader')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🎧 有声朗读与音频播放器</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-spoiler')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🙈 防剧透遮罩与黑幕</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-field-group')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">📋 字段详情卡片组</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-gallery')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🖼️ 响应式画廊图集</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-steps')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🪜 序号导轨步骤条 (Steps)</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-file-tree')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🌲 交互式目录树 (File Tree)</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-artplayer')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🎥 Artplayer 视频播放器</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-github')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🐙 GitHub 仓库卡片与参数卡片</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-marker')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🏷️ 荧光笔高亮与悬浮术语</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-accordion')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">❓ 手风琴问答组与同步选项卡</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-diff-tree')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🌳 代码架构与文件变更树</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-badges')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🏷️ 徽章与胶囊标记</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-abbr')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🔤 缩略语全名术语卡</button>
+              </nav>
+            </aside>
           </div>
 
-          <!-- Sticky Quick Jump Table of Contents -->
-          <aside class="hidden xl:block w-72 shrink-0 sticky top-20 p-5 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-3">
-            <div class="flex items-center gap-2 pb-2 border-b border-[var(--outline-variant)]/20">
-              <span class="text-base">📑</span>
-              <span class="text-sm font-bold">快速目录导航</span>
-            </div>
-            <nav class="space-y-1 text-xs max-h-[calc(100vh-12rem)] overflow-y-auto pr-1">
-              <a href="#guide-frontmatter" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">📑 文章元数据 (Frontmatter)</a>
-              <a href="#guide-basic" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🖋️ 基础文本排版</a>
-              <a href="#guide-kbd" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">⌨️ 键盘快捷键与上下标</a>
-              <a href="#guide-footnotes" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">⚓ 脚注与学术引用</a>
-              <a href="#guide-admonitions" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">💡 警告与提示卡片</a>
-              <a href="#guide-code" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">💻 增强代码块 (Expressive Code)</a>
-              <a href="#guide-math" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">📐 数学公式与 Mermaid</a>
-              <a href="#guide-tabs" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">📂 折叠面板与分栏选项卡</a>
-              <a href="#guide-media" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🎬 视频、音频与画廊组件</a>
-              <a href="#guide-steps" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🪜 序号导轨步骤条 (Steps)</a>
-              <a href="#guide-file-tree" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🌲 交互式目录树 (File Tree)</a>
-              <a href="#guide-artplayer" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🎥 Artplayer 视频播放器</a>
-              <a href="#guide-github" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🐙 GitHub 仓库卡片与参数卡片</a>
-              <a href="#guide-marker" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🏷️ 荧光笔高亮与悬浮术语</a>
-              <a href="#guide-accordion" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">❓ 手风琴问答组与同步选项卡</a>
-              <a href="#guide-diff-tree" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🌳 代码架构与文件变更树</a>
-              <a href="#guide-badges" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🏷️ 徽章与胶囊标记</a>
-              <a href="#guide-abbr" class="block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🔤 缩略语全名术语卡</a>
-            </nav>
-          </aside>
-        </div>
         {/if}
       </main>
     </div>
@@ -6413,7 +7008,7 @@ npm run dev
       onclick={(e) => { if (e.target === e.currentTarget) postModalOpen = false; }}
       role="dialog"
     >
-      <div class="bg-white dark:bg-zinc-900 bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
+      <div class="bg-white dark:bg-zinc-900 bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-6xl max-h-[96vh] flex flex-col shadow-2xl">
         <div class="flex items-center justify-between pb-4 border-b border-[var(--outline-variant)]/20">
           <h2 class="text-xl font-bold">{editingPost ? "编辑博文" : "撰写新文章"}</h2>
           <button onclick={() => (postModalOpen = false)} class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]">
@@ -6580,12 +7175,12 @@ npm run dev
             {#if postEditorTab === "edit"}
               <textarea
                 bind:value={postForm.content}
-                rows="12"
+                rows="28"
                 placeholder="# 欢迎来到 Shirine 博文..."
-                class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] font-mono text-sm focus:border-primary outline-none"
+                class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] font-mono text-sm focus:border-primary outline-none min-h-[580px] resize-y"
               ></textarea>
             {:else}
-              <div class="w-full p-5 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] min-h-[280px] max-h-[450px] overflow-y-auto prose dark:prose-invert max-w-none text-sm leading-relaxed">
+              <div class="w-full p-5 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] min-h-[580px] max-h-[750px] overflow-y-auto prose dark:prose-invert max-w-none text-sm leading-relaxed">
                 {#if postPreviewHtml}
                   {@html postPreviewHtml}
                 {:else}
@@ -6734,7 +7329,7 @@ npm run dev
       onclick={(e) => { if (e.target === e.currentTarget) momentModalOpen = false; }}
       role="dialog"
     >
-      <div class="bg-white dark:bg-zinc-900 bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-xl max-h-[90vh] flex flex-col shadow-2xl">
+      <div class="bg-white dark:bg-zinc-900 bg-[var(--surface)] border border-[var(--outline-variant)]/40 rounded-3xl p-6 w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl">
         <div class="flex items-center justify-between pb-4 border-b border-[var(--outline-variant)]/20">
           <h2 class="text-xl font-bold">编辑动态日记</h2>
           <button onclick={() => (momentModalOpen = false)} class="p-1 rounded-lg hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]">
@@ -6776,11 +7371,11 @@ npm run dev
             {#if editMomentEditorTab === "edit"}
               <textarea
                 bind:value={editMomentForm.content}
-                rows="4"
-                class="w-full p-3.5 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none resize-none"
+                rows="12"
+                class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none min-h-[280px] resize-y"
               ></textarea>
             {:else}
-              <div class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] min-h-[120px] max-h-[250px] overflow-y-auto prose dark:prose-invert max-w-none text-sm leading-relaxed">
+              <div class="w-full p-4 rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] min-h-[280px] max-h-[450px] overflow-y-auto prose dark:prose-invert max-w-none text-sm leading-relaxed">
                 {#if editMomentPreviewHtml}
                   {@html editMomentPreviewHtml}
                 {:else}

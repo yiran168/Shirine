@@ -340,8 +340,15 @@
     if (e.data.lang) {
       currentLang = e.data.lang;
     }
-    if (e.data.quotes && Array.isArray(e.data.quotes) && e.data.quotes.length > 0) {
-      quotesByLang[currentLang || 'zh_CN'] = e.data.quotes;
+    var customQuotes = null;
+    if (Array.isArray(e.data.quotes)) {
+      customQuotes = e.data.quotes;
+    } else if (typeof e.data.quotes === 'string') {
+      customQuotes = e.data.quotes.split('\n').map(function(s) { return s.trim(); }).filter(Boolean);
+    }
+    if (customQuotes && customQuotes.length > 0) {
+      quotesByLang[currentLang || 'zh_CN'] = customQuotes;
+      quotesByLang.zh_CN = customQuotes;
     }
     var config = e.data.config;
     if (e.data.force) {
@@ -364,10 +371,20 @@
       destroyWidget();
     }
 
-    // Inject custom dialogue quotes into idle tips
+    // Inject custom dialogue quotes into model and config tips
     var activeQuotes = quotesByLang[currentLang] || quotesByLang.zh_CN || [];
     if (activeQuotes && activeQuotes.length > 0) {
+      var targetModel = Array.isArray(config.model) ? config.model[0] : config.model;
+      if (targetModel) {
+        targetModel.tips = targetModel.tips || {};
+        targetModel.tips.welcomeMessage = activeQuotes;
+        targetModel.tips.messages = activeQuotes;
+        targetModel.tips.idleTips = targetModel.tips.idleTips || {};
+        targetModel.tips.idleTips.wordings = activeQuotes;
+      }
       config.tips = config.tips || {};
+      config.tips.welcomeMessage = activeQuotes;
+      config.tips.messages = activeQuotes;
       config.tips.idleTips = config.tips.idleTips || {};
       config.tips.idleTips.wordings = activeQuotes;
     }

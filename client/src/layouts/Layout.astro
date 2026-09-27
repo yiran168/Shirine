@@ -232,7 +232,24 @@ const runtimeApiUrl =
 		data-banner-top-app-bar="false"
 		data-banner-has-desktop={String(hasDesktopBanner)}
 		data-banner-has-mobile={String(hasMobileBanner)}
+		data-liquid-glass={siteConfig.liquidGlassMode || "none"}
 	>
+		<!-- Route Navigation Progress Bar with Running Furina Mascot -->
+		<div
+			id="furina-top-progress-bar"
+			class="fixed top-0 left-0 right-0 h-1 z-[99998] pointer-events-none opacity-0 transition-opacity duration-300"
+			aria-hidden="true"
+		>
+			<div
+				id="furina-top-progress-line"
+				class="h-full bg-gradient-to-r from-sky-400 via-primary to-indigo-500 shadow-[0_0_12px_rgba(56,189,248,0.8)] relative w-0 transition-all duration-300 ease-out"
+			>
+				<div class="absolute -right-3.5 -top-3 w-8 h-8 flex items-center justify-center filter drop-shadow-md">
+					<img src="/assets/images/furina-loading.svg" alt="Furina" class="w-7 h-7 object-contain animate-bounce" />
+				</div>
+			</div>
+		</div>
+
 		<!-- Global Furina Anime Loading Screen (512x512 Seamless Loop, placed at top of body for immediate first paint) -->
 		<div
 			id="furina-global-loader"
@@ -240,7 +257,7 @@ const runtimeApiUrl =
 			aria-label="页面加载中..."
 			role="status"
 		>
-			<div class="relative flex flex-col items-center justify-center max-w-[280px] sm:max-w-[340px] md:max-w-[380px] w-full px-4">
+			<div class="relative flex flex-col items-center justify-center max-w-[280px] sm:max-w-[340px] md:max-w-[380px] w-full px-4 gap-4">
 				<img
 					src="/assets/images/furina-loading.svg"
 					alt="Shirine Loading..."
@@ -248,8 +265,12 @@ const runtimeApiUrl =
 					height="380"
 					loading="eager"
 					fetchpriority="high"
-					class="w-full h-auto drop-shadow-xl pointer-events-none"
+					class="w-full h-auto drop-shadow-xl pointer-events-none animate-pulse"
 				/>
+				<!-- Running motion along progress bar for initial entry -->
+				<div class="w-full h-1.5 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden relative">
+					<div class="h-full bg-gradient-to-r from-sky-400 via-primary to-indigo-500 rounded-full animate-furina-progress shadow-[0_0_8px_rgba(56,189,248,0.8)]"></div>
+				</div>
 			</div>
 		</div>
 		<script is:inline>
@@ -393,14 +414,32 @@ function dismissFurinaLoader(minDisplayMs = 0) {
 	}, delay);
 }
 
-function showFurinaLoader() {
-	const loader = document.getElementById('furina-global-loader');
-	if (loader) {
-		loader.style.display = 'flex';
-		requestAnimationFrame(() => {
-			loader.classList.remove('opacity-0', 'pointer-events-none');
-		});
-	}
+function startFurinaTopProgressBar() {
+	const container = document.getElementById('furina-top-progress-bar');
+	const line = document.getElementById('furina-top-progress-line');
+	if (!container || !line) return;
+	line.style.transition = 'none';
+	line.style.width = '0%';
+	container.classList.remove('opacity-0');
+	requestAnimationFrame(() => {
+		line.style.transition = 'width 6s cubic-bezier(0.1, 0.5, 0.1, 1)';
+		line.style.width = '82%';
+	});
+}
+
+function finishFurinaTopProgressBar() {
+	const container = document.getElementById('furina-top-progress-bar');
+	const line = document.getElementById('furina-top-progress-line');
+	if (!container || !line) return;
+	line.style.transition = 'width 0.25s ease-out';
+	line.style.width = '100%';
+	setTimeout(() => {
+		container.classList.add('opacity-0');
+		setTimeout(() => {
+			line.style.transition = 'none';
+			line.style.width = '0%';
+		}, 300);
+	}, 200);
 }
 
 if (document.readyState === 'complete') {
@@ -426,14 +465,14 @@ const setup = () => {
 	}
 	window.swup.hooks.on('link:click', () => document.documentElement.style.setProperty('--content-delay', '0ms'));
 	window.swup.hooks.on('visit:start', () => {
-		showFurinaLoader();
+		startFurinaTopProgressBar();
 		window.clearTimeout(finishTimer);
 		visitActive = true;
 		scrollStarted = false;
 		document.getElementById('page-height-extend')?.classList.remove('hidden');
 	});
 	window.swup.hooks.on('visit:end', () => {
-		dismissFurinaLoader(300);
+		finishFurinaTopProgressBar();
 		if (!scrollStarted) finishVisit();
 	});
 	window.swup.hooks.on('page:view', () => {
