@@ -252,6 +252,33 @@ const runtimeApiUrl =
 				/>
 			</div>
 		</div>
+		<script is:inline>
+			(function() {
+				const loader = document.getElementById('furina-global-loader');
+				if (!loader) return;
+				const start = Date.now();
+				const minMs = 650;
+				let done = false;
+				function dismiss() {
+					if (done) return;
+					done = true;
+					const elapsed = Date.now() - start;
+					const delay = Math.max(0, minMs - elapsed);
+					setTimeout(function() {
+						loader.classList.add('opacity-0', 'pointer-events-none');
+						setTimeout(function() { loader.style.display = 'none'; }, 400);
+					}, delay);
+				}
+				if (document.readyState === 'complete' || document.readyState === 'interactive') {
+					dismiss();
+				} else {
+					document.addEventListener('DOMContentLoaded', dismiss, { once: true });
+					window.addEventListener('load', dismiss, { once: true });
+				}
+				// Absolute unconditional fail-safe timeout
+				setTimeout(dismiss, 1500);
+			})();
+		</script>
 
 		<ConfigCarrier></ConfigCarrier>
 		{umamiOptions && <UmamiRuntime />}

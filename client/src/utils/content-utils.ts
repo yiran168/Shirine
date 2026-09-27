@@ -18,22 +18,23 @@ export function resolveApiBase(request?: Request): string {
 	if (import.meta.env.PUBLIC_API_URL) {
 		return normalizeApiUrl(import.meta.env.PUBLIC_API_URL);
 	}
-	if (request) {
-		try {
-			const u = new URL(request.url);
-			if (u.port === "4321") {
-				return "http://127.0.0.1:11498/api";
-			}
-			return `${u.origin}/api`;
-		} catch {}
-	}
 	if (typeof window !== "undefined" && window.location) {
 		if (window.location.port === "4321") {
 			return "http://127.0.0.1:11498/api";
 		}
 		return `${window.location.origin}/api`;
 	}
-	return "http://127.0.0.1:11498/api";
+	if (request) {
+		try {
+			const u = new URL(request.url);
+			if (u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.port === "4321") {
+				return "http://127.0.0.1:11498/api";
+			}
+			// In production SSR on Cloudflare Pages, never fetch same origin to prevent recursive deadlock
+			return "";
+		} catch {}
+	}
+	return "";
 }
 
 const POSTS_CACHE_TTL_MS = 2_000;
@@ -80,7 +81,7 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 
 				const res = await fetch(`${apiBase.replace(/\/$/, "")}/posts?pageSize=500`, {
 					headers,
-					signal: AbortSignal.timeout(3000),
+					signal: AbortSignal.timeout(800),
 				});
 				if (res.ok) {
 					const json = await res.json();
@@ -353,7 +354,7 @@ export async function getSortedMoments(request?: Request): Promise<MomentItem[]>
 				}
 				const res = await fetch(`${apiBase.replace(/\/$/, "")}/moments`, {
 					headers,
-					signal: AbortSignal.timeout(3000),
+					signal: AbortSignal.timeout(800),
 				});
 				if (res.ok) {
 					const json = await res.json();

@@ -38,7 +38,6 @@ export interface DynamicSiteConfigResult {
 
 let cachedPromise: Promise<DynamicSiteConfigResult> | null = null;
 let cachedTime = 0;
-let lastKnownApiBase = "";
 const CACHE_TTL_MS = 2500;
 
 export function clearDynamicConfigCache(): void {
@@ -54,28 +53,34 @@ export async function getDynamicSiteConfig(request?: Request): Promise<DynamicSi
 
   const fetchConfig = async (): Promise<DynamicSiteConfigResult> => {
     let apiBase = "";
-    if (request?.url) {
-      try {
-        const origin = new URL(request.url).origin;
-        apiBase = `${origin}/api`;
-        lastKnownApiBase = apiBase;
-      } catch {}
-    }
-    if (!apiBase && lastKnownApiBase) {
-      apiBase = lastKnownApiBase;
-    }
-    if (!apiBase && import.meta.env.PUBLIC_API_URL) {
+    if (import.meta.env.PUBLIC_API_URL) {
       const raw = import.meta.env.PUBLIC_API_URL.replace(/\/$/, "");
       apiBase = raw.endsWith("/api") ? raw : `${raw}/api`;
-    } else if (!apiBase && typeof window !== "undefined" && window.location) {
+    } else if (typeof window !== "undefined" && window.location) {
       apiBase = `${window.location.origin}/api`;
-    } else if (!apiBase) {
-      apiBase = "http://127.0.0.1:11498/api";
+    } else if (request?.url) {
+      try {
+        const u = new URL(request.url);
+        if (u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.port === "4321") {
+          apiBase = "http://127.0.0.1:11498/api";
+        }
+        // In production SSR on Cloudflare Pages, never fetch same origin to prevent recursive deadlock
+      } catch {}
+    }
+
+    if (!apiBase) {
+      return {
+        site: siteConfig,
+        profile: profileConfig,
+        music: musicConfig,
+        announcement: announcementConfig,
+        footer: footerConfig,
+      };
     }
 
     try {
       const res = await fetch(`${apiBase}/config/site`, {
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(800),
       });
       if (res.ok) {
         const json = await res.json();
