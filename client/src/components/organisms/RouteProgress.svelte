@@ -13,20 +13,30 @@ import { siteConfig } from "@/config";
 let visible = $state(false);
 const style = siteConfig.progressIndicator.style;
 
+let autoHideTimer: ReturnType<typeof setTimeout> | undefined;
+
 function show() {
 	visible = true;
+	clearTimeout(autoHideTimer);
+	autoHideTimer = setTimeout(() => {
+		visible = false;
+	}, 3000);
 }
 
 function hide() {
 	visible = false;
+	clearTimeout(autoHideTimer);
 }
 
 onMount(() => {
 	document.addEventListener("swup:visit:start", show);
 	document.addEventListener("swup:page:view", hide);
+	document.addEventListener("swup:visit:end", hide);
 	return () => {
+		clearTimeout(autoHideTimer);
 		document.removeEventListener("swup:visit:start", show);
 		document.removeEventListener("swup:page:view", hide);
+		document.removeEventListener("swup:visit:end", hide);
 	};
 });
 </script>

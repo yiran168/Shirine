@@ -101,6 +101,7 @@ export const ALL: APIRoute = async ({ request, params, locals }) => {
     // @ts-ignore Node/Cloudflare duplex streaming support
     init.duplex = "half";
   }
+  init.signal = request.signal || AbortSignal.timeout(8000);
 
   try {
     const upstreamRes = await fetch(targetUrl, init);

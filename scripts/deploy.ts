@@ -31,7 +31,7 @@ const DB_NAME = getEnv("DB_NAME", "shirine-db");
 const WORKER_NAME = getEnv("WORKER_NAME", "shirine-server");
 const R2_BUCKET_NAME = getEnv("R2_BUCKET_NAME", "shirine-storage");
 const PAGES_NAME = getEnv("PAGES_NAME", "shirine");
-const PUBLIC_API_URL = getEnv("PUBLIC_API_URL", "");
+const PUBLIC_API_URL = getEnv("PUBLIC_API_URL", getEnv("API_URL", ""));
 const JWT_SECRET = getEnv("JWT_SECRET", "");
 const PUBLIC_R2_URL = getEnv("PUBLIC_R2_URL", "");
 const D1_DATABASE_ID = getEnv("D1_DATABASE_ID", "");
@@ -49,6 +49,7 @@ const WORKER_SECRET_KEYS = [
 
 // Check credentials before network calls
 function checkCredentials(isPrepareOnly = false) {
+  if (isPrepareOnly) return;
   if (!CF_API_TOKEN) {
     if (process.env.CI) {
       console.error("\n❌ [Deploy Error] CLOUDFLARE_API_TOKEN environment variable is missing!");
@@ -166,13 +167,13 @@ async function syncWorkerSecrets(workerName: string): Promise<void> {
 }
 
 // 1. Prepare Backend Configuration (D1 creation, UUID discovery, R2 creation, config patch)
-export async function prepareBackendConfig(): Promise<string> {
+export async function prepareBackendConfig(isPrepareOnly = false): Promise<string> {
   console.log(`\n🔍 [1/4] Preparing Cloudflare Backend Configuration...`);
   console.log(`   • Worker Name: ${WORKER_NAME}`);
   console.log(`   • D1 Database: ${DB_NAME}`);
   console.log(`   • R2 Bucket:   ${R2_BUCKET_NAME}`);
 
-  checkCredentials(true);
+  checkCredentials(isPrepareOnly);
 
   let resolvedUuid = D1_DATABASE_ID;
 
@@ -400,7 +401,8 @@ let detectedWorkerApiUrl = "";
 export async function deployServer(): Promise<void> {
   console.log(`\n⚡ [3/4] Deploying Backend Worker to Cloudflare Workers...`);
 
-  await prepareBackendConfig();
+  checkCredentials(false);
+  await prepareBackendConfig(false);
   await migrateDatabase();
 
   // Fail-fast guard: ensure database_id is not the invalid placeholder
@@ -546,7 +548,7 @@ async function main() {
   const args = process.argv.slice(2);
 
   if (args.includes("--prepare")) {
-    await prepareBackendConfig();
+    await prepareBackendConfig(true);
     return;
   }
 

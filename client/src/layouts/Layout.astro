@@ -261,9 +261,19 @@ if (runtimeApiUrl && !(globalThis as any).__SHIRINE_RUNTIME_API_URL__) {
 		</div>
 
 		<!-- Global Furina Anime Loading Screen (512x512 Seamless Loop, placed at top of body for immediate first paint) -->
+		<style is:inline>
+			#furina-global-loader {
+				animation: furina-loader-auto-fade 0.3s ease-out 0.4s forwards;
+			}
+			@keyframes furina-loader-auto-fade {
+				0% { opacity: 1; }
+				99% { opacity: 0; pointer-events: none; }
+				100% { opacity: 0; pointer-events: none; display: none !important; visibility: hidden; }
+			}
+		</style>
 		<div
 			id="furina-global-loader"
-			class="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[var(--surface-container-lowest,#f8fafc)]/90 backdrop-blur-xl transition-all duration-500 ease-out select-none"
+			class="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[var(--surface-container-lowest,#f8fafc)]/90 backdrop-blur-xl transition-all duration-300 ease-out select-none"
 			aria-label="页面加载中..."
 			role="status"
 		>
@@ -287,29 +297,29 @@ if (runtimeApiUrl && !(globalThis as any).__SHIRINE_RUNTIME_API_URL__) {
 			(function() {
 				const loader = document.getElementById('furina-global-loader');
 				if (!loader) return;
-				const start = Date.now();
-				const minMs = 150;
-				let done = false;
+				let dismissed = false;
 				function dismiss() {
-					if (done) return;
-					done = true;
-					const elapsed = Date.now() - start;
-					const delay = Math.max(0, minMs - elapsed);
+					if (dismissed) return;
+					dismissed = true;
+					loader.style.transition = 'opacity 0.2s ease-out';
+					loader.style.opacity = '0';
+					loader.style.pointerEvents = 'none';
 					setTimeout(function() {
-						loader.classList.add('opacity-0', 'pointer-events-none');
-						setTimeout(function() { loader.style.display = 'none'; }, 300);
-					}, delay);
+						loader.style.display = 'none';
+						try { loader.remove(); } catch {}
+					}, 200);
 				}
 				if (document.readyState === 'complete' || document.readyState === 'interactive') {
 					dismiss();
 				} else {
 					document.addEventListener('DOMContentLoaded', dismiss, { once: true });
 					window.addEventListener('load', dismiss, { once: true });
+					setTimeout(dismiss, 300);
 				}
 				loader.addEventListener('click', dismiss, { once: true });
 				window.addEventListener('keydown', function(e) { if (e.key === 'Escape') dismiss(); }, { once: true });
 				// Absolute unconditional fail-safe timeout
-				setTimeout(dismiss, 1000);
+				setTimeout(dismiss, 450);
 			})();
 		</script>
 
@@ -408,22 +418,16 @@ document.addEventListener("click", async (event) => {
 	void copyPageLink();
 });
 
-const furinaLoaderStartTime = Date.now();
-const MIN_INITIAL_LOADER_MS = 150;
-
-function dismissFurinaLoader(minDisplayMs = 0) {
+function dismissFurinaLoader() {
 	const loader = document.getElementById('furina-global-loader');
-	if (!loader || loader.classList.contains('opacity-0')) return;
-
-	const elapsed = Date.now() - furinaLoaderStartTime;
-	const delay = Math.max(0, minDisplayMs - elapsed);
-
+	if (!loader) return;
+	loader.style.transition = 'opacity 0.2s ease-out';
+	loader.style.opacity = '0';
+	loader.style.pointerEvents = 'none';
 	setTimeout(() => {
-		loader.classList.add('opacity-0', 'pointer-events-none');
-		setTimeout(() => {
-			loader.style.display = 'none';
-		}, 300);
-	}, delay);
+		loader.style.display = 'none';
+		try { loader.remove(); } catch {}
+	}, 200);
 }
 
 function startFurinaTopProgressBar() {
@@ -454,12 +458,13 @@ function finishFurinaTopProgressBar() {
 	}, 200);
 }
 
+dismissFurinaLoader();
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
-	dismissFurinaLoader(MIN_INITIAL_LOADER_MS);
+	dismissFurinaLoader();
 } else {
-	window.addEventListener('DOMContentLoaded', () => dismissFurinaLoader(MIN_INITIAL_LOADER_MS));
-	window.addEventListener('load', () => dismissFurinaLoader(MIN_INITIAL_LOADER_MS));
-	setTimeout(() => dismissFurinaLoader(0), 1000);
+	window.addEventListener('DOMContentLoaded', () => dismissFurinaLoader());
+	window.addEventListener('load', () => dismissFurinaLoader());
+	setTimeout(() => dismissFurinaLoader(), 450);
 }
 
 const setup = () => {
@@ -468,33 +473,49 @@ const setup = () => {
 	let scrollStarted = false;
 	let visitActive = false;
 	let finishTimer: number | undefined;
+	let navWatchdogTimer: number | undefined;
+
 	function finishVisit() {
 		if (!visitActive) return;
 		visitActive = false;
 		window.clearTimeout(finishTimer);
+		window.clearTimeout(navWatchdogTimer);
 		finishTimer = window.setTimeout(() => {
 			document.getElementById('page-height-extend')?.classList.add('hidden');
-		}, 200);
+			document.documentElement.classList.remove('is-changing', 'is-animating');
+		}, 150);
 	}
+
 	window.swup.hooks.on('link:click', () => document.documentElement.style.setProperty('--content-delay', '0ms'));
 	window.swup.hooks.on('visit:start', () => {
 		startFurinaTopProgressBar();
 		window.clearTimeout(finishTimer);
+		window.clearTimeout(navWatchdogTimer);
 		visitActive = true;
 		scrollStarted = false;
 		document.getElementById('page-height-extend')?.classList.remove('hidden');
-		window.setTimeout(() => {
+
+		// Hard navigation watchdog: never allow page transition to lock up in is-animating state
+		navWatchdogTimer = window.setTimeout(() => {
 			if (visitActive) {
 				finishFurinaTopProgressBar();
 				finishVisit();
+				document.documentElement.classList.remove('is-changing', 'is-animating');
 			}
-		}, 4000);
+		}, 2500);
 	});
+
 	window.swup.hooks.on('visit:end', () => {
 		finishFurinaTopProgressBar();
+		document.documentElement.classList.remove('is-changing', 'is-animating');
 		if (!scrollStarted) finishVisit();
 	});
+
 	window.swup.hooks.on('page:view', () => {
+		window.clearTimeout(navWatchdogTimer);
+		finishFurinaTopProgressBar();
+		document.documentElement.classList.remove('is-changing', 'is-animating');
+		dismissFurinaLoader();
 		if (document.querySelector('[data-no-swup-cache]')) {
 			try {
 				window.swup?.cache?.delete?.(window.location.href);
@@ -502,6 +523,25 @@ const setup = () => {
 			} catch {}
 		}
 	});
+
+	if (window.swup.hooks.exists('fetch:error')) {
+		window.swup.hooks.on('fetch:error', () => {
+			window.clearTimeout(navWatchdogTimer);
+			finishFurinaTopProgressBar();
+			document.documentElement.classList.remove('is-changing', 'is-animating');
+			finishVisit();
+		});
+	}
+
+	if (window.swup.hooks.exists('visit:abort')) {
+		window.swup.hooks.on('visit:abort', () => {
+			window.clearTimeout(navWatchdogTimer);
+			finishFurinaTopProgressBar();
+			document.documentElement.classList.remove('is-changing', 'is-animating');
+			finishVisit();
+		});
+	}
+
 	if (window.swup.hooks.exists('scroll:end')) {
 		window.swup.hooks.on('scroll:start', () => { if (visitActive) scrollStarted = true; });
 		window.swup.hooks.on('scroll:end', finishVisit);
