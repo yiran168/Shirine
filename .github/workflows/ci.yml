@@ -23,11 +23,11 @@ jobs:
       - name: Install Dependencies
         run: bun install
 
-      - name: Run Tests
-        run: bun test
-
       - name: Run Typecheck
         run: bun run check
 
       - name: Build All Workspaces
         run: bun run build
+
+      - name: Run Tests
+        run: bun test

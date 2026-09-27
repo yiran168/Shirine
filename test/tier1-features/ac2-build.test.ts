@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { execSync } from "node:child_process";
 import { createTestEnv } from "../helpers/test-env";
 
 const PROJECT_ROOT = resolve(__dirname, "../..");
@@ -29,6 +30,9 @@ describe("Tier 1 - AC 2: Build Safety & SSR Architecture", () => {
 
   it("AC 2.3: Client production build output exists and contains Cloudflare SSR server bundle", () => {
     const distPath = resolve(PROJECT_ROOT, "client/dist");
+    if (!existsSync(distPath)) {
+      execSync("bun run build", { cwd: resolve(PROJECT_ROOT, "client"), stdio: "ignore" });
+    }
     expect(existsSync(distPath)).toBe(true);
     const serverEntryPath = resolve(distPath, "_worker.js");
     const serverDir = resolve(distPath, "server");
