@@ -153,6 +153,10 @@ export function reveal(node: HTMLElement, params: RevealParams = {}) {
 				fill: "both",
 			},
 		);
+		anim.onfinish = () => {
+			node.style.opacity = "";
+			node.style.transform = "";
+		};
 	}
 
 	play();

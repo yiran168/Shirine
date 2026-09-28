@@ -15,5 +15,5 @@ const shelves = await getDynamicCompass(Astro.request);
 ---
 
 <MainGridLayout title={i18n(I18nKey.compass)} description={i18n(I18nKey.compassBanner)} page="compass">
-    <CompassSection {shelves} client:visible></CompassSection>
+    <CompassSection {shelves} client:load></CompassSection>
 </MainGridLayout>

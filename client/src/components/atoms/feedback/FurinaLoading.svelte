@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { url } from "@utils/url-utils";
 
   interface Props {
     size?: number;
@@ -17,7 +18,7 @@
 >
   <div class="relative flex flex-col items-center justify-center" style="max-width: {size}px; width: 100%;">
     <img
-      src="/assets/images/furina-loading.svg"
+      src={url("/assets/images/furina-loading.svg")}
       alt={text}
       width={size}
       height={size}

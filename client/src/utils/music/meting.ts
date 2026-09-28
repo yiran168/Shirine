@@ -15,7 +15,16 @@ export interface RawMetingSong {
 	artist?: string;
 	author?: string;
 	duration?: number | string;
+	dt?: number | string;
+	time?: number | string;
+	length?: number | string;
 	pic?: string;
+	cover?: string;
+	picture?: string;
+	img?: string;
+	picUrl?: string;
+	al?: { picUrl?: string; name?: string };
+	album?: { picUrl?: string; name?: string };
 	url?: string;
 	lrc?: string;
 }
@@ -73,21 +82,45 @@ export function parseMetingSong(
 		: `meting-${server}-${index}`;
 
 	const artist = (song.artist ?? song.author ?? "").trim() || undefined;
-	let cover = (song.pic ?? "").trim() || undefined;
+	let cover = (
+		song.pic ??
+		song.cover ??
+		song.picture ??
+		song.img ??
+		song.picUrl ??
+		song.al?.picUrl ??
+		song.album?.picUrl ??
+		""
+	).trim() || undefined;
 	if (cover && cover.startsWith("http://")) {
 		cover = "https://" + cover.slice(7);
 	}
 
+	const rawDuration = song.duration ?? song.dt ?? song.time ?? song.length;
 	let duration: number | undefined;
-	if (typeof song.duration === "number" && Number.isFinite(song.duration)) {
-		duration =
-			song.duration > 10000
-				? Math.floor(song.duration / 1000)
-				: Math.floor(song.duration);
-	} else if (typeof song.duration === "string") {
-		const parsed = Number.parseInt(song.duration, 10);
-		if (Number.isFinite(parsed) && parsed > 0) {
-			duration = parsed > 10000 ? Math.floor(parsed / 1000) : parsed;
+	if (typeof rawDuration === "number" && Number.isFinite(rawDuration)) {
+		if (rawDuration > 0) {
+			duration = rawDuration > 10000 ? Math.floor(rawDuration / 1000) : Math.floor(rawDuration);
+		}
+	} else if (typeof rawDuration === "string") {
+		const str = rawDuration.trim();
+		if (str.includes(":")) {
+			const parts = str.split(":").map((p) => Number.parseInt(p, 10));
+			if (parts.every((p) => Number.isFinite(p))) {
+				if (parts.length === 2) {
+					const secs = parts[0] * 60 + parts[1];
+					if (secs > 0) duration = secs;
+				} else if (parts.length === 3) {
+					const secs = parts[0] * 3600 + parts[1] * 60 + parts[2];
+					if (secs > 0) duration = secs;
+				}
+			}
+		}
+		if (duration === undefined) {
+			const parsed = Number.parseInt(str, 10);
+			if (Number.isFinite(parsed) && parsed > 0) {
+				duration = parsed > 10000 ? Math.floor(parsed / 1000) : parsed;
+			}
 		}
 	}
 	if (duration !== undefined && duration <= 0) {

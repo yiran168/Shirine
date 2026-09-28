@@ -33,14 +33,19 @@ type FilterPhase = "idle" | "loading" | "out";
 let phase = $state<FilterPhase>("idle");
 let phaseTimers: ReturnType<typeof setTimeout>[] = [];
 
-/** 分组筛选 chips（filter 单选，再点取消；分组图标作前置） */
-const groupItems = $derived(
-	shelves.map((shelf) => ({
+/** 分组筛选 chips（包含全部 + 分组单选，再点取消；分组图标作前置） */
+const groupItems = $derived([
+	{
+		value: "",
+		label: i18n(I18nKey.all) || "全部",
+		leadingIcon: "material-symbols:apps-rounded",
+	},
+	...shelves.map((shelf) => ({
 		value: shelf.key,
 		label: shelf.name,
 		leadingIcon: shelf.icon ?? "",
 	})),
-);
+]);
 
 function hostOf(href: string): string {
 	try {
@@ -58,13 +63,13 @@ const filteredShelves = $derived.by(() => {
 		.map((shelf) => ({
 			...shelf,
 			entries: normalizedQuery
-				? shelf.entries.filter((entry) =>
-						[entry.label, entry.note ?? "", hostOf(entry.href)]
+				? (shelf.entries || []).filter((entry) =>
+						[entry?.label || "", entry?.note || "", hostOf(entry?.href || "")]
 							.join(" ")
 							.toLowerCase()
 							.includes(normalizedQuery),
 					)
-				: shelf.entries,
+				: (shelf.entries || []),
 		}))
 		.filter((shelf) => shelf.entries.length > 0);
 });
@@ -169,11 +174,11 @@ onMount(() => {
 		</div>
 	{:else if filteredShelves.length > 0}
 		{#key `${selectedGroup}|${query}`}
-			{#each filteredShelves as shelf (shelf.key)}
+			{#each filteredShelves as shelf, sIdx (shelf.key ? `${shelf.key}_${sIdx}` : `shelf_${sIdx}`)}
 				<section class="compass-shelf" data-shelf={shelf.key}>
 					<SectionTitle title={shelf.name} subtitle={shelf.blurb} icon={shelf.icon} />
 					<div class="compass-shelf__grid">
-						{#each shelf.entries as entry, i (entry.href)}
+						{#each shelf.entries as entry, i (entry.href ? `${entry.href}_${i}` : `entry_${i}`)}
 							<CompassTile {entry} delay={Math.min(i, 7) * 45} />
 						{/each}
 					</div>
@@ -277,8 +282,10 @@ onMount(() => {
 	display: grid
 	grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr))
 	gap: 0.75rem
+	min-width: 0
 
 	@media (max-width: bp-sm - 1px)
+		grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr))
 		gap: 0.625rem
 
 /* 指示器退场：淡出 + 轻微收拢（reduced-motion 由全局规则压至终态） */

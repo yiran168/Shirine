@@ -39,9 +39,10 @@ const iconKind = $derived(
 /** 图片形态的 src：image 优先，回退 icon 的图片 URL */
 const imageSrc = $derived(entry.image || entry.icon || "");
 
-const letter = $derived((entry.label.charAt(0) || "?").toUpperCase());
+const letter = $derived(((entry?.label?.charAt(0)) || "?").toUpperCase());
 
 const host = $derived.by(() => {
+	if (!entry?.href) return "";
 	try {
 		return new URL(entry.href).hostname.replace(/^www\./, "");
 	} catch {
@@ -53,7 +54,7 @@ const host = $derived.by(() => {
 <article class="compass-tile" use:reveal={{ delay }}>
 	<a
 		class="compass-tile__link"
-		href={entry.href}
+		href={entry?.href || "#"}
 		target="_blank"
 		rel="noopener noreferrer"
 	>
@@ -66,14 +67,14 @@ const host = $derived.by(() => {
 					referrerpolicy="no-referrer"
 					onerror={() => (imgFailed = true)}
 				/>
-			{:else if iconKind === "iconify"}
-				<Icon icon={entry.icon!} />
+			{:else if iconKind === "iconify" && entry?.icon}
+				<Icon icon={entry.icon} />
 			{:else}
 				<span class="compass-tile__letter">{letter}</span>
 			{/if}
 		</span>
-		<span class="compass-tile__label">{entry.label}</span>
-		<span class="compass-tile__note">{entry.note || host}</span>
+		<span class="compass-tile__label">{entry?.label || host || "—"}</span>
+		<span class="compass-tile__note">{entry?.note || host}</span>
 	</a>
 </article>
 

@@ -3,6 +3,7 @@ export const prerender = false;
 
 import AdminDashboard from "@components/admin/AdminDashboard.svelte";
 import Live2DControl from "@components/features/pio/Live2DControl.svelte";
+import { url } from "@utils/url-utils";
 import "@/styles/main.css";
 
 const queryLang = Astro.url.searchParams.get("lang");
@@ -17,8 +18,8 @@ const htmlLang = currentAdminLang.replace("_", "-");
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Shirine 管理控制台</title>
-		<link rel="icon" href="/logo/icon.webp" />
-		<link rel="preload" href="/assets/images/furina-loading.svg" as="image" type="image/svg+xml" fetchpriority="high" />
+		<link rel="icon" href={url("/logo/icon.webp")} />
+		<link rel="preload" href={url("/assets/images/furina-loading.svg")} as="image" type="image/svg+xml" fetchpriority="high" />
 		<script is:inline>
 			const theme = localStorage.getItem('theme') || 'auto';
 			if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -50,12 +51,13 @@ const htmlLang = currentAdminLang.replace("_", "-");
 		>
 			<div class="relative flex flex-col items-center justify-center max-w-[280px] sm:max-w-[340px] md:max-w-[380px] w-full px-4">
 				<img
-					src="/assets/images/furina-loading.svg"
+					src={url("/assets/images/furina-loading.svg")}
 					alt="Shirine Loading..."
 					width="380"
 					height="380"
 					loading="eager"
 					fetchpriority="high"
+					decoding="async"
 					class="w-full h-auto drop-shadow-xl pointer-events-none"
 				/>
 			</div>

@@ -2,6 +2,7 @@
   import { authStore } from "../../stores/auth";
   import { postsApi, albumsApi } from "../../services/api";
   import { renderDynamicMarkdown } from "../../utils/dynamic-markdown";
+  import AlbumGallery from "../organisms/AlbumGallery.svelte";
 
   interface Props {
     postId: number | string;
@@ -29,6 +30,7 @@
   let errorMsg = $state("");
   let inputPassword = $state("");
   let unlockedHtml = $state("");
+  let unlockedPhotos = $state<any[] | null>(null);
 
   const effectiveReason = $derived(
     lockReason ||
@@ -45,23 +47,35 @@
     authStore.user?.role === "admin" || authStore.user?.role === "superadmin"
   );
 
-  let adminAttempted = $state(false);
+  let initialCheckDone = $state(false);
 
+  // Auto-check on mount if logged-in user or admin already has unlocked status
   $effect(() => {
-    if (isAdmin && !adminAttempted && !loading) {
-      adminAttempted = true;
-      handleAdminDirectUnlock();
+    if (authStore.user && !initialCheckDone && !loading && !unlockedHtml && !unlockedPhotos) {
+      initialCheckDone = true;
+      checkAlreadyUnlocked();
     }
   });
 
-  async function handleAdminDirectUnlock() {
+  function notifyUnlocked(content?: string, photos?: any[]) {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("shirine-content-unlocked", {
+          detail: { postId, itemType, content, photos },
+        })
+      );
+    }
+  }
+
+  async function checkAlreadyUnlocked() {
+    if (!authStore.user) return;
     loading = true;
-    errorMsg = "";
     try {
       if (itemType === "album") {
-        const res = await albumsApi.get(Number(postId) || postId as any);
+        const res = await albumsApi.get(Number(postId) || (postId as any));
         if (res.success && res.data?.isUnlocked) {
-          window.location.reload();
+          unlockedPhotos = res.data?.photos || [];
+          notifyUnlocked(undefined, unlockedPhotos);
         }
       } else {
         const res = await postsApi.get(postId);
@@ -69,11 +83,36 @@
           const content = res.data?.content || res.post?.content;
           if (content) {
             unlockedHtml = renderDynamicMarkdown(content);
-            if (onUnlocked) {
-              onUnlocked(content);
-            }
-          } else {
-            window.location.reload();
+            onUnlocked?.(content);
+            notifyUnlocked(content);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn("Check unlock status error:", err);
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function handleAdminDirectUnlock() {
+    loading = true;
+    errorMsg = "";
+    try {
+      if (itemType === "album") {
+        const res = await albumsApi.get(Number(postId) || (postId as any));
+        if (res.success) {
+          unlockedPhotos = res.data?.photos || [];
+          notifyUnlocked(undefined, unlockedPhotos);
+        }
+      } else {
+        const res = await postsApi.get(postId);
+        if (res.success) {
+          const content = res.data?.content || res.post?.content;
+          if (content) {
+            unlockedHtml = renderDynamicMarkdown(content);
+            onUnlocked?.(content);
+            notifyUnlocked(content);
           }
         }
       }
@@ -106,14 +145,18 @@
             confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
           } catch {}
         }
-        const content = res.content || res.data?.content;
-        if (content) {
-          unlockedHtml = renderDynamicMarkdown(content);
-          if (onUnlocked) {
-            onUnlocked(content);
-          }
+        if (itemType === "album") {
+          unlockedPhotos = res.photos || res.data?.photos || [];
+          notifyUnlocked(undefined, unlockedPhotos);
         } else {
-          window.location.reload();
+          const content = res.content || res.data?.content;
+          if (content) {
+            unlockedHtml = renderDynamicMarkdown(content);
+            onUnlocked?.(content);
+            notifyUnlocked(content);
+          } else {
+            window.location.reload();
+          }
         }
       } else {
         errorMsg = res.error || "访问密码错误，请重试";
@@ -147,14 +190,18 @@
           authStore.user.points = res.remainingPoints;
           authStore.notify();
         }
-        const content = res.content || res.data?.content;
-        if (content) {
-          unlockedHtml = renderDynamicMarkdown(content);
-          if (onUnlocked) {
-            onUnlocked(content);
-          }
+        if (itemType === "album") {
+          unlockedPhotos = res.photos || res.data?.photos || [];
+          notifyUnlocked(undefined, unlockedPhotos);
         } else {
-          window.location.reload();
+          const content = res.content || res.data?.content;
+          if (content) {
+            unlockedHtml = renderDynamicMarkdown(content);
+            onUnlocked?.(content);
+            notifyUnlocked(content);
+          } else {
+            window.location.reload();
+          }
         }
       } else {
         errorMsg = res.error || "解锁失败，请稍后重试";
@@ -167,7 +214,23 @@
   }
 </script>
 
-{#if unlockedHtml}
+{#if unlockedPhotos !== null}
+  {#if unlockedPhotos.length > 0}
+    <div class="my-6 w-full onload-animation">
+      <AlbumGallery photos={unlockedPhotos} layout="masonry" columns={3} />
+    </div>
+  {:else}
+    <div class="my-8 p-8 rounded-3xl border border-primary/20 bg-primary/5 text-center text-on-surface">
+      <div class="w-14 h-14 mx-auto rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-3">
+        <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+      <p class="font-bold text-lg">相册已成功解锁！</p>
+      <p class="text-sm text-on-surface-variant mt-1">该相册暂无公开照片。</p>
+    </div>
+  {/if}
+{:else if unlockedHtml}
   <div class="my-6 w-full onload-animation prose prose-neutral dark:prose-invert max-w-none text-[var(--on-surface)] leading-relaxed">
     {@html unlockedHtml}
   </div>

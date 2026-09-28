@@ -88,6 +88,12 @@ const modeIcon = $derived(modeIcons[snapshot.mode]);
 const duration = $derived(Math.max(0, snapshot.duration));
 let draggingSeek = $state(false);
 let dragTime = $state<number | null>(null);
+let coverFailed = $state(false);
+
+$effect(() => {
+	snapshot.currentTrack?.id;
+	coverFailed = false;
+});
 
 const currentEffectiveTime = $derived(
 	draggingSeek && dragTime !== null ? dragTime : snapshot.currentTime,
@@ -211,7 +217,7 @@ function setVolume(event: Event): void {
 	<div class="music-player" data-music-player>
 		<div class="music-player__track">
 			<div class={`music-player__cover${playing ? " music-player__cover--playing" : ""}`}>
-				{#if snapshot.currentTrack?.cover}
+				{#if snapshot.currentTrack?.cover && !coverFailed}
 					<img
 						src={snapshot.currentTrack.cover}
 						srcset={snapshot.currentTrack.coverSrcset}
@@ -221,6 +227,8 @@ function setVolume(event: Event): void {
 						alt=""
 						loading="lazy"
 						decoding="async"
+						referrerpolicy="no-referrer"
+						onerror={() => (coverFailed = true)}
 					/>
 				{:else}
 					<Icon icon="material-symbols:music-note-rounded" aria-hidden="true" />

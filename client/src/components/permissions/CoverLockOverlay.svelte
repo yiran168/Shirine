@@ -29,27 +29,39 @@
   const isAdmin = $derived(authStore.user?.role === "admin" || authStore.user?.role === "superadmin");
 
   let currentLang = $state(propLang || siteConfig.lang || "zh_CN");
+  let unlockedLocally = $state(false);
 
   onMount(() => {
-    if (propLang) return;
     if (typeof window !== "undefined") {
-      currentLang = localStorage.getItem("shirine_lang") || document.documentElement.lang?.replace("-", "_") || siteConfig.lang || "zh_CN";
-      const onStorage = (e: StorageEvent) => {
-        if (e.key === "shirine_lang" && e.newValue) {
-          currentLang = e.newValue;
-        }
+      const onUnlockEvent = () => {
+        unlockedLocally = true;
       };
-      const onLangChange = (e: Event) => {
-        const detail = (e as CustomEvent).detail;
-        if (detail?.lang) {
-          currentLang = detail.lang;
-        }
-      };
-      window.addEventListener("storage", onStorage);
-      window.addEventListener("shirine-lang-change", onLangChange);
+      window.addEventListener("shirine-content-unlocked", onUnlockEvent);
+
+      if (!propLang) {
+        currentLang = localStorage.getItem("shirine_lang") || document.documentElement.lang?.replace("-", "_") || siteConfig.lang || "zh_CN";
+        const onStorage = (e: StorageEvent) => {
+          if (e.key === "shirine_lang" && e.newValue) {
+            currentLang = e.newValue;
+          }
+        };
+        const onLangChange = (e: Event) => {
+          const detail = (e as CustomEvent).detail;
+          if (detail?.lang) {
+            currentLang = detail.lang;
+          }
+        };
+        window.addEventListener("storage", onStorage);
+        window.addEventListener("shirine-lang-change", onLangChange);
+        return () => {
+          window.removeEventListener("shirine-content-unlocked", onUnlockEvent);
+          window.removeEventListener("storage", onStorage);
+          window.removeEventListener("shirine-lang-change", onLangChange);
+        };
+      }
+
       return () => {
-        window.removeEventListener("storage", onStorage);
-        window.removeEventListener("shirine-lang-change", onLangChange);
+        window.removeEventListener("shirine-content-unlocked", onUnlockEvent);
       };
     }
   });
@@ -58,7 +70,7 @@
   const pointsText = $derived(t.overlayPointsRequired.replace("{points}", String(requiredPoints)));
 </script>
 
-{#if !isUnlocked && !isAdmin}
+{#if !isUnlocked && !isAdmin && !unlockedLocally}
   <div class="absolute inset-0 z-10 flex flex-col items-center justify-center p-4 bg-black/45 backdrop-blur-md rounded-2xl transition-all duration-300 group-hover:bg-black/55 select-none {className}">
     {#if permissionType === "login_required"}
       <div class="w-12 h-12 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center mb-2 shadow-lg ring-1 ring-amber-400/30">

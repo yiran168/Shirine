@@ -230,7 +230,7 @@ if (runtimeApiUrl && !(globalThis as any).__SHIRINE_RUNTIME_API_URL__) {
 		}}></style>
 
 		<slot name="head"></slot>
-		<link rel="preload" href="/assets/images/furina-loading.svg" as="image" type="image/svg+xml" fetchpriority="high" />
+		<link rel="preload" href={url("/assets/images/furina-loading.svg")} as="image" type="image/svg+xml" fetchpriority="high" />
 		<link rel="alternate" type="application/rss+xml" title={profileConfig.name} href={`${Astro.site}rss.xml`}/>
 		<link rel="alternate" type="application/atom+xml" title={profileConfig.name} href={`${Astro.site}atom.xml`}/>
 	</head>
@@ -255,7 +255,7 @@ if (runtimeApiUrl && !(globalThis as any).__SHIRINE_RUNTIME_API_URL__) {
 				class="h-full bg-gradient-to-r from-sky-400 via-primary to-indigo-500 shadow-[0_0_12px_rgba(56,189,248,0.8)] relative w-0 transition-all duration-300 ease-out"
 			>
 				<div class="absolute -right-3.5 -top-3 w-8 h-8 flex items-center justify-center filter drop-shadow-md">
-					<img src="/assets/images/furina-loading.svg" alt="Furina" class="w-7 h-7 object-contain animate-bounce" />
+					<img src={url("/assets/images/demo-avatar.webp")} alt="Furina" class="w-7 h-7 rounded-full object-cover animate-bounce border border-white/60 shadow-sm" loading="eager" decoding="async" />
 				</div>
 			</div>
 		</div>
@@ -279,12 +279,13 @@ if (runtimeApiUrl && !(globalThis as any).__SHIRINE_RUNTIME_API_URL__) {
 		>
 			<div class="relative flex flex-col items-center justify-center max-w-[280px] sm:max-w-[340px] md:max-w-[380px] w-full px-4 gap-4">
 				<img
-					src="/assets/images/furina-loading.svg"
+					src={url("/assets/images/furina-loading.svg")}
 					alt="Shirine Loading..."
 					width="380"
 					height="380"
 					loading="eager"
 					fetchpriority="high"
+					decoding="async"
 					class="w-full h-auto drop-shadow-xl pointer-events-none animate-pulse"
 				/>
 				<!-- Running motion along progress bar for initial entry -->
