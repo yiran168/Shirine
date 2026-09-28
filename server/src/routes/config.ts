@@ -28,7 +28,7 @@ export const defaultSiteConfig = {
       texture: true,
     },
     themeColor: {
-      hue: 315,
+      hue: 240,
       fixed: false,
       style: "tonalSpot",
       spec: "2025",
@@ -245,13 +245,79 @@ export const defaultSiteConfig = {
       key: "reads",
       name: "Reading",
       icon: "material-symbols:auto-stories-outline-rounded",
+      blurb: "Tech news, essays and deep reads",
       entries: [
-        { label: "Hacker News", href: "https://news.ycombinator.com" },
-        { label: "V2EX", href: "https://www.v2ex.com" },
+        { label: "Hacker News", href: "https://news.ycombinator.com", note: "Silicon Valley tech & startup discussions", icon: "fa6-brands:y-combinator" },
+        { label: "V2EX", href: "https://www.v2ex.com", note: "Way to explore geek community", icon: "material-symbols:forum-rounded" },
         {
           label: "Solidot",
           href: "https://www.solidot.org",
-          note: "Tech and culture news",
+          note: "Open source, privacy & science news",
+          icon: "material-symbols:newspaper-rounded",
+        },
+      ],
+    },
+    {
+      key: "community",
+      name: "Community",
+      icon: "material-symbols:groups-outline-rounded",
+      blurb: "Developer communities and discussions",
+      entries: [
+        {
+          label: "Reddit",
+          href: "https://www.reddit.com",
+          note: "The front page of the internet",
+          icon: "fa6-brands:reddit",
+        },
+        {
+          label: "Bilibili",
+          href: "https://www.bilibili.com",
+          note: "Video sharing and ACG community",
+          icon: "fa6-brands:bilibili",
+        },
+        {
+          label: "Discord",
+          href: "https://discord.com",
+          note: "Chat, voice & developer communities",
+          icon: "fa6-brands:discord",
+        },
+        {
+          label: "GitHub Trending",
+          href: "https://github.com/trending",
+          note: "Explore trending open source projects",
+          icon: "fa6-brands:github",
+        },
+      ],
+    },
+    {
+      key: "entertainment",
+      name: "Entertainment",
+      icon: "material-symbols:sports-esports-outline-rounded",
+      blurb: "Anime, gaming, music and leisure",
+      entries: [
+        {
+          label: "Bangumi",
+          href: "https://bgm.tv",
+          note: "ACG tracking & review database",
+          icon: "material-symbols:tv-rounded",
+        },
+        {
+          label: "Steam",
+          href: "https://store.steampowered.com",
+          note: "PC digital gaming platform",
+          icon: "fa6-brands:steam",
+        },
+        {
+          label: "NetEase Cloud Music",
+          href: "https://music.163.com",
+          note: "Music streaming & curated playlists",
+          icon: "material-symbols:music-note-rounded",
+        },
+        {
+          label: "YouTube",
+          href: "https://www.youtube.com",
+          note: "Global video sharing & livestreams",
+          icon: "fa6-brands:youtube",
         },
       ],
     },
@@ -769,7 +835,7 @@ configRouter.put("/site", requireAdmin, async (c) => {
         const hueNum = body.themeHue !== undefined ? Number(body.themeHue) : existingTheme.hue;
         siteUpdates.themeColor = {
           ...existingTheme,
-          hue: Number.isFinite(hueNum) ? hueNum : 315,
+          hue: Number.isFinite(hueNum) ? hueNum : 240,
           style: body.themeStyle || existingTheme.style || "tonalSpot",
         };
       }

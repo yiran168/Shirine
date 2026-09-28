@@ -75,7 +75,7 @@ export async function fetchApi(
 			const res = await serviceBinding.fetch(targetUrl, {
 				...init,
 				headers,
-				signal: init?.signal || AbortSignal.timeout(800),
+				signal: init?.signal || AbortSignal.timeout(3500),
 			});
 			if (res && res.status < 500) {
 				return res;
@@ -106,7 +106,7 @@ export async function fetchApi(
 		const res = await fetch(url, {
 			...init,
 			headers,
-			signal: init?.signal || AbortSignal.timeout(800),
+			signal: init?.signal || AbortSignal.timeout(3500),
 		});
 		return res;
 	} catch {
@@ -221,6 +221,17 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 					}
 					if (!ap.data.image && local.data.image) {
 						ap.data.image = local.data.image;
+					}
+					const apBodyNorm = (ap.body || "").replace(/\r\n/g, "\n").trim();
+					const localBodyNorm = (local.body || "").replace(/\r\n/g, "\n").trim();
+					if (apBodyNorm === localBodyNorm) {
+						if ((local as any).deferredRender) {
+							(ap as any).deferredRender = (local as any).deferredRender;
+						}
+						if ((local as any).rendered) {
+							(ap as any).rendered = (local as any).rendered;
+						}
+						ap.body = local.body;
 					}
 				}
 				return ap;
@@ -640,17 +651,49 @@ async function getRawSiteConfigData(request?: Request): Promise<any> {
 
 export async function getDynamicCompass(request?: Request): Promise<any[]> {
 	const siteCfg = await getRawSiteConfigData(request);
-	if (siteCfg && Array.isArray(siteCfg.compass)) {
-		return siteCfg.compass;
-	}
 	const { compassData } = await import("../data/compass");
+	if (siteCfg && Array.isArray(siteCfg.compass) && siteCfg.compass.length > 0) {
+		const defaultMap = new Map(compassData.map((s) => [s.key, s]));
+		const seenKeys = new Set<string>();
+		const result: any[] = [];
+		for (const shelf of siteCfg.compass) {
+			if (!shelf || typeof shelf !== "object") continue;
+			const def = defaultMap.get(shelf.key);
+			const entries = Array.isArray(shelf.entries) && shelf.entries.length > 0
+				? shelf.entries
+				: (def?.entries || []);
+			result.push({
+				...def,
+				...shelf,
+				entries,
+			});
+			seenKeys.add(shelf.key);
+		}
+		for (const def of compassData) {
+			if (!seenKeys.has(def.key)) {
+				result.push(def);
+			}
+		}
+		return result;
+	}
 	return compassData;
 }
 
 export async function getDynamicAnime(request?: Request): Promise<any[]> {
 	const siteCfg = await getRawSiteConfigData(request);
-	if (siteCfg && Array.isArray(siteCfg.anime)) {
-		return siteCfg.anime;
+	const { animeData } = await import("../data/anime");
+	if (siteCfg && Array.isArray(siteCfg.anime) && siteCfg.anime.length > 0) {
+		const seenTitles = new Set(
+			siteCfg.anime.map((a: any) => (a && typeof a.title === "string" ? a.title.trim().toLowerCase() : ""))
+		);
+		const result = [...siteCfg.anime];
+		for (const def of animeData) {
+			if (!seenTitles.has(def.title.trim().toLowerCase())) {
+				result.push(def);
+				seenTitles.add(def.title.trim().toLowerCase());
+			}
+		}
+		return result;
 	}
 	const { getAnimeList } = await import("./anime-data");
 	return await getAnimeList();

@@ -111,7 +111,7 @@ export function setWallpaperMode(mode: WallpaperMode): void {
 }
 
 export function getDefaultHue(): number {
-	const fallback = "250";
+	const fallback = "240";
 	const configCarrier = document.getElementById("config-carrier");
 	return Number.parseInt(configCarrier?.dataset.hue || fallback, 10);
 }

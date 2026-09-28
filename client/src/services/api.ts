@@ -216,16 +216,16 @@ export const postsApi = {
 // -------------------------------------------------------------
 export const albumsApi = {
   list: () => request("/albums"),
-  get: (id: number) => request(`/albums/${id}`),
-  verifyPassword: (id: number, password: string) =>
+  get: (id: number | string) => request(`/albums/${id}`),
+  verifyPassword: (id: number | string, password: string) =>
     request(`/albums/${id}/password/verify`, { method: "POST", body: JSON.stringify({ password }) }),
-  unlock: (id: number) => request(`/albums/${id}/unlock`, { method: "POST" }),
+  unlock: (id: number | string) => request(`/albums/${id}/unlock`, { method: "POST" }),
   create: (body: any) => request("/albums", { method: "POST", body: JSON.stringify(body) }),
-  update: (id: number, body: any) => request(`/albums/${id}`, { method: "PUT", body: JSON.stringify(body) }),
-  delete: (id: number) => request(`/albums/${id}`, { method: "DELETE" }),
-  addPhoto: (albumId: number, body: { url: string; title?: string; description?: string; sortOrder?: number }) =>
+  update: (id: number | string, body: any) => request(`/albums/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  delete: (id: number | string) => request(`/albums/${id}`, { method: "DELETE" }),
+  addPhoto: (albumId: number | string, body: { url: string; title?: string; description?: string; sortOrder?: number }) =>
     request(`/albums/${albumId}/photos`, { method: "POST", body: JSON.stringify(body) }),
-  deletePhoto: (photoId: number) => request(`/albums/photos/${photoId}`, { method: "DELETE" }),
+  deletePhoto: (photoId: number | string) => request(`/albums/photos/${photoId}`, { method: "DELETE" }),
 };
 
 // -------------------------------------------------------------

@@ -143,16 +143,13 @@ albumsRouter.get("/:id", async (c) => {
     const id = isNumeric ? parseInt(idParam, 10) : NaN;
     const isAdmin = user && (user.role === "superadmin" || user.role === "admin");
 
-    let album = null;
-    if (isNumeric) {
+    let album = await db.query.albums.findFirst({
+      where: eq(schema.albums.slug, idParam),
+    });
+
+    if (!album && isNumeric) {
       album = await db.query.albums.findFirst({
         where: eq(schema.albums.id, id),
-      });
-    }
-
-    if (!album) {
-      album = await db.query.albums.findFirst({
-        where: eq(schema.albums.slug, idParam),
       });
     }
 
@@ -301,16 +298,14 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
     const user = c.get("user")!;
     const db = getDb(c.env.DB);
     const idParam = c.req.param("id") || "";
-    let album = null;
     const numericId = parseInt(idParam, 10);
-    if (!isNaN(numericId) && numericId.toString() === idParam) {
+    const isNumeric = !isNaN(numericId) && numericId.toString() === idParam;
+    let album = await db.query.albums.findFirst({
+      where: eq(schema.albums.slug, idParam),
+    });
+    if (!album && isNumeric) {
       album = await db.query.albums.findFirst({
         where: eq(schema.albums.id, numericId),
-      });
-    }
-    if (!album) {
-      album = await db.query.albums.findFirst({
-        where: eq(schema.albums.slug, idParam),
       });
     }
     if (!album) {
@@ -528,13 +523,10 @@ albumsRouter.post("/:id/password/verify", async (c) => {
     const user = c.get("user");
     const db = getDb(c.env.DB);
     const idParam = c.req.param("id") || "0";
-    let album = null;
+    let album = await db.query.albums.findFirst({ where: eq(schema.albums.slug, idParam) });
     const isNumeric = /^\d+$/.test(idParam);
-    if (isNumeric) {
+    if (!album && isNumeric) {
       album = await db.query.albums.findFirst({ where: eq(schema.albums.id, parseInt(idParam, 10)) });
-    }
-    if (!album) {
-      album = await db.query.albums.findFirst({ where: eq(schema.albums.slug, idParam) });
     }
     if (!album) return c.json({ success: false, error: "Album not found" }, 404);
 

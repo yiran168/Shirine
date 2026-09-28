@@ -320,7 +320,7 @@ export async function seedPresetData(
     }
   }
 
-  // 7. Default Site Configs (if empty)
+  // 7. Default Site Configs
   for (const [key, value] of Object.entries(defaultSiteConfig)) {
     const existing = await db.query.siteConfigs.findFirst({
       where: eq(schema.siteConfigs.key, key),
@@ -330,6 +330,14 @@ export async function seedPresetData(
         key,
         value: JSON.stringify(value),
       });
+    } else if (overwrite) {
+      await db
+        .update(schema.siteConfigs)
+        .set({
+          value: JSON.stringify(value),
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.siteConfigs.key, key));
     }
   }
 

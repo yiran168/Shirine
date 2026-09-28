@@ -7,6 +7,54 @@ const md = new MarkdownIt({
 	typographer: true,
 });
 
+md.renderer.rules.heading_open = (tokens: any[], idx: number, options: any, _env: any, self: any) => {
+	const nextToken = tokens[idx + 1];
+	let headingText = "";
+	if (nextToken && nextToken.children) {
+		headingText = nextToken.children
+			.filter((t: any) => t.type === "text" || t.type === "code_inline")
+			.map((t: any) => t.content)
+			.join("");
+	} else if (nextToken && nextToken.content) {
+		headingText = nextToken.content;
+	}
+	const slug = headingText
+		.trim()
+		.toLowerCase()
+		.replace(/[\s\t\n]+/g, "-")
+		.replace(/[^\w\u4e00-\u9fa5\-_]/g, "");
+	if (slug) {
+		tokens[idx].attrSet("id", slug);
+	}
+	return self.renderToken(tokens, idx, options);
+};
+
+export function extractHeadings(content: string): Array<{ depth: number; slug: string; text: string }> {
+	if (!content) return [];
+	const headings: Array<{ depth: number; slug: string; text: string }> = [];
+	const lines = content.split(/\r?\n/);
+	let inCodeBlock = false;
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (trimmed.startsWith("```")) {
+			inCodeBlock = !inCodeBlock;
+			continue;
+		}
+		if (inCodeBlock) continue;
+		const match = trimmed.match(/^(#{1,6})\s+(.+)$/);
+		if (match) {
+			const depth = match[1].length;
+			const text = match[2].trim().replace(/[*_`~]/g, "");
+			const slug = text
+				.toLowerCase()
+				.replace(/[\s\t\n]+/g, "-")
+				.replace(/[^\w\u4e00-\u9fa5\-_]/g, "");
+			headings.push({ depth, slug, text });
+		}
+	}
+	return headings;
+}
+
 export function preprocessVideoDirectives(content: string): string {
 	if (!content) return "";
 

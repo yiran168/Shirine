@@ -642,8 +642,43 @@
             musicMetingId: m.meting?.id ?? siteConfigState.musicMetingId,
             musicTracks: Array.isArray(m.tracks) ? m.tracks : siteConfigState.musicTracks,
             timeline: Array.isArray(siteRes.data.timeline) && siteRes.data.timeline.length > 0 ? siteRes.data.timeline : (siteConfigState.timeline?.length ? siteConfigState.timeline : JSON.parse(JSON.stringify(timelineData))),
-            compass: Array.isArray(siteRes.data.compass) && siteRes.data.compass.length > 0 ? siteRes.data.compass : (siteConfigState.compass?.length ? siteConfigState.compass : JSON.parse(JSON.stringify(compassData))),
-            anime: Array.isArray(siteRes.data.anime) && siteRes.data.anime.length > 0 ? siteRes.data.anime : (siteConfigState.anime?.length ? siteConfigState.anime : JSON.parse(JSON.stringify(animeData))),
+            compass: (() => {
+              const fetched = Array.isArray(siteRes.data.compass) ? siteRes.data.compass : [];
+              if (fetched.length === 0) return JSON.parse(JSON.stringify(compassData));
+              const defaultMap = new Map(compassData.map((s: any) => [s.key, s]));
+              const seenKeys = new Set<string>();
+              const mergedShelves: any[] = [];
+              for (const shelf of fetched) {
+                if (!shelf || typeof shelf !== "object") continue;
+                const def = defaultMap.get(shelf.key);
+                const entries = Array.isArray(shelf.entries) && shelf.entries.length > 0
+                  ? shelf.entries
+                  : (def?.entries || []);
+                mergedShelves.push({ ...def, ...shelf, entries });
+                seenKeys.add(shelf.key);
+              }
+              for (const def of compassData) {
+                if (!seenKeys.has(def.key)) {
+                  mergedShelves.push(JSON.parse(JSON.stringify(def)));
+                }
+              }
+              return mergedShelves;
+            })(),
+            anime: (() => {
+              const fetched = Array.isArray(siteRes.data.anime) ? siteRes.data.anime : [];
+              if (fetched.length === 0) return JSON.parse(JSON.stringify(animeData));
+              const seenTitles = new Set(
+                fetched.map((a: any) => (a && typeof a.title === "string" ? a.title.trim().toLowerCase() : ""))
+              );
+              const mergedAnime = [...fetched];
+              for (const def of animeData) {
+                if (!seenTitles.has(def.title.trim().toLowerCase())) {
+                  mergedAnime.push(JSON.parse(JSON.stringify(def)));
+                  seenTitles.add(def.title.trim().toLowerCase());
+                }
+              }
+              return mergedAnime;
+            })(),
             projects: Array.isArray(siteRes.data.projects) && siteRes.data.projects.length > 0 ? siteRes.data.projects : (siteConfigState.projects?.length ? siteConfigState.projects : JSON.parse(JSON.stringify(projectsData))),
             devices: Array.isArray(siteRes.data.devices) && siteRes.data.devices.length > 0 ? siteRes.data.devices : (siteConfigState.devices?.length ? siteConfigState.devices : JSON.parse(JSON.stringify(devicesData))),
             skills: Array.isArray(siteRes.data.skills) && siteRes.data.skills.length > 0 ? siteRes.data.skills : (siteConfigState.skills?.length ? siteConfigState.skills : JSON.parse(JSON.stringify(skillsData))),
@@ -1420,7 +1455,7 @@
 
   function resetCompassToDefault() {
     siteConfigState.compass = JSON.parse(JSON.stringify(compassData));
-    showMessage("已恢复全部 4 个默认罗盘预设分组，请点击右上角保存生效");
+    showMessage("已恢复全部 6 个默认罗盘预设分组，请点击右上角保存生效");
   }
 
   function resetAnimeToDefault() {
@@ -4895,17 +4930,6 @@
                     {/each}
                   </select>
                 </div>
-                <div>
-                  <label class="text-xs font-semibold block mb-1.5">液态毛玻璃特效 (Liquid Frosted Glass)</label>
-                  <select
-                    bind:value={siteConfigState.liquidGlassMode}
-                    class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none"
-                  >
-                    <option value="none">关闭 (标准 Material 3)</option>
-                    <option value="subtle">轻量微透液态毛玻璃 (Subtle)</option>
-                    <option value="vibrant">深邃高透折射流体毛玻璃 (Vibrant)</option>
-                  </select>
-                </div>
               </div>
             </div>
 
@@ -6961,6 +6985,222 @@ bun install
                   </div>
                 </div>
               </div>
+
+              <!-- 23. AcFun Video Directive -->
+              <div id="guide-acfun" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>📺 AcFun 弹幕视频嵌入 (AcFun Directive)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('::acfun[ac40671391]\n\n::acfun{acid="ac40671391" p=1}')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制 AcFun 语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">支持短语法与属性语法。填入 A站视频稿件号（如 ac40671391），自动嵌入自适应 16:9 高清播放器。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>::acfun[ac40671391]
+
+::acfun&#123;acid="ac40671391" p=1&#125;</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 flex flex-col items-center justify-center p-6 text-center space-y-2 text-xs">
+                    <span class="text-2xl">📺</span>
+                    <span class="font-bold text-[var(--on-surface)]">AcFun 高清弹幕播放器已挂载</span>
+                    <span class="text-[11px] text-[var(--on-surface-variant)] font-mono">acid: ac40671391 | 比例: 16:9 | 沙箱安全隔离</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 24. Markdown Includes Directive -->
+              <div id="guide-includes" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>📥 文件片段复用与模块引入 (Markdown Includes)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('::include{file="./snippets/license-notice.md"}\n\n::include{file="./common/author-card.md"}')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制 Include 语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">将通用博文片段、免责声明或公用通知抽离为独立 Markdown 文件，在多篇文章中无缝引用与编译合并。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>::include&#123;file="./snippets/license-notice.md"&#125;
+
+::include&#123;file="./common/author-card.md"&#125;</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 text-xs text-[var(--on-surface-variant)] border-l-4 border-l-primary/80">
+                    <div class="font-bold text-[var(--on-surface)] mb-1">📄 引入片段：./snippets/license-notice.md</div>
+                    <p>本文采用 CC BY-NC-SA 4.0 国际许可协议。转载请注明来自 Shirine 博客站点与原文链接。</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 25. GitHub Flavored Callout Alerts -->
+              <div id="guide-alerts" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🚨 GFM 经典告警调用块 (Callout Alerts)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('> [!NOTE]\n> 这里是一条常规注释信息。\n\n> [!TIP]\n> 这里是一条操作小贴士与实用技巧。\n\n> [!IMPORTANT]\n> 这里是执行前必须阅读的关键信息。\n\n> [!WARNING]\n> 警告：此操作可能导致数据库或配置重置！\n\n> [!CAUTION]\n> 极高风险警示：严禁泄露密钥与管理员密码。')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制 GFM 告警块
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">完全兼容 GitHub / Obsidian 原生语法，5 种语义等级（NOTE / TIP / IMPORTANT / WARNING / CAUTION）高亮呈现。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>> [!NOTE]
+> 这里是一条常规注释信息。
+
+> [!TIP]
+> 这里是一条操作小贴士与实用技巧。
+
+> [!WARNING]
+> 警告：此操作可能导致配置重置！</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="space-y-2 text-xs">
+                    <div class="p-3 rounded-xl bg-blue-500/10 border-l-4 border-l-blue-500 text-blue-900 dark:text-blue-200">
+                      <div class="font-bold flex items-center gap-1.5 mb-1">ℹ️ NOTE</div>
+                      <div>这里是一条常规注释信息。</div>
+                    </div>
+                    <div class="p-3 rounded-xl bg-emerald-500/10 border-l-4 border-l-emerald-500 text-emerald-900 dark:text-emerald-200">
+                      <div class="font-bold flex items-center gap-1.5 mb-1">💡 TIP</div>
+                      <div>这里是一条操作小贴士与实用技巧。</div>
+                    </div>
+                    <div class="p-3 rounded-xl bg-amber-500/10 border-l-4 border-l-amber-500 text-amber-900 dark:text-amber-200">
+                      <div class="font-bold flex items-center gap-1.5 mb-1">⚠️ WARNING</div>
+                      <div>警告：此操作可能导致配置重置！</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 26. Advanced Mermaid Diagrams -->
+              <div id="guide-mermaid-advanced" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>📊 高级 Mermaid 时序图与甘特图 (Advanced Diagrams)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('```mermaid\nsequenceDiagram\n    autonumber\n    actor Visitor as 访客客户端\n    participant Pages as CF Pages (Astro SSR)\n    participant Worker as CF Worker (API)\n    participant D1 as D1 数据库\n\n    Visitor->>Pages: 发起博文页面请求\n    Pages->>Worker: GET /api/posts/:slug\n    Worker->>D1: 查询并原子校验权限\n    D1-->>Worker: 返回文章详情与解锁态\n    Worker-->>Pages: 响应 JSON 实体\n    Pages-->>Visitor: 渲染 M3E 唯美界面\n```')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制高级时序图
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">支持 sequenceDiagram、gantt、pie、classDiagram 与 stateDiagram，结合全站配色自适应深浅色模式。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>```mermaid
+sequenceDiagram
+    autonumber
+    actor Visitor as 访客
+    participant Pages as 前端 Pages
+    participant Worker as 后端 Worker
+    participant D1 as D1 数据库
+
+    Visitor-&gt;&gt;Pages: 请求博文详情
+    Pages-&gt;&gt;Worker: 调用 API
+    Worker-&gt;&gt;D1: 检索文章与权限
+    D1--&gt;&gt;Worker: 返回数据
+    Worker--&gt;&gt;Pages: 传输 JSON
+    Pages--&gt;&gt;Visitor: 呈现页面
+```</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 text-xs font-mono flex flex-col items-center py-4 space-y-2">
+                    <div class="flex items-center gap-4 text-[var(--on-surface)] font-bold">
+                      <span class="px-2 py-1 bg-primary/10 rounded">访客</span>
+                      <span>───(1) 请求博文───▶</span>
+                      <span class="px-2 py-1 bg-primary/10 rounded">Astro SSR</span>
+                      <span>───(2) 调用 API───▶</span>
+                      <span class="px-2 py-1 bg-primary/10 rounded">D1 数据库</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 27. Collapsible Admonitions Details -->
+              <div id="guide-admonition-details" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>📦 可折叠警告提示块 (Admonition Details)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard(':::note? 点击展开详细原理说明\n这里是默认收起的详细解析内容。\n- 支持多行排版\n- 支持嵌入代码或列表\n:::\n\n:::warning? 风险排查自检清单\n1. 检查环境变量配置\n2. 验证 D1 数据库迁移\n:::')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制折叠警告块
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">在 Admonition 语法类型后追加问号 <code>?</code>，即可创建带标题折叠手风琴交互的提示块，默认处于折叠状态。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>:::note? 点击展开详细原理说明
+这里是默认收起的详细解析内容。
+- 支持多行排版
+- 支持嵌入代码或列表
+:::
+
+:::warning? 风险排查自检清单
+1. 检查环境变量配置
+2. 验证 D1 数据库迁移
+:::</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <details class="p-3 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 text-xs">
+                    <summary class="font-bold text-primary cursor-pointer select-none">▶ 💡 详细原理说明（点击展开）</summary>
+                    <p class="mt-2 text-[var(--on-surface-variant)] pl-4 border-l border-primary/30">折叠提示块由 Material 3 动效支持平滑展开收起，完美适配移动端长篇文档阅览。</p>
+                  </details>
+                </div>
+              </div>
+
+              <!-- 28. Image Presentation & Aspect Ratios -->
+              <div id="guide-image-presentation" class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-[var(--outline-variant)]/15">
+                  <h2 class="text-base font-bold flex items-center gap-2">
+                    <span>🖼️ 单图排版比例与灯箱展示 (Image Presentation)</span>
+                  </h2>
+                  <button
+                    type="button"
+                    onclick={() => copyToClipboard('![封面预览 w-80% aspect-16-9 shadow-xl rounded-2xl center](./banner.webp "精选风景壁纸")\n\n![正方形细节 w-50% aspect-1-1](./avatar.webp "正方形头像特写")')}
+                    class="px-3 py-1 rounded-lg border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] text-xs text-primary font-medium transition-colors"
+                  >
+                    📋 复制图片排版语法
+                  </button>
+                </div>
+                <p class="text-xs text-[var(--on-surface-variant)]">在图片描述中直接通过类名控制宽度（w-50%、w-80%）、固定比例（aspect-16-9、aspect-1-1）、阴影与居中对齐，点击自动唤起灯箱。</p>
+                <pre class="p-4 rounded-2xl bg-[var(--surface-container-low)] text-xs font-mono overflow-x-auto text-[var(--on-surface)] leading-relaxed"><code>![封面预览 w-80% aspect-16-9 shadow-xl center](./banner.webp "精选壁纸")
+
+![正方形细节 w-50% aspect-1-1](./avatar.webp "正方形特写")</code></pre>
+                <div class="pt-2">
+                  <div class="text-[11px] font-semibold text-[var(--on-surface-variant)] mb-2 flex items-center gap-1.5">
+                    <span>👁️ 效果预览：</span>
+                  </div>
+                  <div class="p-4 rounded-2xl bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]/20 flex flex-col items-center gap-2 text-xs">
+                    <div class="w-48 aspect-video rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center text-primary font-bold">
+                      🖼️ 16:9 自适应容器
+                    </div>
+                    <span class="text-[10px] text-[var(--on-surface-variant)] italic">▲ 精选壁纸 (带阴影与灯箱手势放大)</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Sticky Quick Jump Table of Contents (Fixed: Uses Smooth Scroll Into View on Main Container) -->
@@ -6992,6 +7232,12 @@ bun install
                 <button type="button" onclick={() => jumpToGuideSection('guide-diff-tree')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🌳 代码架构与文件变更树</button>
                 <button type="button" onclick={() => jumpToGuideSection('guide-badges')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🏷️ 徽章与胶囊标记</button>
                 <button type="button" onclick={() => jumpToGuideSection('guide-abbr')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🔤 缩略语全名术语卡</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-acfun')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">📺 AcFun 视频嵌入</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-includes')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">📥 文件片段包含 (Includes)</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-alerts')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🚨 GFM 标准告警调用块</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-mermaid-advanced')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">📊 高级 Mermaid 图表</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-admonition-details')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">📦 可折叠警告提示块</button>
+                <button type="button" onclick={() => jumpToGuideSection('guide-image-presentation')} class="w-full text-left block px-3 py-1.5 rounded-xl hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] hover:text-primary transition-colors truncate">🖼️ 单图排版与灯箱展示</button>
               </nav>
             </aside>
           </div>

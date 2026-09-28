@@ -103,7 +103,7 @@ export function applyCurrentScheme(): void {
 	if (!root) return;
 
 	const hue = Number.parseInt(
-		root.style.getPropertyValue("--hue") || "250",
+		root.style.getPropertyValue("--hue") || "240",
 		10,
 	);
 	const isDark = root.classList.contains("dark");

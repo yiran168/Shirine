@@ -40,7 +40,7 @@ import {
 import { getDir, getPostUrl, getPostUrlBySlug } from "@utils/url-utils";
 import katexStylesheet from "katex/dist/katex.css?url";
 import overlayScrollbarsStylesheet from "overlayscrollbars/overlayscrollbars.css?url";
-import { renderDynamicMarkdown } from "@utils/dynamic-markdown";
+import { renderDynamicMarkdown, extractHeadings } from "@utils/dynamic-markdown";
 import {
 	articleConfig,
 	commentConfig,
@@ -126,7 +126,8 @@ if (dynamicDetail) {
 		? dynamicDetail.content
 		: (localEntry?.body || "");
 
-	if (localEntry && (!dynamicDetail.content || dynamicDetail.content.trim() === (localEntry.body || "").trim())) {
+	const normalizeBody = (s?: string | null) => (s || "").replace(/\r\n/g, "\n").trim();
+	if (localEntry && (!dynamicDetail.content || normalizeBody(dynamicDetail.content) === normalizeBody(localEntry.body))) {
 		entry = localEntry;
 	} else {
 		entry = {
@@ -202,6 +203,11 @@ const isEncrypted = Boolean(
 	(entry.data.password && entry.data.password.trim().length > 0)
 );
 
+let Content: any = null;
+let headings: any[] = [];
+let remarkPluginFrontmatter: any = { words: 0, minutes: 0, markdownSyntaxes: [] };
+let dynamicHtml = "";
+
 // Permission check
 const permissionType = (entry.data as any).permissionType || "public";
 const requiredPoints = (entry.data as any).requiredPoints || 0;
@@ -213,6 +219,7 @@ const isLocked = dynamicDetail
 	: ((permissionType !== "public" && !isUnlocked) || isEncrypted);
 if (isLocked) {
 	entry.body = "";
+	dynamicHtml = "";
 }
 
 // Ensure sensitive or dynamic protected content is never edge-cached
@@ -236,20 +243,23 @@ const discovery =
 			)
 		: { related: [], random: [] };
 
-let Content: any = null;
-let headings: any[] = [];
-let remarkPluginFrontmatter: any = { words: 0, minutes: 0, markdownSyntaxes: [] };
-let dynamicHtml = "";
-
 const explicitWords = (entry.data as any).words ?? (entry.body ? entry.body.replace(/\s+/g, "").length : 0);
+const canAstroRender = Boolean(entry === localEntry || (entry as any).deferredRender || (entry as any).rendered?.html);
 
-try {
-	const rendered = await render(entry);
-	Content = rendered.Content;
-	headings = rendered.headings;
-	remarkPluginFrontmatter = rendered.remarkPluginFrontmatter;
-} catch {
-	dynamicHtml = renderDynamicMarkdown(entry.body);
+if (canAstroRender) {
+	try {
+		const rendered = await render(entry);
+		Content = rendered.Content;
+		headings = rendered.headings || [];
+		remarkPluginFrontmatter = rendered.remarkPluginFrontmatter || { words: 0, minutes: 0, markdownSyntaxes: [] };
+	} catch {
+		Content = null;
+	}
+}
+
+if (!Content) {
+	dynamicHtml = renderDynamicMarkdown(entry.body || "");
+	headings = extractHeadings(entry.body || "");
 	remarkPluginFrontmatter = {
 		words: explicitWords,
 		minutes: Math.ceil(explicitWords / 300) || 1,
@@ -458,7 +468,9 @@ const jsonLd = {
                     <Content />
                 </Markdown>
             ) : (
-                <div class="mb-6 onload-animation prose prose-neutral dark:prose-invert max-w-none text-[var(--on-surface)] leading-relaxed" set:html={dynamicHtml}></div>
+                <Markdown class="mb-6 onload-animation">
+                    <div class="prose prose-neutral dark:prose-invert max-w-none text-[var(--on-surface)] leading-relaxed" set:html={dynamicHtml}></div>
+                </Markdown>
             )}
 
 			{licenseConfig.enable && <License title={entry.data.title} slug={entry.id} pubDate={entry.data.published} class="mb-6 rounded-xl license-container onload-animation"></License>}

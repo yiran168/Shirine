@@ -94,6 +94,7 @@ export function createMusicRuntime(
 	const knownDurations = new Map<string, number>();
 	let metingFetched = false;
 	let consecutiveErrors = 0;
+	let isRecovering = false;
 
 	function snapshot(): MusicSnapshot {
 		return Object.freeze({
@@ -199,7 +200,12 @@ export function createMusicRuntime(
 				patch({ status: state.currentTime > 0 ? "paused" : "ready" });
 			},
 			ended: () => {
-				if (!isCurrent()) return;
+				if (!isCurrent() || !audio) return;
+				const dur = state.duration || currentPlaylist[state.currentIndex]?.duration || 0;
+				if (audio.currentTime < 1 && dur > 3) {
+					void recoverFromSourceError();
+					return;
+				}
 				playbackRequested = false;
 				void advanceAfterEnded();
 			},
@@ -300,6 +306,10 @@ export function createMusicRuntime(
 			if (generation !== lifecycleGeneration || audio) return;
 			audio = createAudio();
 			audio.preload = "metadata";
+			(audio as any).referrerPolicy = "no-referrer";
+			if (typeof audio.setAttribute === "function") {
+				audio.setAttribute("referrerpolicy", "no-referrer");
+			}
 			const volume = readStoredVolume();
 			audio.volume = volume;
 			audio.muted = state.muted;
@@ -439,54 +449,63 @@ export function createMusicRuntime(
 	}
 
 	async function recoverFromSourceError(): Promise<void> {
-		consecutiveErrors += 1;
-		const currentTrack = currentPlaylist[state.currentIndex];
-		if (!currentTrack) {
-			patch({ status: "error", error: "empty-playlist" });
-			return;
-		}
-
-		if (
-			audio &&
-			currentTrack.id.includes("netease") &&
-			!failedTrackIds.has(`${currentTrack.id}-fallback`)
-		) {
-			const rawId = currentTrack.id.replace(/^meting-netease-/, "");
-			if (rawId && /^\d+$/.test(rawId)) {
-				failedTrackIds.add(`${currentTrack.id}-fallback`);
-				const outerUrl = `https://music.163.com/song/media/outer/url?id=${rawId}.mp3`;
-				if (audio.src !== outerUrl) {
-					audio.src = outerUrl;
-					audio.load();
-					try {
-						await audio.play();
-						return;
-					} catch {}
-				}
-			}
-		}
-
-		failedTrackIds.add(currentTrack.id);
-		if (
-			failedTrackIds.size >= currentPlaylist.length ||
-			consecutiveErrors > Math.min(3, currentPlaylist.length)
-		) {
-			consecutiveErrors = 0;
-			patch({ status: "error", error: "source-unavailable" });
-			return;
-		}
-
-		for (let offset = 1; offset < currentPlaylist.length; offset += 1) {
-			const candidate = (state.currentIndex + offset) % currentPlaylist.length;
-			const track = currentPlaylist[candidate];
-			if (track && !failedTrackIds.has(track.id)) {
-				await new Promise((r) => setTimeout(r, 300));
-				await selectInternal(candidate, true);
+		if (isRecovering) return;
+		isRecovering = true;
+		try {
+			consecutiveErrors += 1;
+			const currentTrack = currentPlaylist[state.currentIndex];
+			if (!currentTrack) {
+				playbackRequested = false;
+				patch({ status: "error", error: "empty-playlist" });
 				return;
 			}
+
+			if (
+				audio &&
+				currentTrack.id.includes("netease") &&
+				!failedTrackIds.has(`${currentTrack.id}-fallback`)
+			) {
+				const rawId = currentTrack.id.replace(/^meting-netease-/, "");
+				if (rawId && /^\d+$/.test(rawId)) {
+					failedTrackIds.add(`${currentTrack.id}-fallback`);
+					const outerUrl = `https://api.i-meto.com/meting/api?server=netease&type=url&id=${rawId}`;
+					if (audio.src !== outerUrl) {
+						audio.src = outerUrl;
+						audio.load();
+						try {
+							await audio.play();
+							return;
+						} catch {}
+					}
+				}
+			}
+
+			failedTrackIds.add(currentTrack.id);
+			if (
+				failedTrackIds.size >= currentPlaylist.length ||
+				consecutiveErrors >= Math.min(3, currentPlaylist.length)
+			) {
+				consecutiveErrors = 0;
+				playbackRequested = false;
+				patch({ status: "error", error: "source-unavailable" });
+				return;
+			}
+
+			for (let offset = 1; offset < currentPlaylist.length; offset += 1) {
+				const candidate = (state.currentIndex + offset) % currentPlaylist.length;
+				const track = currentPlaylist[candidate];
+				if (track && !failedTrackIds.has(track.id)) {
+					await new Promise((r) => setTimeout(r, 300));
+					await selectInternal(candidate, true);
+					return;
+				}
+			}
+			consecutiveErrors = 0;
+			playbackRequested = false;
+			patch({ status: "error", error: "source-unavailable" });
+		} finally {
+			isRecovering = false;
 		}
-		consecutiveErrors = 0;
-		patch({ status: "error", error: "source-unavailable" });
 	}
 
 	async function advanceAfterEnded(): Promise<void> {

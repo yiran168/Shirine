@@ -38,24 +38,21 @@
       userVisible = false; // Collapse by default on narrow mobile screens to avoid screen blockage
     }
 
-    const defaultLeftX = mode === "admin" ? 280 : 24;
+    const defaultX = 24;
     const defaultY = 24;
-    posX = defaultLeftX;
+    posX = defaultX;
     posY = defaultY;
 
     const savedPos = localStorage.getItem("shirine_live2d_pos");
     if (savedPos) {
       try {
         const parsed = JSON.parse(savedPos);
-        if (typeof parsed.x === "number" && !isNaN(parsed.x)) posX = Math.max(mode === "admin" ? 280 : 0, Math.min(window.innerWidth - WIDGET_WIDTH, parsed.x));
+        if (typeof parsed.x === "number" && !isNaN(parsed.x)) posX = Math.max(0, Math.min(window.innerWidth - WIDGET_WIDTH, parsed.x));
         if (typeof parsed.y === "number" && !isNaN(parsed.y)) posY = Math.max(0, Math.min(window.innerHeight - 100, parsed.y));
       } catch {
-        posX = defaultLeftX;
+        posX = defaultX;
         posY = defaultY;
       }
-    }
-    if (mode === "admin" && posX < 280) {
-      posX = Math.max(280, defaultLeftX);
     }
 
     // 2. Fetch backend configuration
@@ -125,7 +122,7 @@
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
       } else if (e.data?.type === "l2d-drag") {
-        posX = Math.max(mode === "admin" ? 280 : 0, Math.min(window.innerWidth - WIDGET_WIDTH, posX + (e.data.dx || 0)));
+        posX = Math.max(0, Math.min(window.innerWidth - WIDGET_WIDTH, posX + (e.data.dx || 0)));
         posY = Math.max(0, Math.min(window.innerHeight - 100, posY - (e.data.dy || 0)));
         localStorage.setItem("shirine_live2d_pos", JSON.stringify({ x: posX, y: posY }));
       }
@@ -176,7 +173,7 @@
       const curY = "touches" in ev ? ev.touches[0].clientY : ev.clientY;
       const deltaX = curX - dragStartX;
       const deltaY = dragStartY - curY;
-      posX = Math.max(mode === "admin" ? 280 : 0, Math.min(window.innerWidth - WIDGET_WIDTH, initialPosX + deltaX));
+      posX = Math.max(0, Math.min(window.innerWidth - WIDGET_WIDTH, initialPosX + deltaX));
       posY = Math.max(0, Math.min(window.innerHeight - 100, initialPosY + deltaY));
     };
 
@@ -243,7 +240,7 @@
     <!-- Fixed summon button pinned directly to bottom-left corner -->
     <div
       class="fixed pointer-events-auto transition-all duration-300"
-      style="z-index: 99999 !important; left: {mode === 'admin' ? 280 : 24}px; bottom: 24px;"
+      style="z-index: 99999 !important; left: {posX}px; bottom: {posY}px;"
     >
       <button
         type="button"
@@ -276,18 +273,18 @@
 
     <!-- Drag Handle and Toggle Button Bar with supreme z-index -->
     <div
-      class="absolute bottom-4 left-4 flex items-center gap-1.5 pointer-events-auto"
+      class="absolute bottom-0 left-0 flex items-center gap-1.5 pointer-events-auto"
       style="z-index: 99999 !important;"
     >
       <!-- Collapse Button -->
       <button
         type="button"
         onclick={toggleVisible}
-        class="w-9 h-9 rounded-full bg-[var(--surface-container-high)]/90 hover:bg-[var(--surface-container)] border border-[var(--outline-variant)]/40 text-[var(--on-surface)] shadow-md hover:shadow-lg backdrop-blur-md flex items-center justify-center transition-all hover:scale-110 active:scale-95 group focus:outline-none"
+        class="w-10 h-10 rounded-full bg-[var(--surface-container-high)]/95 hover:bg-[var(--surface-container)] border border-[var(--outline-variant)]/60 text-[var(--on-surface)] shadow-lg hover:shadow-xl backdrop-blur-md flex items-center justify-center transition-all hover:scale-110 active:scale-95 group focus:outline-none"
         title="收起看板娘"
         aria-label="收起看板娘"
       >
-        <span class="text-sm group-hover:rotate-12 transition-transform select-none">🌸</span>
+        <span class="text-base group-hover:rotate-12 transition-transform select-none">🌸</span>
       </button>
 
       <!-- Move / Drag Handle Button -->

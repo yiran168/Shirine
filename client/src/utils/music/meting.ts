@@ -64,8 +64,8 @@ export function parseMetingSong(
 		if (match) rawId = match[1];
 	}
 
-	if (server === "netease" && rawId && (source.includes("music.126.net") || source.includes("wsSecret") || !source.startsWith("http"))) {
-		source = `https://music.163.com/song/media/outer/url?id=${rawId}.mp3`;
+	if (server === "netease" && rawId && (!source || !source.startsWith("http"))) {
+		source = `https://api.i-meto.com/meting/api?server=netease&type=url&id=${rawId}`;
 	}
 
 	const id = rawId
