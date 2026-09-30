@@ -11,8 +11,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -32,9 +30,6 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
       - name: Install Dependencies
         working-directory: ./docs
         run: bun install
@@ -45,26 +40,11 @@ jobs:
           BASE_PATH: /Shirine/
         run: bun run build
 
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/doc_build
-
+      # GitHub Pages is configured to publish the gh-pages branch.
+      # Keep that source and its environment branch protection unchanged.
       - name: Deploy to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs/doc_build
           publish_branch: gh-pages
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    needs: build
-    runs-on: ubuntu-latest
-    name: Deploy to GitHub Pages
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
