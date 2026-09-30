@@ -31,7 +31,7 @@ describe("Tier 1 - AC 2: Build Safety & SSR Architecture", () => {
   it("AC 2.3: Client production build output exists and contains Cloudflare SSR server bundle", () => {
     const distPath = resolve(PROJECT_ROOT, "client/dist");
     if (!existsSync(distPath)) {
-      execSync("bun run build", { cwd: resolve(PROJECT_ROOT, "client"), stdio: "ignore" });
+      execSync("bun run build", { cwd: resolve(PROJECT_ROOT, "client"), stdio: "inherit", timeout: 120000 });
     }
     expect(existsSync(distPath)).toBe(true);
     const serverEntryPath = resolve(distPath, "_worker.js");
@@ -41,7 +41,7 @@ describe("Tier 1 - AC 2: Build Safety & SSR Architecture", () => {
     // Either _worker.js or server/ entrypoint must exist for Cloudflare adapter
     const hasCloudflareOutput = existsSync(serverEntryPath) || existsSync(serverDir) || existsSync(clientDir);
     expect(hasCloudflareOutput).toBe(true);
-  });
+  }, 150000);
 
   it("AC 2.4: O(1) single-post query architecture via RESTful API by slug and ID", async () => {
     const env = createTestEnv();

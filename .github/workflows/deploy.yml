@@ -15,9 +15,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install
       - run: bun run check
-      - run: bun test
       - run: bun run build:client
       - run: bun scripts/check-cloudflare-limits.mjs
+      - run: bun test
 
   deploy-server:
     needs: validate
