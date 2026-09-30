@@ -7,7 +7,20 @@ on:
   workflow_dispatch:
 
 jobs:
+  validate:
+    name: Validate before publishing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: bun run check
+      - run: bun test
+      - run: bun run build:client
+      - run: bun scripts/check-cloudflare-limits.mjs
+
   deploy-server:
+    needs: validate
     name: Deploy Backend to Cloudflare Workers
     runs-on: ubuntu-latest
     outputs:
@@ -66,3 +79,9 @@ jobs:
           PAGES_NAME: ${{ vars.PAGES_NAME || 'shirine' }}
         run: bun run deploy:client
 
+      - name: Verify private R2 access after successful deployment
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_BUCKET_NAME: ${{ vars.R2_BUCKET_NAME || 'shirine-storage' }}
+        run: bun scripts/secure-r2.mjs

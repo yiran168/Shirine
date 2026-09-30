@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/yiran168/Shirine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" /></a>
   <a href="https://github.com/yiran168/Shirine/actions"><img src="https://img.shields.io/badge/CI%2FCD-Cloudflare%20Pages%20%2B%20Workers-orange.svg" alt="Deploy" /></a>
-  <a href="https://astro.build"><img src="https://img.shields.io/badge/Astro-5-BC52EE.svg" alt="Astro" /></a>
+  <a href="https://astro.build"><img src="https://img.shields.io/badge/Astro-7-BC52EE.svg" alt="Astro" /></a>
   <a href="https://svelte.dev"><img src="https://img.shields.io/badge/Svelte-5-FF3E00.svg" alt="Svelte" /></a>
   <a href="https://developers.cloudflare.com/workers/"><img src="https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1%20%2B%20R2-F38020.svg" alt="Cloudflare" /></a>
 </p>
@@ -37,7 +37,7 @@
   - HCT 动态色彩算法：调整单一主色相（0-360°）即可自动派生全站合规色阶；
   - 丰富的 Markdown 扩展：提示框 (Admonition)、步骤容器 (Steps)、折叠面板、代码分组、Mermaid 架构图、KaTeX 数学公式、多媒体播放器。
 - ⚡ **毫秒级全动态响应（即写即看）**：
-  - 前端基于 Astro 5 SSR + Cloudflare Pages；
+  - 前端基于 Astro 7 SSR + Cloudflare Pages；
   - 后端基于 Cloudflare Workers + Hono + Drizzle ORM，毫秒级冷启动；
   - 数据持久化于 Cloudflare D1 分布式 SQLite 数据库，文件存储于 Cloudflare R2 对象存储；
   - 后台发布博文、新建相册或发布动态日记，**前台刷新即刻可见**。
@@ -132,3 +132,5 @@ npm run dev
 ## 📄 开源许可证
 
 本项目采用 [MIT License](LICENSE) 开源许可证。
+
+头像与插画素材的来源和使用说明见 [头像素材清单](docs/maintenance/avatar-sources.md)，不包含在代码的 MIT 许可内。

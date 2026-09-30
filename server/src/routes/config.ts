@@ -14,6 +14,7 @@ export const defaultSiteConfig = {
     base: "/",
     title: "Shirine",
     subtitle: "A Material 3 Expressive dynamic blog",
+    githubUrl: "https://github.com/yiran168/Shirine",
     lang: "zh_CN",
     timeZone: "Asia/Shanghai",
     publicR2Url: "",
@@ -804,7 +805,7 @@ configRouter.put("/site", requireAdmin, async (c) => {
       "bannerMobile" in body ||
       "bannerSubtitles" in body ||
       "publicR2Url" in body ||
-      "liquidGlassMode" in body
+      "liquidGlassMode" in body || "githubUrl" in body
     ) {
       const existingRow = await db.query.siteConfigs.findFirst({
         where: eq(schema.siteConfigs.key, "site"),
@@ -828,7 +829,14 @@ configRouter.put("/site", requireAdmin, async (c) => {
         siteUpdates.lang = body.lang || body.defaultLang;
       }
       if (body.liquidGlassMode !== undefined) {
-        siteUpdates.liquidGlassMode = body.liquidGlassMode;
+        siteUpdates.liquidGlassMode = body.liquidGlassMode === "none" ? "none" : "subtle";
+      }
+      if (body.githubUrl !== undefined) {
+        try {
+          const link = new URL(String(body.githubUrl));
+          if (link.protocol !== "https:") throw new Error("HTTPS required");
+          siteUpdates.githubUrl = link.href;
+        } catch { return c.json({ success: false, error: "GitHub 跳转地址必须是有效的 HTTPS 地址" }, 400); }
       }
       if (body.themeHue !== undefined || body.themeStyle !== undefined) {
         const existingTheme = baseSite.themeColor || {};

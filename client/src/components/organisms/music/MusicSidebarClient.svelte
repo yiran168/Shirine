@@ -103,7 +103,7 @@ const progressRatio = $derived(
 	duration > 0 ? Math.min(Math.max(currentEffectiveTime / duration, 0), 1) : 0,
 );
 const displayTime = $derived(formatTime(currentEffectiveTime));
-const displayDuration = $derived(formatTime(duration));
+const displayDuration = $derived(duration > 0 ? formatTime(duration) : "--:--");
 const progressLabel = $derived(
 	labels.progress
 		.replace("{current}", displayTime)

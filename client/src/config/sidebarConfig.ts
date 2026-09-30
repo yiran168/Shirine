@@ -81,7 +81,6 @@ export const sidebarConfig: SidebarConfig = withUserConfig("sidebar", {
 			enable: true,
 			slot: "top",
 			column: "secondary",
-			pages: ["home", "archive", "categories", "tags"],
 		},
 		{ type: "calendar", enable: true, slot: "top", column: "secondary" },
 		{

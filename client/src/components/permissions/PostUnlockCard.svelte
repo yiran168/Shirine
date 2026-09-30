@@ -59,6 +59,7 @@
 
   function notifyUnlocked(content?: string, photos?: any[]) {
     if (typeof window !== "undefined") {
+      (window as any).swup?.cache?.clear?.();
       window.dispatchEvent(
         new CustomEvent("shirine-content-unlocked", {
           detail: { postId, itemType, content, photos },

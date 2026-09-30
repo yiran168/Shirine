@@ -23,7 +23,7 @@ adminRouter.get("/stats", async (c) => {
     const userCountRes = await db.select({ count: sql<number>`count(*)` }).from(schema.users);
     const albumCountRes = await db.select({ count: sql<number>`count(*)` }).from(schema.albums);
     const momentCountRes = await db.select({ count: sql<number>`count(*)` }).from(schema.moments);
-    const pointsSumRes = await db.select({ total: sql<number>`sum(points)` }).from(schema.users);
+    const pointsSumRes = await db.select({ total: sql<number>`sum(points)` }).from(schema.users).where(eq(schema.users.role, "user"));
 
     // Use Asia/Shanghai or local date (#103)
     const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Shanghai" });
@@ -142,6 +142,9 @@ const handleAdjustUserPoints = async (c: any) => {
     if (user.role === "superadmin" && currentUser.role !== "superadmin") {
       return c.json({ success: false, error: "Only superadmin can adjust superadmin points" }, 403);
     }
+    if (user.role !== "user") {
+      return c.json({ success: false, error: "Administrator accounts do not participate in the points system" }, 403);
+    }
 
     let targetPoints = user.points;
     let deltaAmount = 0;
@@ -159,7 +162,7 @@ const handleAdjustUserPoints = async (c: any) => {
     }
 
     if (deltaAmount !== 0) {
-      const idempotencyKey = `admin_adjust_${currentUser.id}_${user.id}_${Date.now()}`;
+      const idempotencyKey = `admin_adjust_${currentUser.id}_${user.id}_${crypto.randomUUID()}`;
       const stmtUser = c.env.DB.prepare(
         "UPDATE users SET points = ?, updated_at = unixepoch() WHERE id = ?"
       ).bind(targetPoints, id);
@@ -506,4 +509,3 @@ adminRouter.post("/ai/generate", async (c) => {
     return c.json({ success: false, error: err.message || "AI 生成异常" }, 500);
   }
 });
-

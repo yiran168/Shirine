@@ -132,6 +132,9 @@ export function setHue(hue: number): void {
 }
 
 export function applyThemeToDocument(theme: LIGHT_DARK_MODE) {
+	const root = document.documentElement;
+	root.classList.add("theme-switching");
+	requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("theme-switching")));
 	switch (theme) {
 		case LIGHT_MODE:
 			document.documentElement.classList.remove("dark");

@@ -5,7 +5,6 @@ import { getDb, schema } from "../db";
 import { requireAdmin } from "../core/middleware";
 import type { PageDto } from "../types/dto";
 import { ensureD1Schema } from "../db/migrate";
-import { PRESET_PAGES } from "../db/seed";
 
 export const pagesRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -27,6 +26,9 @@ const RESERVED_SLUGS = new Set([
   "timeline",
   "anime",
   "compass",
+  "skills",
+  "projects",
+  "devices",
 ]);
 
 // List all pages
@@ -36,47 +38,14 @@ pagesRouter.get("/", async (c) => {
     const db = getDb(c.env.DB);
     const isAdmin = user && (user.role === "superadmin" || user.role === "admin");
 
-    await ensureD1Schema(c.env.DB, db);
-
-    let allPages = await db.query.pages.findMany({
+    const allPages = await db.query.pages.findMany({
       where: !isAdmin ? eq(schema.pages.draft, 0) : undefined,
       orderBy: [desc(schema.pages.createdAt)],
     });
 
-    // Ensure all PRESET_PAGES exist in database
-    let hasInsertedMissingPreset = false;
-    const superadmin = await db.query.users.findFirst({
-      where: eq(schema.users.role, "superadmin"),
-    });
-    const uid = superadmin ? superadmin.id : null;
-
-    for (const page of PRESET_PAGES) {
-      const exists = allPages.some((row) => row.slug === page.slug);
-      if (!exists) {
-        try {
-          await db
-            .insert(schema.pages)
-            .values({
-              slug: page.slug,
-              title: page.title,
-              content: page.content,
-              draft: 0,
-              uid,
-            })
-            .onConflictDoNothing();
-          hasInsertedMissingPreset = true;
-        } catch {}
-      }
-    }
-
-    if (hasInsertedMissingPreset) {
-      allPages = await db.query.pages.findMany({
-        where: !isAdmin ? eq(schema.pages.draft, 0) : undefined,
-        orderBy: [desc(schema.pages.createdAt)],
-      });
-    }
-
-    const formatted: (PageDto & { status?: string })[] = allPages.map((p) => ({
+    // Dedicated feature managers own these routes. Keep legacy rows intact,
+    // but do not advertise a second editor or duplicate navigation entry.
+    const formatted: (PageDto & { status?: string })[] = allPages.filter((p) => !["skills", "projects", "devices"].includes(p.slug)).map((p) => ({
       id: p.id,
       slug: p.slug,
       title: p.title,

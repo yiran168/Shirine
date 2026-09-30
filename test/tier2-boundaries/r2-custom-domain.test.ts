@@ -17,7 +17,7 @@ describe("Tier 2 - Boundary: Cloudflare R2 Public Domain / Custom Domain Persist
     expect(res.data.success).toBe(true);
     expect(res.data.objects).toHaveLength(1);
     // env.PUBLIC_R2_URL is "http://localhost/api/blob" in test-env
-    expect(res.data.objects[0].url).toBe("http://localhost/api/blob/uploads/test-image.png");
+    expect(res.data.objects[0].url).toMatch(/^\/api\/blob\/uploads\/test-image.png\?expires=\d+&signature=[a-f0-9]{64}$/);
 
     // Initial GET /api/config/system/admin should have empty publicR2Url and reflect fallback
     const sysAdminRes = await env.requestJson("/api/config/system/admin", {
@@ -36,7 +36,7 @@ describe("Tier 2 - Boundary: Cloudflare R2 Public Domain / Custom Domain Persist
     const admin = await env.createSuperadmin("r2_admin2", "adminpass123");
 
     // 1. Initial GET
-    const initSite = await env.requestJson("/api/config/site");
+    const initSite = await env.requestJson("/api/config/site", { headers: { Authorization: `Bearer ${admin.token}` } });
     expect(initSite.status).toBe(200);
 
     // 2. PUT /api/config/site with publicR2Url
@@ -54,7 +54,7 @@ describe("Tier 2 - Boundary: Cloudflare R2 Public Domain / Custom Domain Persist
     expect(putRes.data.success).toBe(true);
 
     // 3. GET /api/config/site reflects publicR2Url
-    const siteRes = await env.requestJson("/api/config/site");
+    const siteRes = await env.requestJson("/api/config/site", { headers: { Authorization: `Bearer ${admin.token}` } });
     expect(siteRes.status).toBe(200);
     expect(siteRes.data.data.publicR2Url).toBe("https://assets.shirine.moe");
     expect(siteRes.data.data.effectivePublicR2Url).toBe("https://assets.shirine.moe");
@@ -88,7 +88,7 @@ describe("Tier 2 - Boundary: Cloudflare R2 Public Domain / Custom Domain Persist
     expect(putRes.data.success).toBe(true);
 
     // Both endpoints return normalized URL without trailing slash
-    const siteRes = await env.requestJson("/api/config/site");
+    const siteRes = await env.requestJson("/api/config/site", { headers: { Authorization: `Bearer ${admin.token}` } });
     expect(siteRes.data.data.publicR2Url).toBe("https://cdn.shirine.moe");
 
     const sysAdminRes = await env.requestJson("/api/config/system/admin", {
@@ -122,7 +122,7 @@ describe("Tier 2 - Boundary: Cloudflare R2 Public Domain / Custom Domain Persist
     });
     expect(listRes.status).toBe(200);
     expect(listRes.data.objects).toHaveLength(1);
-    expect(listRes.data.objects[0].url).toBe("https://media.shirine.moe/uploads/cover-test.webp");
+    expect(listRes.data.objects[0].url).toContain("/api/blob/uploads/cover-test.webp?expires=");
 
     // 2. Perform a real file upload with valid PNG signature
     // PNG magic bytes: 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
@@ -152,8 +152,8 @@ describe("Tier 2 - Boundary: Cloudflare R2 Public Domain / Custom Domain Persist
     expect(uploadRes.status).toBe(200);
     const uploadData = await uploadRes.json();
     expect(uploadData.success).toBe(true);
-    expect(uploadData.url.startsWith("https://media.shirine.moe/uploads/")).toBe(true);
-    expect(uploadData.url.endsWith(".png")).toBe(true);
+    expect(uploadData.url.startsWith("/api/blob/uploads/")).toBe(true);
+    expect(new URL(uploadData.url, "https://test.invalid").pathname.endsWith(".png")).toBe(true);
 
     env.close();
   });
@@ -175,7 +175,7 @@ describe("Tier 2 - Boundary: Cloudflare R2 Public Domain / Custom Domain Persist
       }),
     });
 
-    const configuredSite = await env.requestJson("/api/config/site");
+    const configuredSite = await env.requestJson("/api/config/site", { headers: { Authorization: `Bearer ${admin.token}` } });
     expect(configuredSite.data.data.publicR2Url).toBe("https://custom.shirine.moe");
 
     // 2. Clear custom domain via PUT /api/config/system
@@ -207,7 +207,7 @@ describe("Tier 2 - Boundary: Cloudflare R2 Public Domain / Custom Domain Persist
     expect(listRes.status).toBe(200);
     const revertedObj = listRes.data.objects.find((o: any) => o.key === "uploads/reverted.png");
     expect(revertedObj).toBeDefined();
-    expect(revertedObj.url).toBe("http://localhost/api/blob/uploads/reverted.png");
+    expect(revertedObj.url).toContain("/api/blob/uploads/reverted.png?expires=");
 
     env.close();
   });
@@ -229,7 +229,7 @@ describe("Tier 2 - Boundary: Cloudflare R2 Public Domain / Custom Domain Persist
     });
     expect(autoPrefixRes.status).toBe(200);
 
-    const siteRes = await env.requestJson("/api/config/site");
+    const siteRes = await env.requestJson("/api/config/site", { headers: { Authorization: `Bearer ${admin.token}` } });
     expect(siteRes.data.data.publicR2Url).toBe("https://assets.shirine.moe/subpath");
 
     // 2. Submit dangerous scheme javascript:

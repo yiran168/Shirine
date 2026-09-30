@@ -1,7 +1,7 @@
 ---
 export const prerender = false;
 
-import { render } from "astro:content";
+import { getCollection, render } from "astro:content";
 import path from "node:path";
 import IconButton from "@components/atoms/action/IconButton.svelte";
 import AccentBar from "@components/atoms/display/AccentBar.svelte";
@@ -24,7 +24,7 @@ import MainGridLayout from "@layouts/MainGridLayout.astro";
 import { discoverArticles } from "@utils/article-discovery";
 import { resolveAsset } from "@utils/asset-utils";
 import { getPublishedInstant, getUpdatedInstant } from "@utils/content-date";
-import { getSortedPosts, getDiscoveryCandidates, fetchApi } from "@utils/content-utils";
+import { getDiscoveryCandidates, fetchApi } from "@utils/content-utils";
 import { formatDateToYYYYMMDD } from "@utils/date-utils";
 import { getMarkdownStylesheetAssets } from "@utils/markdown-assets";
 import { getSourceMarkdownSyntaxSnapshot } from "@utils/markdown-source-syntaxes.mjs";
@@ -66,10 +66,6 @@ const slug = decodeURIComponent(rawSlug).trim().replace(/^\/+|\/+$/g, "").replac
 const cookieToken = Astro.cookies.get("shirine_token")?.value;
 const rawCookie = Astro.request.headers.get("cookie") || "";
 const cookieHeader = rawCookie || (cookieToken ? `shirine_token=${cookieToken}` : "");
-let authHeader = Astro.request.headers.get("authorization") || "";
-if (!authHeader && cookieToken) {
-	authHeader = `Bearer ${cookieToken}`;
-}
 
 // Fetch authoritative post detail from backend API first (O(1))
 let dynamicDetail: any = null;
@@ -93,7 +89,9 @@ if (isDynamicProd && (!dynamicDetail || apiPostNotFound)) {
 	return Astro.redirect("/404");
 }
 
-const blogEntries = await getSortedPosts();
+// Only actual content-collection entries can be passed to Astro's renderer.
+// API index entries deliberately omit the body and are never local fallbacks.
+const blogEntries = await getCollection("posts");
 initPostIdMap(blogEntries);
 const localEntry = blogEntries.find((cand) => {
 	const defaultSlug = removeFileExtension(cand.id);
@@ -110,12 +108,21 @@ let entry: any = null;
 let discoveryCandidates: any[] = [];
 
 if (dynamicDetail) {
-	const resolvedContent = (dynamicDetail.content && dynamicDetail.content.trim())
-		? dynamicDetail.content
-		: (localEntry?.body || "");
+	const resolvedContent = dynamicDetail.isUnlocked ? (dynamicDetail.content || "") : "";
 	const normalizeBody = (s?: string | null) => (s || "").replace(/\r\n/g, "\n").trim();
-	if (localEntry && (!dynamicDetail.content || normalizeBody(dynamicDetail.content) === normalizeBody(localEntry.body))) {
-		entry = localEntry;
+	if (localEntry && dynamicDetail.isUnlocked && normalizeBody(dynamicDetail.content) === normalizeBody(localEntry.body)) {
+		entry = { ...localEntry, data: {
+			...localEntry.data,
+			title: dynamicDetail.title ?? localEntry.data.title,
+			description: dynamicDetail.description ?? localEntry.data.description,
+			image: dynamicDetail.image ?? localEntry.data.image,
+			category: dynamicDetail.category ?? localEntry.data.category,
+			tags: dynamicDetail.tags ?? localEntry.data.tags,
+			updated: dynamicDetail.updatedAt ? new Date(dynamicDetail.updatedAt) : localEntry.data.updated,
+			pinned: Boolean(dynamicDetail.pinned),
+			draft: Boolean(dynamicDetail.draft),
+			comment: Boolean(dynamicDetail.commentEnabled),
+		} };
 	} else {
 		entry = {
 			id: dynamicDetail.slug || String(dynamicDetail.id),
@@ -125,9 +132,9 @@ if (dynamicDetail) {
 				title: dynamicDetail.title || localEntry?.data.title || slug,
 				published: new Date(dynamicDetail.createdAt || (localEntry?.data.published ?? Date.now())),
 				updated: dynamicDetail.updatedAt ? new Date(dynamicDetail.updatedAt) : localEntry?.data.updated,
-				description: dynamicDetail.description || localEntry?.data.description || "",
-				image: dynamicDetail.image || localEntry?.data.image || "",
-				category: dynamicDetail.category || localEntry?.data.category || "",
+				description: dynamicDetail.description ?? localEntry?.data.description ?? "",
+				image: dynamicDetail.image ?? localEntry?.data.image ?? "",
+				category: dynamicDetail.category ?? localEntry?.data.category ?? "",
 				tags: Array.isArray(dynamicDetail.tags) ? dynamicDetail.tags : (localEntry?.data.tags || []),
 				pinned: Boolean(dynamicDetail.pinned ?? localEntry?.data.pinned),
 				draft: Boolean(dynamicDetail.draft ?? localEntry?.data.draft),
@@ -211,7 +218,7 @@ let remarkPluginFrontmatter: any = { words: 0, minutes: 0, markdownSyntaxes: [] 
 let dynamicHtml = "";
 
 const explicitWords = (entry.data as any).words ?? (entry.body ? entry.body.replace(/\s+/g, "").length : 0);
-const canAstroRender = Boolean(entry === localEntry || (entry as any).deferredRender || (entry as any).rendered?.html);
+const canAstroRender = Boolean(!dynamicDetail || (dynamicDetail.isUnlocked && localEntry && (entry as any).filePath));
 
 if (canAstroRender) {
 	try {

@@ -477,6 +477,8 @@ export async function deployClient(): Promise<void> {
     process.exit(buildProc.exitCode ?? 1);
   }
   console.log(`✅ Client built successfully into ./client/dist`);
+  const limits = Bun.spawnSync([bunExec, path.join(rootDir, "scripts/check-cloudflare-limits.mjs")], { stdout: "inherit", stderr: "inherit" });
+  if (limits.exitCode !== 0) throw new Error("Cloudflare size validation failed; deployment stopped");
 
   // 1. Generate Cloudflare Pages native edge _redirects rule if external API URL is available
   if (effectiveApiUrl && effectiveApiUrl.startsWith("http")) {

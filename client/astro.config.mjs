@@ -141,7 +141,7 @@ export default defineConfig({
 	output: "server",
 	adapter: cloudflare({
 		platformProxy: {
-			enabled: true,
+			enabled: !(isDevCommand && process.env.SHIRINE_LOCAL_API === "1"),
 		},
 		imageService: "passthrough",
 	}),
@@ -152,8 +152,8 @@ export default defineConfig({
 			ignore: 'a[href="#"]',
 			animationClass: "transition-swup-",
 			containers: ["main", "#toc"],
-			smoothScrolling: true,
-			cache: true,
+			smoothScrolling: false,
+			cache: false,
 			preload: false,
 			accessibility: true,
 			updateHead: {

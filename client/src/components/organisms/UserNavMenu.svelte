@@ -115,7 +115,7 @@
   <button
     type="button"
     onclick={toggleMenu}
-    class="relative w-10 h-10 rounded-full overflow-hidden flex items-center justify-center border border-[var(--outline-variant)]/30 hover:border-primary/50 shadow-xs hover:shadow-md transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/40 group bg-transparent text-[var(--on-surface)]"
+    class="relative w-11 h-11 rounded-full overflow-hidden flex items-center justify-center border border-[var(--outline-variant)]/30 hover:border-primary/50 shadow-xs hover:shadow-md transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/40 group bg-transparent text-[var(--on-surface)]"
     aria-label="用户菜单"
     aria-expanded={menuOpen}
   >
@@ -240,12 +240,13 @@
         <!-- Admin summary header -->
         <div class="px-3.5 py-2 rounded-xl bg-[var(--surface-container)]/40 mb-1">
           <div class="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">{authStore.user?.nickname || authStore.user?.username}</div>
-          <div class="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Super Admin</div>
+          <div class="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">{authStore.user?.role === "superadmin" ? "Super Admin" : "Admin"}</div>
         </div>
 
         <!-- ① Admin panel -->
         <a
           href="/admin"
+          data-no-swup
           class="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-zinc-900 dark:text-zinc-100 hover:!bg-purple-500/10 hover:!text-purple-600 dark:hover:!text-purple-400 transition-colors text-left !border-0 !shadow-none !bg-transparent group cursor-pointer"
           role="menuitem"
         >
@@ -313,4 +314,6 @@
   .animate-fade-in {
     animation: fadeIn 0.15s cubic-bezier(0.2, 0, 0, 1) forwards;
   }
+  .shirine-dropdown { max-width: calc(100vw - 2rem); }
+  .shirine-dropdown button, .shirine-dropdown a { min-height: 44px; }
 </style>

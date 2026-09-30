@@ -19,11 +19,7 @@ export function isSameOriginSubrequest(apiUrl: string, request?: Request): boole
 	try {
 		const reqUrl = new URL(request.url);
 		const targetUrl = new URL(apiUrl);
-		const reqHost = reqUrl.hostname.toLowerCase();
-		const targetHost = targetUrl.hostname.toLowerCase();
-		if (reqHost === targetHost) return true;
-		if (reqHost.endsWith(".pages.dev") && targetHost.endsWith(".pages.dev")) return true;
-		if ((reqHost === "localhost" || reqHost === "127.0.0.1") && (targetHost === "localhost" || targetHost === "127.0.0.1")) return true;
+		if (reqUrl.origin === targetUrl.origin) return true;
 		return false;
 	} catch {
 		return false;

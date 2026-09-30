@@ -1,307 +1,148 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { configApi } from "../../../services/api";
 
-  interface Props {
-    mode?: "guest" | "admin";
+  let { mode = "guest" }: { mode?: "guest" | "admin" } = $props();
+  let enabled = $state(false);
+  let visible = $state(false);
+  let started = $state(false);
+  let loaded = $state(false);
+  let failed = $state(false);
+  let frame: HTMLIFrameElement | undefined = $state();
+  let model = $state("/pio/models/NOIR/noir.model3.json");
+  let lang = $state("zh_CN");
+  let quotes: string[] = [];
+  let height = $state(400);
+  let x = $state(0);
+  let y = $state(44);
+  const width = 280;
+  const labels = $derived(lang === "en"
+    ? { show: "Show mascot", hide: "Hide mascot", loading: "Loading mascot…", retry: "Retry mascot", move: "Drag mascot", talk: "Talk", top: "Back to top" }
+    : lang === "ja"
+    ? { show: "看板娘を表示", hide: "看板娘を隠す", loading: "読み込み中…", retry: "再読み込み", move: "看板娘を移動", talk: "話す", top: "トップへ" }
+    : lang === "zh_TW"
+    ? { show: "顯示看板娘", hide: "收起看板娘", loading: "看板娘載入中…", retry: "重試載入看板娘", move: "拖曳看板娘", talk: "互動", top: "回到頂部" }
+    : { show: "显示看板娘", hide: "收起看板娘", loading: "看板娘加载中…", retry: "重试加载看板娘", move: "拖动看板娘", talk: "互动", top: "返回顶部" });
+
+  function send(type: string, extra: Record<string, unknown> = {}) {
+    frame?.contentWindow?.postMessage({ type, ...extra }, window.location.origin);
   }
-
-  let { mode = "guest" }: Props = $props();
-
-  let enabledByBackend = $state(true);
-  let userVisible = $state(true);
-  let modelPath = $state("/pio/models/NOIR/noir.model3.json");
-  let iframeEl: HTMLIFrameElement | null = $state(null);
-  let isLoaded = $state(false);
-  let iframeHeight = $state(500);
-
-  const WIDGET_WIDTH = 280;
-
-  let posX = $state(0);
-  let posY = $state(0);
-  let isDragging = $state(false);
-  let dragStartX = 0;
-  let dragStartY = 0;
-  let initialPosX = 0;
-  let initialPosY = 0;
-  let live2dLang = $state("zh_CN");
-  let live2dQuotes = $state<string[]>([]);
-
-  onMount(async () => {
-    if (typeof window === "undefined") return;
-
-    // 1. Check user local preference
-    const saved = localStorage.getItem("shirine_live2d_visible");
-    if (saved !== null) {
-      userVisible = saved === "true";
-    } else if (window.innerWidth < 768) {
-      userVisible = false; // Collapse by default on narrow mobile screens to avoid screen blockage
-    }
-
-    const defaultX = 24;
-    const defaultY = 24;
-    posX = defaultX;
-    posY = defaultY;
-
-    const savedPos = localStorage.getItem("shirine_live2d_pos");
-    if (savedPos) {
-      try {
-        const parsed = JSON.parse(savedPos);
-        if (typeof parsed.x === "number" && !isNaN(parsed.x)) posX = Math.max(0, Math.min(window.innerWidth - WIDGET_WIDTH, parsed.x));
-        if (typeof parsed.y === "number" && !isNaN(parsed.y)) posY = Math.max(0, Math.min(window.innerHeight - 100, parsed.y));
-      } catch {
-        posX = defaultX;
-        posY = defaultY;
+  function init(force = false) {
+    send("l2d-init", {
+      force, lang, quotes,
+      config: {
+        model: { path: model }, position: "bottom-left", size: { width, height: 360 },
+        transitionDuration: 180, transitionType: "fade", _hideAbout: true,
+        menus: { items: [
+          { icon: "talk", label: labels.talk, action: "talk" },
+          { icon: "scrollToTop", label: labels.top, action: "scrollToTop" },
+          { icon: "sleep", label: labels.hide, action: "sleep" },
+        ] },
+      },
+    });
+  }
+  function clampPosition() {
+    x = Math.max(0, Math.min(window.innerWidth - width, x));
+    y = Math.max(44, Math.min(Math.max(44, window.innerHeight - height), y));
+  }
+  function persist() {
+    try { localStorage.setItem("shirine_live2d_visible", String(visible)); } catch {}
+  }
+  async function toggle() {
+    if (failed) {
+      failed = false; loaded = false; visible = true; started = true;
+      await tick(); init(true);
+    } else {
+      visible = !visible;
+      if (visible) {
+        started = true; await tick();
+        if (loaded) send("l2d-wake"); else init();
       }
     }
-
-    // 2. Fetch backend configuration
+    persist();
+  }
+  function drag(event: PointerEvent) {
+    const button = event.currentTarget as HTMLElement;
+    button.setPointerCapture(event.pointerId);
+    let lastX = event.clientX, lastY = event.clientY;
+    button.onpointermove = (e) => {
+      x += e.clientX - lastX; y -= e.clientY - lastY;
+      lastX = e.clientX; lastY = e.clientY; clampPosition();
+    };
+    button.onpointerup = button.onpointercancel = () => {
+      button.onpointermove = null;
+      try { localStorage.setItem("shirine_live2d_pos", JSON.stringify({ x, y })); } catch {}
+    };
+  }
+  onMount(() => {
+    let alive = true;
     try {
-      if (mode === "admin") {
-        const res = await configApi.getAdminSystem();
-        const conf = res.data || res.config;
-        enabledByBackend = Boolean(conf?.live2dAdminEnable ?? conf?.live2dAdminEnabled ?? conf?.live2d?.adminEnabled ?? true);
-        if (conf?.live2dModel || conf?.live2d?.model) {
-          modelPath = conf.live2dModel || conf.live2d?.model;
-        }
-        if (conf?.live2dLang) {
-          live2dLang = conf.live2dLang;
-        }
-        const parseQuotes = (candidate: any): string[] => {
-          if (Array.isArray(candidate)) return candidate;
-          if (typeof candidate === "string") return candidate.split("\n").map((s: string) => s.trim()).filter(Boolean);
-          return [];
-        };
-        const quotesCandidate = conf?.live2dQuotes ?? conf?.live2d?.quotes;
-        if (quotesCandidate) {
-          const parsed = parseQuotes(quotesCandidate);
-          if (parsed.length > 0) live2dQuotes = parsed;
-        }
-      } else {
-        const res = await configApi.getSystem();
-        const conf = res.data || res.config;
-        enabledByBackend = Boolean(conf?.live2dGuestEnable ?? conf?.live2dGuestEnabled ?? conf?.live2d?.guestEnabled ?? true);
-        if (conf?.live2dModel || conf?.live2d?.model) {
-          modelPath = conf.live2dModel || conf.live2d?.model;
-        }
-        if (conf?.live2dLang) {
-          live2dLang = conf.live2dLang;
-        }
-        const parseQuotes = (candidate: any): string[] => {
-          if (Array.isArray(candidate)) return candidate;
-          if (typeof candidate === "string") return candidate.split("\n").map((s: string) => s.trim()).filter(Boolean);
-          return [];
-        };
-        const quotesCandidate = conf?.live2dQuotes ?? conf?.live2d?.quotes;
-        if (quotesCandidate) {
-          const parsed = parseQuotes(quotesCandidate);
-          if (parsed.length > 0) live2dQuotes = parsed;
-        }
-      }
-    } catch {
-      enabledByBackend = true;
-    }
-    initWidget();
-
-    // 3. Setup message listener for live2d-host.html
-    const handleMessage = (e: MessageEvent) => {
-      if (!iframeEl || e.source !== iframeEl.contentWindow) return;
-
-      if (e.data?.type === "l2d-loaded") {
-        isLoaded = true;
-        iframeHeight = e.data.contentHeight || 500;
-      } else if (e.data?.type === "l2d-sleep") {
-        userVisible = false;
-        if (typeof window !== "undefined") {
-          localStorage.setItem("shirine_live2d_visible", "false");
-        }
-      } else if (e.data?.type === "l2d-action") {
-        if (e.data.action === "home") {
-          window.location.href = "/";
-        } else if (e.data.action === "scrollToTop") {
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }
-      } else if (e.data?.type === "l2d-drag") {
-        posX = Math.max(0, Math.min(window.innerWidth - WIDGET_WIDTH, posX + (e.data.dx || 0)));
-        posY = Math.max(0, Math.min(window.innerHeight - 100, posY - (e.data.dy || 0)));
-        localStorage.setItem("shirine_live2d_pos", JSON.stringify({ x: posX, y: posY }));
-      }
+      visible = localStorage.getItem("shirine_live2d_visible") === "true" ||
+        (localStorage.getItem("shirine_live2d_visible") === null && window.innerWidth >= 768);
+      const pos = JSON.parse(localStorage.getItem("shirine_live2d_pos") || "null");
+      if (Number.isFinite(pos?.x) && Number.isFinite(pos?.y)) { x = pos.x; y = pos.y; }
+    } catch {}
+    lang = document.documentElement.lang.replace("-", "_");
+    clampPosition();
+    const refresh = async () => {
+      const res = await (mode === "admin" ? configApi.getAdminSystem() : configApi.getSystem());
+      if (!alive) return;
+      const conf = res.data || res.config || {};
+      enabled = mode === "admin"
+        ? Boolean(conf.live2dAdminEnable ?? conf.live2dAdminEnabled ?? conf.live2d?.adminEnabled ?? true)
+        : Boolean(conf.live2dGuestEnable ?? conf.live2dGuestEnabled ?? conf.live2d?.guestEnabled ?? true);
+      model = conf.live2dModel || conf.live2d?.model || model;
+      const configuredQuotes = conf.live2dQuotes ?? conf.live2d?.quotes;
+      quotes = Array.isArray(configuredQuotes) ? configuredQuotes : typeof configuredQuotes === "string" ? configuredQuotes.split("\n").filter(Boolean) : [];
+      started = started || (enabled && visible);
+      await tick(); if (started) init();
     };
-
-    window.addEventListener("message", handleMessage);
-
-    // 4. Setup window resize listener
-    const handleResize = () => {
-      const maxX = Math.max(0, window.innerWidth - WIDGET_WIDTH - 24);
-      if (posX > maxX) {
-        posX = maxX;
-      }
+    const message = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin || e.source !== frame?.contentWindow) return;
+      if (e.data?.type === "l2d-ready") init();
+      if (e.data?.type === "l2d-loaded") { loaded = true; failed = false; height = Math.min(600, Number(e.data.contentHeight) || 400); }
+      if (e.data?.type === "l2d-error") { failed = true; loaded = false; }
+      if (e.data?.type === "l2d-sleep") { visible = false; persist(); }
+      if (e.data?.type === "l2d-drag") { x += Number(e.data.dx) || 0; y -= Number(e.data.dy) || 0; clampPosition(); }
+      if (e.data?.type === "l2d-action" && e.data.action === "scrollToTop") window.scrollTo({ top: 0, behavior: "smooth" });
     };
-    window.addEventListener("resize", handleResize);
-
-    // 5. Setup Swup listener if present
-    const onVisitEnd = () => {
-      initWidget();
-    };
-    if ((window as any).swup?.hooks) {
-      (window as any).swup.hooks.on("visit:end", onVisitEnd);
-    }
-
+    const language = (e: Event) => { lang = (e as CustomEvent).detail?.lang || lang; init(); };
+    window.addEventListener("message", message);
+    window.addEventListener("resize", clampPosition);
+    window.addEventListener("shirine-lang-change", language);
+    window.addEventListener("shirine-config-updated", refresh);
+    void refresh();
     return () => {
-      window.removeEventListener("message", handleMessage);
-      window.removeEventListener("resize", handleResize);
-      if ((window as any).swup?.hooks) {
-        try {
-          (window as any).swup.hooks.off("visit:end", onVisitEnd);
-        } catch {}
-      }
+      alive = false;
+      window.removeEventListener("message", message);
+      window.removeEventListener("resize", clampPosition);
+      window.removeEventListener("shirine-lang-change", language);
+      window.removeEventListener("shirine-config-updated", refresh);
     };
   });
-
-  function startDrag(e: MouseEvent | TouchEvent) {
-    isDragging = true;
-    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-    dragStartX = clientX;
-    dragStartY = clientY;
-    initialPosX = posX;
-    initialPosY = posY;
-
-    const onMove = (ev: MouseEvent | TouchEvent) => {
-      if (!isDragging) return;
-      const curX = "touches" in ev ? ev.touches[0].clientX : ev.clientX;
-      const curY = "touches" in ev ? ev.touches[0].clientY : ev.clientY;
-      const deltaX = curX - dragStartX;
-      const deltaY = dragStartY - curY;
-      posX = Math.max(0, Math.min(window.innerWidth - WIDGET_WIDTH, initialPosX + deltaX));
-      posY = Math.max(0, Math.min(window.innerHeight - 100, initialPosY + deltaY));
-    };
-
-    const onEnd = () => {
-      isDragging = false;
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onEnd);
-      window.removeEventListener("touchmove", onMove);
-      window.removeEventListener("touchend", onEnd);
-      localStorage.setItem("shirine_live2d_pos", JSON.stringify({ x: posX, y: posY }));
-    };
-
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onEnd);
-    window.addEventListener("touchmove", onMove);
-    window.addEventListener("touchend", onEnd);
-  }
-
-  function initWidget(force = false) {
-    if (!iframeEl || !iframeEl.contentWindow) return;
-    const widgetConfig = {
-      model: { path: modelPath },
-      position: "bottom-left",
-      size: WIDGET_WIDTH,
-      transitionDuration: 1500,
-      transitionType: "slide",
-      _hideAbout: true,
-      menus: {
-        items: [
-          { icon: "talk", label: "互动", action: "talk" },
-          { icon: "scrollToTop", label: "返回顶部", action: "scrollToTop" },
-          { icon: "sleep", label: "收起", action: "sleep" },
-        ],
-      },
-    };
-
-    iframeEl.contentWindow.postMessage({ type: "l2d-init", config: widgetConfig, lang: live2dLang, quotes: live2dQuotes, force }, "*");
-  }
-
-  function handleIframeLoad() {
-    initWidget();
-  }
-
-  function toggleVisible() {
-    userVisible = !userVisible;
-    if (typeof window !== "undefined") {
-      localStorage.setItem("shirine_live2d_visible", String(userVisible));
-    }
-    if (userVisible) {
-      if (iframeEl?.contentWindow) {
-        iframeEl.contentWindow.postMessage({ type: "l2d-wake" }, "*");
-      }
-      if (!isLoaded) {
-        initWidget(false);
-      }
-    }
-  }
-
-  const shouldShow = $derived(enabledByBackend && userVisible);
 </script>
 
-{#if enabledByBackend}
-  {#if !userVisible}
-    <!-- Fixed summon button pinned directly to bottom-left corner -->
-    <div
-      class="fixed pointer-events-auto transition-all duration-300"
-      style="z-index: 99999 !important; left: {posX}px; bottom: {posY}px;"
-    >
-      <button
-        type="button"
-        onclick={toggleVisible}
-        class="w-10 h-10 rounded-full bg-[var(--surface-container-high)]/95 hover:bg-[var(--surface-container)] border border-[var(--outline-variant)]/60 text-[var(--on-surface)] shadow-lg hover:shadow-xl backdrop-blur-md flex items-center justify-center transition-all hover:scale-110 active:scale-95 group focus:outline-none"
-        title="呼唤看板娘"
-        aria-label="呼唤看板娘"
-      >
-        <span class="text-base group-hover:scale-125 transition-transform select-none">✨</span>
-      </button>
+{#if enabled}
+  <button type="button" class="mascot-toggle m3-state-layer" onclick={toggle}
+    aria-expanded={visible} aria-controls="shirine-mascot" title={failed ? labels.retry : visible ? labels.hide : labels.show}>
+    <span aria-hidden="true">✦</span><span>{failed ? labels.retry : visible ? labels.hide : labels.show}</span>
+  </button>
+  {#if started}
+    <div id="shirine-mascot" class="mascot" style:left={`${x}px`} style:bottom={`${y}px`} hidden={!visible}>
+      <iframe bind:this={frame} src="/pio/live2d-host.html" onload={() => init()} title="Shirine Live2D"
+        style:width={`${width}px`} style:height={`${height}px`} style:opacity={loaded ? 1 : 0}></iframe>
+      {#if !loaded}<p role="status">{failed ? labels.retry : labels.loading}</p>{/if}
+      {#if loaded}<button type="button" class="mascot-drag" onpointerdown={drag} title={labels.move} aria-label={labels.move}>⠿</button>{/if}
     </div>
   {/if}
-
-  <!-- Draggable Live2D Container with supreme stacking priority -->
-  <div
-    class="fixed select-none pointer-events-none transition-opacity duration-300"
-    style="z-index: 99999 !important; left: {posX}px; bottom: {posY}px; opacity: {userVisible ? '1' : '0'}; visibility: {userVisible ? 'visible' : 'hidden'};"
-  >
-    <!-- Live2D Host Iframe (Sandboxed) -->
-    <iframe
-      bind:this={iframeEl}
-      id="l2d-iframe"
-      src="/pio/live2d-host.html"
-      onload={handleIframeLoad}
-      title="Shirine Live2D 看板娘"
-      allowtransparency="true"
-      class="border-none transition-opacity duration-300 block"
-      style="width: {WIDGET_WIDTH}px; height: {iframeHeight}px; opacity: {userVisible && isLoaded ? '1' : '0'}; pointer-events: {userVisible && isLoaded ? 'auto' : 'none'};"
-    ></iframe>
-
-    <!-- Drag Handle and Toggle Button Bar with supreme z-index -->
-    <div
-      class="absolute bottom-0 left-0 flex items-center gap-1.5 pointer-events-auto"
-      style="z-index: 99999 !important;"
-    >
-      <!-- Collapse Button -->
-      <button
-        type="button"
-        onclick={toggleVisible}
-        class="w-10 h-10 rounded-full bg-[var(--surface-container-high)]/95 hover:bg-[var(--surface-container)] border border-[var(--outline-variant)]/60 text-[var(--on-surface)] shadow-lg hover:shadow-xl backdrop-blur-md flex items-center justify-center transition-all hover:scale-110 active:scale-95 group focus:outline-none"
-        title="收起看板娘"
-        aria-label="收起看板娘"
-      >
-        <span class="text-base group-hover:rotate-12 transition-transform select-none">🌸</span>
-      </button>
-
-      <!-- Move / Drag Handle Button -->
-      {#if isLoaded}
-        <button
-          type="button"
-          onmousedown={startDrag}
-          ontouchstart={startDrag}
-          class="w-8 h-8 rounded-full bg-[var(--surface-container-high)]/80 hover:bg-[var(--surface-container)] border border-[var(--outline-variant)]/40 text-[var(--on-surface-variant)] hover:text-[var(--primary)] shadow-sm backdrop-blur-md flex items-center justify-center cursor-move transition-all active:scale-90"
-          title="按住拖拽看板娘位置"
-          aria-label="按住拖拽看板娘位置"
-        >
-          <svg class="w-4 h-4 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16" />
-          </svg>
-        </button>
-      {/if}
-    </div>
-  </div>
 {/if}
+
+<style>
+  .mascot-toggle { position: fixed; left: 0; bottom: env(safe-area-inset-bottom, 0px); z-index: 90; min-height: 44px; display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid var(--outline-variant); border-radius: 0 16px 0 0; background: var(--surface-container-high, #e9e7ef); color: var(--on-surface, #222); cursor: pointer; }
+  .mascot-toggle:active { transform: scale(.97); }
+  .mascot { position: fixed; z-index: 89; pointer-events: none; }
+  .mascot[hidden] { display: none; }
+  iframe { border: 0; display: block; pointer-events: auto; }
+  p { position: absolute; bottom: 10px; padding: 8px; border-radius: 12px; background: var(--surface-container-high); color: var(--on-surface); font-size: 12px; }
+  .mascot-drag { position: absolute; bottom: 0; left: 0; width: 44px; height: 44px; border-radius: 50%; background: var(--surface-container); color: var(--on-surface); pointer-events: auto; touch-action: none; cursor: grab; }
+</style>

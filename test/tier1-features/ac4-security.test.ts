@@ -144,14 +144,14 @@ describe("Tier 1 - AC 4: Security Standards & Content Protection", () => {
     });
 
     // 1. Unattached asset without any public DB reference -> Forbidden for regular/anonymous
-    const anonRes = await env.request(`/api/blob/${assetKey}`);
+    const anonRes = await env.requestMedia(`/api/blob/${assetKey}`);
     expect(anonRes.status).toBe(403);
     const anonText = await anonRes.text();
     expect(anonText).toContain("Unattached or unpublished asset");
 
     // 2. Admin can preview unattached asset
     const admin = await env.createSuperadmin("blob_admin", "adminpass123");
-    const adminRes = await env.request(`/api/blob/${assetKey}`, {
+    const adminRes = await env.requestMedia(`/api/blob/${assetKey}`, {
       headers: { Authorization: `Bearer ${admin.token}` },
     });
     expect(adminRes.status).toBe(200);
@@ -166,7 +166,7 @@ describe("Tier 1 - AC 4: Security Standards & Content Protection", () => {
     // Corrupt DB query method
     brokenEnv.d1.sqlite.close(); // Closing sqlite will cause queries to throw
 
-    const failClosedRes = await brokenEnv.request(`/api/blob/${assetKey}`);
+    const failClosedRes = await brokenEnv.requestMedia(`/api/blob/${assetKey}`);
     expect(failClosedRes.status).toBe(503);
     const failText = await failClosedRes.text();
     expect(failText).toContain("Media authorization backend unavailable");

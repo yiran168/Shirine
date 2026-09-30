@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/yiran168/Shirine/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" /></a>
   <a href="https://github.com/yiran168/Shirine/actions"><img src="https://img.shields.io/badge/CI%2FCD-Cloudflare%20Pages%20%2B%20Workers-orange.svg" alt="Deploy" /></a>
-  <a href="https://astro.build"><img src="https://img.shields.io/badge/Astro-5-BC52EE.svg" alt="Astro" /></a>
+  <a href="https://astro.build"><img src="https://img.shields.io/badge/Astro-7-BC52EE.svg" alt="Astro" /></a>
   <a href="https://svelte.dev"><img src="https://img.shields.io/badge/Svelte-5-FF3E00.svg" alt="Svelte" /></a>
   <a href="https://developers.cloudflare.com/workers/"><img src="https://img.shields.io/badge/Cloudflare-Workers%20%2B%20D1%20%2B%20R2-F38020.svg" alt="Cloudflare" /></a>
 </p>
@@ -37,7 +37,7 @@ It marries the visual elegance of Google's **Material 3 Expressive** (2025) desi
   - HCT dynamic color palette: adjusting theme hue (0-360°) automatically generates compliant tonal palettes.
   - Rich Markdown extensions: Admonitions, Steps, Collapse panels, Code grouping, Mermaid diagrams, KaTeX formulas, and Bilibili/audio media players.
 - ⚡ **Instant Dynamic Publishing**:
-  - Frontend: Astro 5 SSR on Cloudflare Pages.
+  - Frontend: Astro 7 SSR on Cloudflare Pages.
   - Backend: Cloudflare Workers + Hono + Drizzle ORM.
   - Storage: Cloudflare D1 distributed SQL for content, Cloudflare R2 for images.
   - Newly published posts, albums, and moments appear on the frontend **immediately on refresh**.
@@ -116,3 +116,5 @@ Deploy entirely on Cloudflare's free tier:
 ## 📄 License
 
 Shirine is open source software licensed under the [MIT License](LICENSE).
+
+Avatar artwork sources and usage notes are listed in the [asset ledger](docs/maintenance/avatar-sources.md); artwork is excluded from the code MIT license.

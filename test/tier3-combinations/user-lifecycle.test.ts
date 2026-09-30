@@ -73,7 +73,7 @@ describe("Tier 3 - Combination: Complete User Lifecycle", () => {
     expect(failedUnlock.data.error).toContain("Insufficient points");
 
     // Media access should also be blocked (403)
-    const blockedMedia = await env.request(`/api/blob/${mediaKey}`, {
+    const blockedMedia = await env.requestMedia(`/api/blob/${mediaKey}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(blockedMedia.status).toBe(403);
@@ -116,7 +116,7 @@ describe("Tier 3 - Combination: Complete User Lifecycle", () => {
     expect(finalLedger[2].amount).toBe(-100);
 
     // Step 9: Access protected blob media now succeeds (200)
-    const allowedMedia = await env.request(`/api/blob/${mediaKey}`, {
+    const allowedMedia = await env.requestMedia(`/api/blob/${mediaKey}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     expect(allowedMedia.status).toBe(200);

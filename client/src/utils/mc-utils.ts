@@ -203,6 +203,7 @@ function argbToHex(argb: number): string {
 }
 
 export type McScheme = Record<string, string | null>;
+const schemeCache = new Map<string, McScheme>();
 
 /**
  * Resolve every M3/M3E color role to hex for a given seed hue, style, spec and
@@ -221,6 +222,9 @@ export function resolveScheme(
 	style: McStyle,
 	spec: McSpec,
 ): McScheme {
+	const key = `${hue}:${isDark}:${style}:${spec}`;
+	const cached = schemeCache.get(key);
+	if (cached) return cached;
 	const scheme = buildScheme(style, isDark, seedFromHue(hue), spec);
 	initRoleMap(scheme.colors);
 	const out: McScheme = {};
@@ -233,5 +237,7 @@ export function resolveScheme(
 		const argb = dc.getArgb(scheme);
 		out[name] = argbToHex(argb);
 	}
+	if (schemeCache.size >= 32) schemeCache.delete(schemeCache.keys().next().value!);
+	schemeCache.set(key, out);
 	return out;
 }

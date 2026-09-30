@@ -15,7 +15,9 @@ import { friendsRouter } from "./routes/friends";
 import { trimTrailingSlash } from "hono/trailing-slash";
 import { configRouter } from "./routes/config";
 import { adminRouter } from "./routes/admin";
-import { uploadRouter } from "./routes/upload";
+import { uploadRouter, getPublicR2Url } from "./routes/upload";
+import { protectMediaUrls, canonicalizeMediaInput, verifyMediaSignature, signedMediaUrl } from "./core/media-access";
+import { musicRouter } from "./routes/music";
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -75,6 +77,22 @@ app.use("/api/*", async (c, next) => {
 // Global JWT Extraction Middleware
 app.use("/api/*", authMiddleware);
 
+app.use("/api/*", async (c, next) => {
+  if (["POST", "PUT", "PATCH"].includes(c.req.method) && c.req.header("Content-Type")?.includes("application/json")) {
+    const readJson = c.req.json.bind(c.req);
+    c.req.json = async () => canonicalizeMediaInput(await readJson());
+  }
+  await next();
+  if (!c.res.headers.get("content-type")?.includes("application/json")) return;
+  c.header("Cache-Control", "private, no-store");
+  const body = await c.res.clone().text();
+  if (!body.includes("http") && !body.includes("/api/blob/") && !body.includes("/api/upload/blob/") && !body.includes("avatar_")) return;
+  const base = await getPublicR2Url(c.env);
+  const user = c.get("user");
+  const data = await protectMediaUrls(JSON.parse(body), [base, c.env.PUBLIC_R2_URL || "", "https://pub-a6d6803bf2bf426ca31d2f66fdba3ace.r2.dev"], c.env, user?.role === "admin" || user?.role === "superadmin");
+  c.res = new Response(JSON.stringify(data), { status: c.res.status, headers: c.res.headers });
+});
+
 // Health Check
 app.get("/api/health", (c) => {
   return c.json({
@@ -96,6 +114,17 @@ app.route("/api/friends", friendsRouter);
 app.route("/api/config", configRouter);
 app.route("/api/admin", adminRouter);
 app.route("/api/upload", uploadRouter);
+app.route("/api/music", musicRouter);
+// Renew images on long-open pages. The signature is only a hotlink guard;
+// handleBlobStream rechecks the user's permissions before reading any object.
+app.post("/api/media/refresh", async c => {
+  if (c.req.header("Sec-Fetch-Site") !== "same-origin") return c.json({ success: false }, 403);
+  const url = new URL(c.req.query("url") || "/", "https://media.invalid");
+  if (!url.pathname.startsWith("/api/blob/")) return c.json({ success: false }, 400);
+  const key = decodeURIComponent(url.pathname.slice("/api/blob/".length));
+  if (!await verifyMediaSignature(key, url, c.env, true)) return c.json({ success: false }, 403);
+  return c.json({ success: true, url: await signedMediaUrl(key, c.env) });
+});
 app.get("/api/blob/*", (c) => handleBlobStream(c));
 
 // 404 Handler

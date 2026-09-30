@@ -119,8 +119,9 @@ export function getLinkPresets(lang?: string): Record<string, NavBarLink> {
 
 export const LinkPresets: Record<string, NavBarLink> = getLinkPresets();
 
-export function getDynamicNavBarConfig(lang?: string): NavBarConfig {
+export function getDynamicNavBarConfig(lang?: string, githubUrl = "https://github.com/yiran168/Shirine"): NavBarConfig {
 	const presets = getLinkPresets(lang);
+	presets.GitHub.url = /^https:\/\//i.test(githubUrl) ? githubUrl : "https://github.com/yiran168/Shirine";
 	return {
 		links: [
 			presets.Home,

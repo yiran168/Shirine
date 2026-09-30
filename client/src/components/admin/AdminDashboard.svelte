@@ -287,6 +287,7 @@
     title: "Shirine",
     subtitle: "A Material 3 anime blog",
     lang: "zh_CN",
+    githubUrl: "https://github.com/yiran168/Shirine",
     liquidGlassMode: "none" as "none" | "subtle" | "vibrant",
     themeHue: 315,
     themeStyle: "tonalSpot",
@@ -387,6 +388,8 @@
   let draggedProjectIndex = $state<number | null>(null);
   let draggedDeviceIndex = $state<number | null>(null);
   let draggedSkillIndex = $state<number | null>(null);
+  let draggedCompassIndex = $state<number | null>(null);
+  let draggedAnimeIndex = $state<number | null>(null);
   let draggedTimelineIndex = $state<number | null>(null);
 
   // Media Library state
@@ -607,7 +610,8 @@
             title: s.title ?? siteConfigState.title,
             subtitle: s.subtitle ?? siteConfigState.subtitle,
             lang: s.lang ?? siteConfigState.lang,
-            liquidGlassMode: s.liquidGlassMode ?? siteConfigState.liquidGlassMode,
+            githubUrl: s.githubUrl ?? siteConfigState.githubUrl,
+            liquidGlassMode: s.liquidGlassMode && s.liquidGlassMode !== "none" ? "subtle" : "none",
             themeHue: s.themeColor?.hue ?? siteConfigState.themeHue,
             themeStyle: s.themeColor?.style ?? siteConfigState.themeStyle,
             topAppBarAlign: s.topAppBar?.contentAlign ?? siteConfigState.topAppBarAlign,
@@ -1765,6 +1769,16 @@
   }
 
   // --- Drag and Drop Handlers ---
+  function dropFeature(kind: "compass" | "anime", target: number) {
+    const from = kind === "compass" ? draggedCompassIndex : draggedAnimeIndex;
+    if (from !== null && from !== target) {
+      const list = [...siteConfigState[kind]];
+      list.splice(target, 0, list.splice(from, 1)[0]);
+      siteConfigState[kind] = list;
+    }
+    draggedCompassIndex = null; draggedAnimeIndex = null;
+  }
+
   function handleProjectDrop(targetIdx: number) {
     if (draggedProjectIndex === null || draggedProjectIndex === targetIdx) return;
     const list = [...siteConfigState.projects];
@@ -1918,6 +1932,8 @@
       const res = await mediaApi.delete(key);
       if (res.success) {
         showMessage("文件已成功从 R2 删除！");
+        window.dispatchEvent(new CustomEvent("shirine-config-updated"));
+        document.body.dataset.liquidGlass = siteConfigState.liquidGlassMode;
         await loadMediaLibrary();
       } else {
         showMessage(res.error || "删除失败", true);
@@ -2456,7 +2472,7 @@
 
       {#if authStore.user}
         <div class="flex items-center gap-2 pl-2 border-l border-[var(--outline-variant)]/20">
-          <img src={authStore.user.avatar || "/assets/avatars/avatar_01.webp"} alt="Admin" class="w-8 h-8 rounded-full ring-2 ring-primary/20 object-cover" />
+          <img src={authStore.user.avatar || "/assets/avatars/frieren.webp"} alt="Admin" class="w-8 h-8 rounded-full ring-2 ring-primary/20 object-cover" />
           <div class="hidden md:flex flex-col text-left">
             <span class="text-xs font-semibold">{authStore.user.nickname || authStore.user.username}</span>
             <span class="text-[10px] text-primary capitalize font-medium">{authStore.user.role}</span>
@@ -2602,7 +2618,7 @@
     <!-- Main Admin Layout -->
     <div class="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
       <!-- Sidebar Navigation -->
-      <aside class="w-full md:w-64 border-r border-[var(--outline-variant)]/20 bg-[var(--surface-container-lowest)] p-4 flex md:flex-col gap-1 overflow-x-auto shrink-0 md:h-full md:overflow-y-auto relative z-20 pointer-events-auto">
+      <aside class="w-full md:w-64 border-r border-[var(--outline-variant)]/20 bg-[var(--surface-container-lowest)] p-4 md:pb-20 flex md:flex-col gap-1 overflow-x-auto shrink-0 md:h-full md:overflow-y-auto relative z-20 pointer-events-auto">
         <button
           onclick={() => switchTab("overview")}
           class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap {currentTab === 'overview' ? 'bg-primary text-on-primary shadow-sm' : 'hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)]'}"
@@ -3341,7 +3357,7 @@
                 {#each users as user}
                   <tr class="hover:bg-[var(--surface-container-lowest)] transition-colors">
                     <td class="px-6 py-4 flex items-center gap-3">
-                      <img src={user.avatar || "/assets/avatars/avatar_01.webp"} alt={user.username} class="w-8 h-8 rounded-full object-cover" />
+                      <img src={user.avatar || "/assets/avatars/frieren.webp"} alt={user.username} class="w-8 h-8 rounded-full object-cover" />
                       <div>
                         <span class="font-semibold block">{user.nickname || user.username}</span>
                         <span class="text-xs text-[var(--on-surface-variant)]">{user.email || user.username}</span>
@@ -3353,10 +3369,10 @@
                       </span>
                     </td>
                     <td class="px-4 py-4 text-xs font-bold text-purple-600 dark:text-purple-400">
-                      {user.points} 点
+                      {user.role === 'user' ? `${user.points} 点` : '不适用'}
                     </td>
                     <td class="px-4 py-4 text-xs text-[var(--on-surface-variant)]">
-                      {user.checkinStreak ?? user.checkinCount ?? 0} 天
+                      {user.role === 'user' ? `${user.checkinStreak ?? user.checkinCount ?? 0} 天` : '不适用'}
                     </td>
                     <td class="px-4 py-4 text-xs">
                       {#if user.status === 'banned'}
@@ -3366,7 +3382,7 @@
                       {/if}
                     </td>
                     <td class="px-6 py-4 text-right space-x-2">
-                      {#if authStore.user?.role === 'superadmin' || user.role !== 'superadmin'}
+                      {#if user.role === 'user'}
                         <button onclick={() => openAdjustPoints(user)} class="text-primary font-medium text-xs hover:underline">调整积分</button>
                       {/if}
                       {#if authStore.user?.role === 'superadmin' && user.role !== 'superadmin'}
@@ -4153,7 +4169,11 @@
               {#if siteConfigState.compass && siteConfigState.compass.length > 0}
                 <div class="space-y-4">
                   {#each siteConfigState.compass as shelf, shelfIdx}
-                    <div class="p-4 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3">
+                    <div ondragover={(e) => e.preventDefault()} ondrop={(e) => { e.preventDefault(); dropFeature("compass", shelfIdx); }}
+                      class="p-4 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3" style:opacity={draggedCompassIndex === shelfIdx ? .5 : 1}>
+                      <button type="button" draggable="true" ondragstart={(e) => { draggedCompassIndex = shelfIdx; e.dataTransfer?.setData("text/plain", String(shelfIdx)); }}
+                        ondragend={() => draggedCompassIndex = null} title="按住拖拽排序" aria-label="按住拖拽排序"
+                        class="min-w-11 min-h-11 cursor-grab text-[var(--on-surface-variant)] rounded-lg hover:bg-primary/10">⠿</button>
                       <div class="flex items-center justify-between gap-3 pb-2 border-b border-[var(--outline-variant)]/10">
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1">
                           <div>
@@ -4365,7 +4385,11 @@
               {#if siteConfigState.anime && siteConfigState.anime.length > 0}
                 <div class="space-y-3">
                   {#each siteConfigState.anime as item, idx}
-                    <div class="p-4 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3">
+                    <div ondragover={(e) => e.preventDefault()} ondrop={(e) => { e.preventDefault(); dropFeature("anime", idx); }}
+                      class="p-4 rounded-2xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]/20 space-y-3" style:opacity={draggedAnimeIndex === idx ? .5 : 1}>
+                      <button type="button" draggable="true" ondragstart={(e) => { draggedAnimeIndex = idx; e.dataTransfer?.setData("text/plain", String(idx)); }}
+                        ondragend={() => draggedAnimeIndex = null} title="按住拖拽排序" aria-label="按住拖拽排序"
+                        class="min-w-11 min-h-11 cursor-grab text-[var(--on-surface-variant)] rounded-lg hover:bg-primary/10">⠿</button>
                       <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
                         <div class="flex items-center gap-3 flex-1">
                           <img
@@ -4633,15 +4657,15 @@
                   class="px-3.5 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-semibold flex items-center gap-1.5 transition-colors"
                 >
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                  <span>保存域名配置</span>
+                  <span>保存历史域名配置</span>
                 </button>
               </div>
               <p class="text-xs text-[var(--on-surface-variant)] mb-4">
-                配置 Cloudflare R2 对象存储的公共访问域名或自定义 CDN 域名。
+                兼容历史 R2 图片链接，前台资源统一通过受保护的站内地址访问。
               </p>
 
               <div>
-                <label class="text-xs font-semibold block mb-1.5">R2 存储桶自定义域名 (Public R2 URL)</label>
+                <label class="text-xs font-semibold block mb-1.5">历史 R2 资源域名</label>
                 <div class="flex items-center gap-2">
                   <input
                     type="text"
@@ -4664,7 +4688,7 @@
                   {/if}
                 </div>
                 <p class="text-[11px] text-[var(--on-surface-variant)] mt-1.5 leading-relaxed">
-                  指定已绑定的 Cloudflare R2 自定义域名或公开 R2.dev 链接（例如 <code>https://assets.yourdomain.com</code>）。留空时将自动回退至 Worker 环境变量 <code>PUBLIC_R2_URL</code> 或默认 R2 节点。保存生效后，所有新上传的图片、音频多媒体文件及媒体库预览将立即全量应用此自定义域名。
+                  填写旧图片曾使用的域名（例如 <code>https://assets.yourdomain.com</code>），用于识别并转换已有链接。留空时使用部署时配置的历史域名；无需开启存储桶公共访问。
                 </p>
                 {#if !systemConfigState.publicR2Url && fallbackR2Url}
                   <p class="text-[11px] text-[var(--on-surface-variant)] opacity-75 mt-1 font-mono">
@@ -5003,15 +5027,18 @@
                     </select>
                   </div>
                   <div>
-                    <label class="text-xs font-semibold block mb-1.5">液态毛玻璃特效 (Liquid Glass)</label>
-                    <select
-                      bind:value={siteConfigState.liquidGlassMode}
-                      class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm outline-none font-medium"
-                    >
-                      <option value="none">关闭特效 (默认)</option>
-                      <option value="subtle">柔和液态流光 (Subtle)</option>
-                      <option value="vibrant">通透高光液态 (Vibrant)</option>
-                    </select>
+                    <label class="flex items-center gap-3 text-sm font-semibold cursor-pointer">
+                      <input type="checkbox" role="switch" checked={siteConfigState.liquidGlassMode !== "none"}
+                        onchange={(event) => siteConfigState.liquidGlassMode = event.currentTarget.checked ? "subtle" : "none"}
+                        class="w-5 h-5 accent-primary" />
+                      全站毛玻璃效果
+                    </label>
+                    <p class="text-xs text-[var(--on-surface-variant)] mt-2">统一应用到导航栏、菜单与卡片。</p>
+                  </div>
+                  <div>
+                    <label for="settings-github-url" class="text-xs font-semibold block mb-1.5">更多菜单 · GitHub 跳转地址</label>
+                    <input id="settings-github-url" type="url" bind:value={siteConfigState.githubUrl}
+                      placeholder="https://github.com/your-name" class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm" />
                   </div>
                   <div>
                     <label class="text-xs font-semibold block mb-1.5">纹理不透明度 ({Math.round(siteConfigState.textureOpacity * 100)}%)</label>

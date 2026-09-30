@@ -73,7 +73,7 @@ export function parseMetingSong(
 		if (match) rawId = match[1];
 	}
 
-	if (server === "netease" && rawId && (!source || !source.startsWith("http"))) {
+	if (server === "netease" && rawId && !source) {
 		source = `https://api.i-meto.com/meting/api?server=netease&type=url&id=${rawId}`;
 	}
 
@@ -176,14 +176,16 @@ export async function fetchMetingTracks(
 	const id = config.id?.trim();
 	if (!id) return [];
 
-	const candidates = config.api ? [config.api, ...METING_APIS] : METING_APIS;
+	const candidates = typeof window !== "undefined" && !config.api
+		? ["/api/music/playlist?server=:server&id=:id"]
+		: [...new Set(config.api ? [config.api, ...METING_APIS] : METING_APIS)];
 
 	for (const apiTemplate of candidates) {
 		const random = Date.now().toString();
 		const url = resolveMetingApiUrl(apiTemplate, server, type, id, random);
 
 		try {
-			const response = await customFetch(url, { signal: AbortSignal.timeout(5000) });
+			const response = await customFetch(url, { signal: AbortSignal.timeout(url.startsWith("/api/") ? 12000 : 5000) });
 			if (!response.ok) continue;
 
 			const data = (await response.json()) as RawMetingSong[];

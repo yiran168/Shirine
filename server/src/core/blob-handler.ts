@@ -2,7 +2,25 @@ import type { Context } from "hono";
 import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
 import { and, eq, like, or } from "drizzle-orm";
-import { verifyPostGrant } from "./auth";
+import { verifyPostGrant, verifyAlbumGrant } from "./auth";
+import { verifyMediaSignature } from "./media-access";
+
+// A substring (or a SQL LIKE wildcard) is not evidence that an object was
+// published. Match complete media paths after extracting URLs from Markdown/JSON.
+function objectCandidates(column: Parameters<typeof like>[0], key: string) {
+  return or(like(column, `%${key}%`), like(column, `%${key.split("/").map(encodeURIComponent).join("/")}%`));
+}
+
+function referencesObject(value: string | null | undefined, key: string): boolean {
+  if (!value) return false;
+  const urls = value.match(/(?:https?:\/\/[^\s"'<>()[\]\\]+|\/api\/(?:upload\/)?blob\/[^\s"'<>()[\]\\]+)/g) || [];
+  return urls.some(source => {
+    try {
+      const pathname = decodeURIComponent(new URL(source, "https://shirine.invalid").pathname);
+      return pathname.replace(/^\/(?:api\/(?:upload\/)?blob\/)?/, "") === key;
+    } catch { return false; }
+  });
+}
 
 /**
  * Handles /api/blob/* and /api/upload/blob/* requests with fail-closed security,
@@ -25,6 +43,15 @@ export async function handleBlobStream(
 
     const decodedKey = decodeURIComponent(key);
 
+    // Reject browser hotlinks before any database or R2 access. A short-lived
+    // signature limits replay of copied public links; protected media still
+    // requires the live account/grant checks below on every request.
+    if (c.req.header("Sec-Fetch-Site") === "cross-site") return c.text("Hotlink denied", 403);
+    const currentUser = c.get("user");
+    const adminPreview = currentUser?.role === "admin" || currentUser?.role === "superadmin";
+    if (!adminPreview && !await verifyMediaSignature(decodedKey, new URL(c.req.url), c.env)) return c.text("Media link expired or invalid", 403);
+    if (!c.env.DB) return c.text("Media authorization unavailable", 503);
+
     // 1. Pre-R2 ACL Authorization Check (Fail-closed)
     let isProtected = false;
     let hasPublicReference = false;
@@ -37,36 +64,47 @@ export async function handleBlobStream(
 
         // A. Check ALL Album photos matching this asset key (V10-P0-13: no findFirst single-match race)
         const photoMatches = await db.query.albumPhotos.findMany({
-          where: like(schema.albumPhotos.url, `%${decodedKey}%`),
+          where: objectCandidates(schema.albumPhotos.url, decodedKey),
         });
 
         for (const photo of photoMatches) {
+          if (!referencesObject(photo.url, decodedKey)) continue;
           const album = await db.query.albums.findFirst({
             where: eq(schema.albums.id, photo.albumId),
           });
 
           if (album) {
-            if (album.draft === 1 || album.permissionType !== "public") {
+            const hasPassword = album.permissionType === "password" || album.encrypted === 1 || Boolean(album.password);
+            if (album.draft === 1 || album.permissionType !== "public" || hasPassword) {
               isProtected = true;
               const isAuthor = Boolean(user && album.uid && user.id === album.uid);
 
               if (!isAdmin && !isAuthor) {
-                if (!user) {
+                if (!user && !hasPassword) {
                   return c.text("Unauthorized: Authentication required to access protected media", 401);
                 }
                 if (album.draft === 1) {
                   return c.text("Forbidden: Draft album media is unpublished", 403);
                 }
                 if (album.permissionType === "points_required") {
+                  if (!user) return c.text("Authentication required", 401);
                   const unlock = await db.query.albumUnlocks.findFirst({
                     where: and(
-                      eq(schema.albumUnlocks.userId, user.id),
+                      eq(schema.albumUnlocks.userId, user!.id),
                       eq(schema.albumUnlocks.albumId, album.id)
                     ),
                   });
                   if (!unlock) {
                     return c.text("Forbidden: Album must be unlocked before accessing media", 403);
                   }
+                }
+                if (hasPassword) {
+                  const cookies = c.req.header("Cookie") || "";
+                  let grant = c.req.header("X-Album-Grant") || cookies.match(new RegExp(`(?:^|;\\s*)shirine_album_grant_${album.id}=([^;]+)`))?.[1];
+                  if (!grant) {
+                    try { grant = JSON.parse(decodeURIComponent(cookies.match(/(?:^|;\s*)shirine_album_grants=([^;]+)/)?.[1] || "{}"))[album.id]; } catch {}
+                  }
+                  if (!grant || !await verifyAlbumGrant(grant, album.id, album.passwordVersion || 1, user?.id ?? null, c.env.JWT_SECRET)) return c.text("Album password verification required", 403);
                 }
               }
             } else {
@@ -78,12 +116,13 @@ export async function handleBlobStream(
         // B. Check ALL Posts referencing this asset key (V10-P0-16: Post media ACL)
         const postMatches = await db.query.posts.findMany({
           where: or(
-            like(schema.posts.image, `%${decodedKey}%`),
-            like(schema.posts.content, `%${decodedKey}%`)
+            objectCandidates(schema.posts.image, decodedKey),
+            objectCandidates(schema.posts.content, decodedKey)
           ),
         });
 
         for (const post of postMatches) {
+          if (!referencesObject(post.image, decodedKey) && !referencesObject(post.content, decodedKey)) continue;
           const hasPassword = post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
           const isPostProtected = post.draft === 1 || post.permissionType !== "public" || hasPassword;
 
@@ -155,10 +194,11 @@ export async function handleBlobStream(
 
         // C. Check Custom Pages referencing this asset key (V10-P0-16)
         const pageMatches = await db.query.pages.findMany({
-          where: like(schema.pages.content, `%${decodedKey}%`),
+          where: objectCandidates(schema.pages.content, decodedKey),
         });
 
         for (const page of pageMatches) {
+          if (!referencesObject(page.content, decodedKey)) continue;
           if (page.draft === 1) {
             isProtected = true;
             const isAuthor = Boolean(user && page.uid && user.id === page.uid);
@@ -173,12 +213,13 @@ export async function handleBlobStream(
         // D. Check Moments referencing this asset key (V10-P0-16)
         const momentMatches = await db.query.moments.findMany({
           where: or(
-            like(schema.moments.content, `%${decodedKey}%`),
-            like(schema.moments.images, `%${decodedKey}%`)
+            objectCandidates(schema.moments.content, decodedKey),
+            objectCandidates(schema.moments.images, decodedKey)
           ),
         });
 
         for (const moment of momentMatches) {
+          if (!referencesObject(moment.content, decodedKey) && !referencesObject(moment.images, decodedKey)) continue;
           if (moment.draft === 1) {
             isProtected = true;
             const isAuthor = Boolean(user && moment.uid && user.id === moment.uid);
@@ -192,22 +233,26 @@ export async function handleBlobStream(
 
         // E. Check Site Configs, Friends, and User avatars for public references
         if (!hasPublicReference && !isProtected) {
-          const friendMatch = await db.query.friends.findFirst({
-            where: like(schema.friends.avatar, `%${decodedKey}%`),
-          });
-          if (friendMatch) hasPublicReference = true;
+          const covers = await db.query.albums.findMany({ where: and(objectCandidates(schema.albums.cover, decodedKey), eq(schema.albums.draft, 0)) });
+          hasPublicReference = covers.some(album => referencesObject(album.cover, decodedKey));
         }
         if (!hasPublicReference && !isProtected) {
-          const userMatch = await db.query.users.findFirst({
-            where: like(schema.users.avatar, `%${decodedKey}%`),
+          const friendMatches = await db.query.friends.findMany({
+            where: and(objectCandidates(schema.friends.avatar, decodedKey), eq(schema.friends.accepted, 1)),
           });
-          if (userMatch) hasPublicReference = true;
+          hasPublicReference = friendMatches.some(friend => referencesObject(friend.avatar, decodedKey));
         }
         if (!hasPublicReference && !isProtected) {
-          const siteMatch = await db.query.siteConfigs.findFirst({
-            where: like(schema.siteConfigs.value, `%${decodedKey}%`),
+          const userMatches = await db.query.users.findMany({
+            where: objectCandidates(schema.users.avatar, decodedKey),
           });
-          if (siteMatch) hasPublicReference = true;
+          hasPublicReference = userMatches.some(user => referencesObject(user.avatar, decodedKey));
+        }
+        if (!hasPublicReference && !isProtected) {
+          const siteMatches = await db.query.siteConfigs.findMany({
+            where: objectCandidates(schema.siteConfigs.value, decodedKey),
+          });
+          hasPublicReference = siteMatches.some(config => referencesObject(config.value, decodedKey));
         }
 
         // F. Unattached / Unpublished Asset Gating (V10-P0-17)
@@ -244,13 +289,9 @@ export async function handleBlobStream(
       headers.set("Content-Disposition", "attachment");
     }
 
-    // 3. Cache-Control: Reversible cache headers (V10-P0-15)
-    if (isProtected) {
-      headers.set("Cache-Control", "private, no-cache, no-store, must-revalidate");
-    } else {
-      // Short / revalidatable cache so if public assets become protected later, they can be revoked
-      headers.set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
-    }
+    // Recheck authorization after permission changes; never cache ACL responses at an edge.
+    headers.set("Cache-Control", "private, no-cache, no-store, must-revalidate");
+    headers.set("Cross-Origin-Resource-Policy", "same-origin");
 
     return new Response(object.body, { headers });
   } catch (err: any) {

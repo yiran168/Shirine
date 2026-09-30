@@ -12,16 +12,17 @@ import { onMount, tick } from "svelte";
 import { siteConfig } from "@/config";
 import { getDynamicNavBarConfig, getLinkPresets } from "@/config/navBarConfig";
 import { getCurrentLang } from "../../i18n/translation";
-import { pagesApi } from "@/services/api";
+import { pagesApi, configApi } from "@/services/api";
 
 let open = $state(false);
 let activePrimary = $state("");
 const openGroups = $state<Record<string, boolean>>({});
 let currentLang = $state(getCurrentLang());
+let githubUrl = $state("https://github.com/yiran168/Shirine");
 let customPages = $state<{ title: string; slug: string; icon?: string }[]>([]);
 
 const primaryItems = $derived.by(() => {
-	const activeConfig = getDynamicNavBarConfig(currentLang);
+	const activeConfig = getDynamicNavBarConfig(currentLang, githubUrl);
 	const links = resolveNavBarLinks(activeConfig.links, getLinkPresets(currentLang));
 	return links.map((link) => {
 		const key = (link.pageKey || link.name).toLowerCase();
@@ -109,6 +110,7 @@ function toggleGroup(group: string) {
 
 onMount(() => {
 	syncFromRoute();
+	configApi.getSite().then((res) => { githubUrl = res.data?.site?.githubUrl || githubUrl; });
 	pagesApi
 		.list()
 		.then((res: any) => {

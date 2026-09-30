@@ -22,7 +22,7 @@ describe("Tier 3 - Combination: Blob Pre-R2 ACL Cascade & Password Grant Invalid
     });
 
     // 2. Unauthenticated request to media is forbidden (403)
-    const blockedRes = await env.request(`/api/blob/${mediaKey}`);
+    const blockedRes = await env.requestMedia(`/api/blob/${mediaKey}`);
     expect(blockedRes.status).toBe(403);
     const blockedText = await blockedRes.text();
     expect(blockedText).toContain("Password verification required");
@@ -42,7 +42,7 @@ describe("Tier 3 - Combination: Blob Pre-R2 ACL Cascade & Password Grant Invalid
     const cookieVal = cookieMatch ? cookieMatch[1] : "";
 
     // 4. Request media with valid grant cookie -> 200 OK
-    const mediaRes = await env.request(`/api/blob/${mediaKey}`, {
+    const mediaRes = await env.requestMedia(`/api/blob/${mediaKey}`, {
       headers: {
         Cookie: `shirine_post_grants=${cookieVal}`,
       },
@@ -60,7 +60,7 @@ describe("Tier 3 - Combination: Blob Pre-R2 ACL Cascade & Password Grant Invalid
       .where(eq(schema.posts.id, post.id));
 
     // 6. Old grant cookie must now fail with 403 (revoked due to passwordVersion mismatch)
-    const expiredMediaRes = await env.request(`/api/blob/${mediaKey}`, {
+    const expiredMediaRes = await env.requestMedia(`/api/blob/${mediaKey}`, {
       headers: {
         Cookie: `shirine_post_grants=${cookieVal}`,
       },
@@ -82,7 +82,7 @@ describe("Tier 3 - Combination: Blob Pre-R2 ACL Cascade & Password Grant Invalid
     const newCookieVal = newCookieMatch ? newCookieMatch[1] : "";
 
     // 8. Access with new grant succeeds
-    const reAccessRes = await env.request(`/api/blob/${mediaKey}`, {
+    const reAccessRes = await env.requestMedia(`/api/blob/${mediaKey}`, {
       headers: {
         Cookie: `shirine_post_grants=${newCookieVal}`,
       },

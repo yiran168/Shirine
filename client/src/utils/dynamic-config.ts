@@ -40,6 +40,7 @@ export interface DynamicSiteConfigResult {
 let cachedPromise: Promise<DynamicSiteConfigResult> | null = null;
 let cachedTime = 0;
 const CACHE_TTL_MS = 2500;
+const requestConfigs = new WeakMap<Request, Promise<DynamicSiteConfigResult>>();
 
 export function clearDynamicConfigCache(): void {
   cachedPromise = null;
@@ -48,7 +49,8 @@ export function clearDynamicConfigCache(): void {
 
 export async function getDynamicSiteConfig(request?: Request): Promise<DynamicSiteConfigResult> {
   const now = Date.now();
-  if (cachedPromise && now - cachedTime < CACHE_TTL_MS) {
+  if (request && requestConfigs.has(request)) return requestConfigs.get(request)!;
+  if (!request && cachedPromise && now - cachedTime < CACHE_TTL_MS) {
     return cachedPromise;
   }
 
@@ -92,6 +94,11 @@ export async function getDynamicSiteConfig(request?: Request): Promise<DynamicSi
     };
   };
 
+  if (request) {
+    const pending = fetchConfig();
+    requestConfigs.set(request, pending);
+    return pending;
+  }
   cachedTime = now;
   cachedPromise = fetchConfig();
   return cachedPromise;

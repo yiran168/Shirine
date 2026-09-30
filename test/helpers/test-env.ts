@@ -1,4 +1,5 @@
 import app from "../../server/src/index";
+import { signedMediaUrl } from "../../server/src/core/media-access";
 import { getDb, schema } from "../../server/src/db";
 import { hashPassword, generateSalt, signToken } from "../../server/src/core/auth";
 import { createMockD1Database, type MockD1Database } from "./d1-mock";
@@ -48,6 +49,13 @@ export class TestEnvironment {
     const url = path.startsWith("http") ? path : `http://localhost${path}`;
     const req = new Request(url, options);
     return await app.fetch(req, this.env as any);
+  }
+
+  // Existing ACL tests intentionally start with a valid presentation signature
+  // so they exercise account/grant authorization rather than the hotlink guard.
+  async requestMedia(path: string, options: RequestInit = {}): Promise<Response> {
+    const key = decodeURIComponent(path.replace(/^\/api\/(?:upload\/)?blob\//, "").split("?")[0]);
+    return this.request(await signedMediaUrl(key, this.env), options);
   }
 
   async requestJson<T = any>(

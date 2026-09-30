@@ -20,9 +20,7 @@ export const ALL: APIRoute = async ({ request, params, locals }) => {
   const incomingUrl = new URL(request.url);
   const isSameHost = configuredBase && (() => {
     try {
-      const cfgHost = new URL(configuredBase).hostname.toLowerCase();
-      const inHost = incomingUrl.hostname.toLowerCase();
-      return cfgHost === inHost || (cfgHost.endsWith(".pages.dev") && inHost.endsWith(".pages.dev"));
+      return new URL(configuredBase).origin === incomingUrl.origin;
     } catch {
       return false;
     }
@@ -32,7 +30,7 @@ export const ALL: APIRoute = async ({ request, params, locals }) => {
 
   // 1. Service Binding proxy fallback on Cloudflare Pages
   const serviceBinding = runtimeEnv.SHIRINE_SERVER || runtimeEnv.BACKEND || runtimeEnv.API || (globalThis as any).__SHIRINE_SERVICE_BINDING__;
-  if ((!configuredBase || isSameHost) && serviceBinding && typeof serviceBinding.fetch === "function") {
+  if (serviceBinding && typeof serviceBinding.fetch === "function") {
     const targetUrl = cleanPath
       ? `https://shirine-internal/api/${cleanPath}${incomingUrl.search}`
       : `https://shirine-internal/api${incomingUrl.search}`;
@@ -103,7 +101,7 @@ export const ALL: APIRoute = async ({ request, params, locals }) => {
     // @ts-ignore Node/Cloudflare duplex streaming support
     init.duplex = "half";
   }
-  init.signal = request.signal || AbortSignal.timeout(8000);
+  init.signal = AbortSignal.any([request.signal, AbortSignal.timeout(15000)]);
 
   try {
     const upstreamRes = await fetch(targetUrl, init);

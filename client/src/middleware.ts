@@ -14,6 +14,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
+  // API/media requests must not wait for a site-config round trip.
+  if (context.url.pathname.startsWith("/api/")) return next();
+
   const cookieLang = context.cookies.get("shirine_lang")?.value;
   const queryLang = context.url.searchParams.get("lang");
   let lang = queryLang || cookieLang;
@@ -38,5 +41,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   setSiteLang(lang);
   context.locals.lang = lang;
-  return next();
+  const response = await next();
+  if (response.headers.get("Content-Type")?.includes("text/html")) {
+    // HTML embeds permission state and can change immediately after publishing
+    // or unlocking. Static assets retain their independent cache policy.
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.append("Vary", "Cookie");
+  }
+  return response;
 });

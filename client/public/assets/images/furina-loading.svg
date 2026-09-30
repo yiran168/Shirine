@@ -96,7 +96,7 @@
     </filter>
   </defs>
 
-  <style>
+  <style><![CDATA[
     /* Chibi Furina & Cloud Gentle Float (12-15 fps visual rhythm) */
     @keyframes floatCloud {
       0%, 100% { transform: translateY(0px); }
@@ -268,7 +268,7 @@
     .dot-1 { animation: dotFade1 1.8s infinite; }
     .dot-2 { animation: dotFade2 1.8s infinite; }
     .dot-3 { animation: dotFade3 1.8s infinite; }
-  </style>
+  ]]></style>
 
   <!-- Ambient Hydro Glow behind Furina -->
   <circle cx="256" cy="195" r="165" fill="url(#hydroAura)"/>

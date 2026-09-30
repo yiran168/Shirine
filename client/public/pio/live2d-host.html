@@ -165,7 +165,7 @@
   };
 
   function notifyLoaded() {
-    parent.postMessage({ type: 'l2d-loaded', contentHeight: lastContentHeight }, '*');
+    if (widgetLoaded) parent.postMessage({ type: 'l2d-loaded', contentHeight: lastContentHeight }, location.origin);
   }
 
   function getWidgetHeight(size) {
@@ -209,6 +209,7 @@
   function observeWidgetLayout() {
     if (layoutObserver) layoutObserver.disconnect();
     layoutObserver = new MutationObserver(scheduleLayoutMeasurement);
+    if (!document.body) return;
     layoutObserver.observe(document.body, {
       subtree: true,
       childList: true,
@@ -302,7 +303,7 @@
   });
 
   window.addEventListener('message', function(e) {
-    if (!e.data) return;
+    if (e.source !== parent || e.origin !== location.origin || !e.data) return;
     if (e.data.type === 'l2d-wake') {
       try {
         if (widgetInstance && typeof widgetInstance.wake === 'function') {
@@ -417,9 +418,12 @@
       loadingConfigKey = '';
       activeConfigKey = '';
       console.error('Failed to initialize Live2D widget:', err);
+      parent.postMessage({ type: 'l2d-error' }, location.origin);
       return;
     }
     loadingConfigKey = '';
+
+    var currentWidget = widgetInstance;
 
     if (config._hideAbout) {
       hideAboutMenu();
@@ -427,6 +431,7 @@
 
     if (widgetInstance && widgetInstance.l2d) {
       widgetInstance.l2d.on('loaded', function() {
+        if (widgetInstance !== currentWidget) return;
         widgetLoaded = true;
         applyButtonIcons(originalItems);
         notifyLoaded();
@@ -441,15 +446,14 @@
     }
 
     setTimeout(function() {
-      if (!widgetLoaded && widgetInstance) {
-        widgetLoaded = true;
-        applyButtonIcons(originalItems);
-        notifyLoaded();
+      if (!widgetLoaded && widgetInstance === currentWidget) {
+        parent.postMessage({ type: 'l2d-error' }, location.origin);
       }
-    }, 1500);
+    }, 15000);
   });
 
   window.addEventListener('resize', scheduleLayoutMeasurement);
+  parent.postMessage({ type: 'l2d-ready' }, location.origin);
 </script>
 </body>
 </html>

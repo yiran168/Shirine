@@ -29,5 +29,8 @@ jobs:
       - name: Build All Workspaces
         run: bun run build
 
+      - name: Check Cloudflare Pages and Worker Limits
+        run: bun scripts/check-cloudflare-limits.mjs
+
       - name: Run Tests
         run: bun test

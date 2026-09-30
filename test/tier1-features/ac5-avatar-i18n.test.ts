@@ -2,6 +2,7 @@ import { describe, it, expect } from "bun:test";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import crypto from "node:crypto";
+import sharp from "../../client/node_modules/sharp/dist/index.mjs";
 import { createTestEnv } from "../helpers/test-env";
 import { userMenuI18n, getUserMenuText } from "../../client/src/i18n/userMenu";
 
@@ -92,16 +93,16 @@ describe("Tier 1 - AC 5: Avatar Management & 4-Language i18n", () => {
     expect(adminItems).not.toContain("checkedInToday");
   });
 
-  it("AC 5.3: 50 anime WebP avatars and 50 thumbnails are present with valid WebP signatures and 0 duplicate hashes", () => {
+  it("AC 5.3: 50 anime WebP avatars and 50 thumbnails are present with valid WebP signatures and 0 duplicate hashes", async () => {
     const avatarDir = resolve(PROJECT_ROOT, "client/public/assets/avatars");
     expect(existsSync(avatarDir)).toBe(true);
 
     const hashes = new Set<string>();
 
     for (let i = 1; i <= 50; i++) {
-      const pad = String(i).padStart(2, "0");
-      const avatarFile = resolve(avatarDir, `avatar_${pad}.webp`);
-      const thumbFile = resolve(avatarDir, `avatar_${pad}_thumb.webp`);
+      const preset = JSON.parse(readFileSync(resolve(avatarDir, "avatars.json"), "utf8"))[i - 1];
+      const avatarFile = resolve(avatarDir, `${preset.code}.webp`);
+      const thumbFile = resolve(avatarDir, `${preset.code}-thumb.webp`);
 
       expect(existsSync(avatarFile)).toBe(true);
       expect(existsSync(thumbFile)).toBe(true);
@@ -109,8 +110,10 @@ describe("Tier 1 - AC 5: Avatar Management & 4-Language i18n", () => {
       const avatarBytes = readFileSync(avatarFile);
       const thumbBytes = readFileSync(thumbFile);
 
-      expect(avatarBytes.length).toBeGreaterThan(10240); // > 10KB
-      expect(thumbBytes.length).toBeGreaterThan(10240);
+      expect((await sharp(avatarBytes).metadata()).width).toBe(384);
+      expect((await sharp(thumbBytes).metadata()).width).toBe(96);
+      expect(thumbBytes.length).toBeGreaterThan(500);
+      expect(thumbBytes.length).toBeLessThan(avatarBytes.length);
 
       // Verify WebP RIFF header
       const riffA = String.fromCharCode(...avatarBytes.subarray(0, 4));
@@ -132,7 +135,7 @@ describe("Tier 1 - AC 5: Avatar Management & 4-Language i18n", () => {
     expect(hashes.size).toBe(50);
   });
 
-  it("AC 5.4: avatars.json provides 50 valid entries with prompts and URLs", () => {
+  it("AC 5.4: avatars.json provides 50 valid entries with official source attribution and URLs", () => {
     const jsonPath = resolve(PROJECT_ROOT, "client/public/assets/avatars/avatars.json");
     expect(existsSync(jsonPath)).toBe(true);
 
@@ -142,14 +145,17 @@ describe("Tier 1 - AC 5: Avatar Management & 4-Language i18n", () => {
 
     for (let i = 0; i < 50; i++) {
       const item = data[i];
-      const expectedCode = `avatar_${String(i + 1).padStart(2, "0")}`;
+      const expectedCode = item.code;
+      expect(expectedCode).not.toMatch(/^avatar_/);
       expect(item.id).toBe(i + 1);
       expect(item.code).toBe(expectedCode);
       expect(item.name).toBeDefined();
-      expect(item.prompt).toBeDefined();
-      expect(item.prompt.length).toBeGreaterThan(10);
+      expect(new URL(item.source).hostname).toBe(new URL(item.sourcePage).hostname);
+      expect(item.series.length).toBeGreaterThan(1);
+      expect(item.sourceSha256).toMatch(/^[a-f0-9]{64}$/);
+      expect(item.rights).toContain("personal-use SNS icon");
       expect(item.url).toBe(`/assets/avatars/${expectedCode}.webp`);
-      expect(item.thumbUrl).toBe(`/assets/avatars/${expectedCode}_thumb.webp`);
+      expect(item.thumbUrl).toBe(`/assets/avatars/${expectedCode}-thumb.webp`);
     }
   });
 
@@ -157,7 +163,7 @@ describe("Tier 1 - AC 5: Avatar Management & 4-Language i18n", () => {
     const env = createTestEnv();
     const user = await env.createUser("avatar_tester", "pass123456", 0);
 
-    const newAvatarUrl = "/assets/avatars/avatar_07.webp";
+    const newAvatarUrl = "/assets/avatars/hitori-gotoh.webp";
 
     const updateRes = await env.requestJson("/api/user/profile", {
       method: "PUT",

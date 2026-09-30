@@ -62,7 +62,7 @@ describe("Tier 4 - Scenario: Visitor to Active Member End-to-End Journey", () =>
     expect(checkinRes.data.checkinStreak).toBe(1);
 
     // 6. User chooses anime avatar #15 from 20-grid modal and updates profile
-    const avatarChoice = "/assets/avatars/avatar_15.webp";
+    const avatarChoice = "/assets/avatars/frieren.webp";
     const updateProfileRes = await env.requestJson("/api/user/profile", {
       method: "PUT",
       headers: {

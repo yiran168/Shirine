@@ -30,7 +30,7 @@ let { album }: { album: any } = $props();
 					isUnlocked={album.isUnlocked ?? true}
 				/>
 			{/if}
-			{#if album.protected}
+			{#if album.protected && !album.isUnlocked}
 				<div class="album-card__badges">
 					<span class="album-card__protected" title={i18n(I18nKey.albumPasswordTitle)}>
 						<Icon icon="material-symbols:lock-rounded" aria-hidden="true" />
@@ -58,6 +58,7 @@ let { album }: { album: any } = $props();
 			{/if}
 			<div class="album-card__meta">
 				<span>{album.date}</span>
+				<span>{album.photoCount ?? album.count ?? 0} {i18n(I18nKey.albumsPhotos)}</span>
 				{#if album.location}<span>{album.location}</span>{/if}
 			</div>
 			{#if album.tags.length > 0}

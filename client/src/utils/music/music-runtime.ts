@@ -1,5 +1,5 @@
-import type { ResolvedMusicOptions } from "@/config/musicConfig";
-import { clampMusicVolume } from "@/config/musicConfig";
+import type { ResolvedMusicOptions } from "../../config/musicConfig";
+import { clampMusicVolume } from "../../config/musicConfig";
 import type {
 	MusicErrorCode,
 	MusicRuntime,
@@ -7,7 +7,7 @@ import type {
 	MusicStatus,
 	PlaybackMode,
 	TrackDescriptor,
-} from "@/types/musicConfig";
+} from "../../types/musicConfig";
 import { MUSIC_VOLUME_STORAGE_KEY, PLAYBACK_MODES } from "./constants";
 import { fetchMetingTracks } from "./meting";
 import { nextTrackIndex, previousTrackIndex } from "./playlist";
@@ -24,6 +24,7 @@ interface RuntimeState {
 }
 
 interface MediaListeners {
+	canplay: () => void;
 	loadedmetadata: () => void;
 	durationchange: () => void;
 	timeupdate: () => void;
@@ -90,11 +91,9 @@ export function createMusicRuntime(
 	let playbackAttemptGeneration = 0;
 	let playbackRequested = false;
 	let loadedIndex = -1;
-	const failedTrackIds = new Set<string>();
 	const knownDurations = new Map<string, number>();
 	let metingFetched = false;
-	let consecutiveErrors = 0;
-	let isRecovering = false;
+	let loadTimeout: ReturnType<typeof setTimeout> | undefined;
 
 	function snapshot(): MusicSnapshot {
 		return Object.freeze({
@@ -143,6 +142,7 @@ export function createMusicRuntime(
 	}
 
 	function removeMediaListeners(): void {
+		clearTimeout(loadTimeout);
 		if (!audio || !mediaListeners) return;
 		for (const [event, listener] of Object.entries(mediaListeners)) {
 			audio.removeEventListener(event, listener);
@@ -154,6 +154,7 @@ export function createMusicRuntime(
 		if (!audio) return;
 		const isCurrent = () => generation === sourceGeneration && audio !== null;
 		mediaListeners = {
+			canplay: () => { if (isCurrent()) clearTimeout(loadTimeout); },
 			loadedmetadata: () => {
 				if (!isCurrent() || !audio) return;
 				const duration = finiteMediaValue(audio.duration);
@@ -192,7 +193,6 @@ export function createMusicRuntime(
 					audio.pause();
 					return;
 				}
-				consecutiveErrors = 0;
 				patch({ status: "playing", error: null });
 			},
 			pause: () => {
@@ -201,8 +201,7 @@ export function createMusicRuntime(
 			},
 			ended: () => {
 				if (!isCurrent() || !audio) return;
-				const dur = state.duration || currentPlaylist[state.currentIndex]?.duration || 0;
-				if (audio.currentTime < 1 && dur > 3) {
+				if (audio.currentTime < 1) {
 					void recoverFromSourceError();
 					return;
 				}
@@ -341,9 +340,24 @@ export function createMusicRuntime(
 		audio.removeAttribute("src");
 		loadedIndex = state.currentIndex;
 		const track = currentPlaylist[state.currentIndex];
-		audio.src = track.source;
+		let source = track.source;
+    if (source.startsWith("/api/music/url?") && customFetch) {
+      patch({ status: "loading", error: null });
+      try {
+        const response = await customFetch(source, { signal: AbortSignal.timeout(12000) });
+        const data = await response.json();
+        if (!response.ok || !data.success || !data.url) throw new Error("No playable source");
+        source = data.url;
+      } catch {
+        if (generation === sourceGeneration) await recoverFromSourceError();
+        return null;
+      }
+      if (generation !== sourceGeneration || !audio) return null;
+    }
+    audio.src = source;
 		bindMediaListeners(generation);
 		audio.load();
+		loadTimeout = setTimeout(() => { if (generation === sourceGeneration) void recoverFromSourceError(); }, 15000);
 		patch({
 			status: "loading",
 			currentTime: 0,
@@ -356,8 +370,7 @@ export function createMusicRuntime(
 		return generation;
 	}
 
-	async function playLoadedSource(resetRecovery = true): Promise<void> {
-		if (resetRecovery) failedTrackIds.clear();
+	async function playLoadedSource(): Promise<void> {
 		playbackRequested = true;
 		const attempt = ++playbackAttemptGeneration;
 		const generation = await ensureSource();
@@ -393,7 +406,7 @@ export function createMusicRuntime(
 							document.removeEventListener(evt, resumeOnFirstInteraction, { capture: true });
 						});
 						if (state.status === "error" && state.error === "autoplay-blocked") {
-							playLoadedSource(true).catch(() => {});
+							playLoadedSource().catch(() => {});
 						}
 					};
 					["pointerdown", "keydown", "touchstart", "click"].forEach((evt) => {
@@ -444,72 +457,22 @@ export function createMusicRuntime(
 					: fallbackDuration,
 			error: null,
 		});
-		if (autoplay) await playLoadedSource(false);
+		if (autoplay) await playLoadedSource();
 		else await ensureSource();
 	}
 
 	async function recoverFromSourceError(): Promise<void> {
-		if (isRecovering) return;
-		isRecovering = true;
-		try {
-			consecutiveErrors += 1;
-			const currentTrack = currentPlaylist[state.currentIndex];
-			if (!currentTrack) {
-				playbackRequested = false;
-				patch({ status: "error", error: "empty-playlist" });
-				return;
-			}
-
-			if (
-				audio &&
-				currentTrack.id.includes("netease") &&
-				!failedTrackIds.has(`${currentTrack.id}-fallback`)
-			) {
-				const rawId = currentTrack.id.replace(/^meting-netease-/, "");
-				if (rawId && /^\d+$/.test(rawId)) {
-					failedTrackIds.add(`${currentTrack.id}-fallback`);
-					const outerUrl = `https://api.i-meto.com/meting/api?server=netease&type=url&id=${rawId}`;
-					if (audio.src !== outerUrl) {
-						audio.src = outerUrl;
-						audio.load();
-						try {
-							await audio.play();
-							return;
-						} catch {}
-					}
-				}
-			}
-
-			failedTrackIds.add(currentTrack.id);
-			if (
-				failedTrackIds.size >= currentPlaylist.length ||
-				consecutiveErrors >= Math.min(3, currentPlaylist.length)
-			) {
-				consecutiveErrors = 0;
-				playbackRequested = false;
-				patch({ status: "error", error: "source-unavailable" });
-				return;
-			}
-
-			for (let offset = 1; offset < currentPlaylist.length; offset += 1) {
-				const candidate = (state.currentIndex + offset) % currentPlaylist.length;
-				const track = currentPlaylist[candidate];
-				if (track && !failedTrackIds.has(track.id)) {
-					await new Promise((r) => setTimeout(r, 300));
-					await selectInternal(candidate, true);
-					return;
-				}
-			}
-			consecutiveErrors = 0;
-			playbackRequested = false;
-			patch({ status: "error", error: "source-unavailable" });
-		} finally {
-			isRecovering = false;
-		}
-	}
+    clearTimeout(loadTimeout);
+    playbackRequested = false;
+    playbackAttemptGeneration += 1;
+    sourceGeneration += 1;
+    removeMediaListeners();
+    if (audio) { audio.pause(); audio.removeAttribute("src"); }
+    loadedIndex = -1;
+    patch({ status: "error", error: "source-unavailable" });
+  }
 
 	async function advanceAfterEnded(): Promise<void> {
-		failedTrackIds.clear();
 		const index = nextTrackIndex(
 			state.currentIndex,
 			currentPlaylist.length,
@@ -533,7 +496,7 @@ export function createMusicRuntime(
 			};
 		},
 		async play() {
-			await playLoadedSource(true);
+			await playLoadedSource();
 		},
 		pause() {
 			playbackRequested = false;
@@ -547,11 +510,9 @@ export function createMusicRuntime(
 			else await this.play();
 		},
 		async select(index) {
-			failedTrackIds.clear();
 			await selectInternal(index, true);
 		},
 		async next() {
-			failedTrackIds.clear();
 			const mode = state.mode === "repeat-one" ? "sequence" : state.mode;
 			const index = nextTrackIndex(
 				state.currentIndex,
@@ -562,7 +523,6 @@ export function createMusicRuntime(
 			await selectInternal(index, true);
 		},
 		async previous() {
-			failedTrackIds.clear();
 			if (audio && audio.currentTime > 3) {
 				audio.currentTime = 0;
 				patch({ currentTime: 0 });
@@ -622,7 +582,6 @@ export function createMusicRuntime(
 			audio = null;
 			initializePromise = null;
 			loadedIndex = -1;
-			failedTrackIds.clear();
 			knownDurations.clear();
 			currentPlaylist = Object.freeze(
 				options.playlist.map((track) => Object.freeze({ ...track })),
@@ -659,7 +618,7 @@ function resolveOptionsKey(options: ResolvedMusicOptions): string {
 		options.meting?.server,
 		options.meting?.type,
 		options.meting?.id,
-		options.playlist.length,
+		JSON.stringify(options.playlist),
 	].join(":");
 }
 

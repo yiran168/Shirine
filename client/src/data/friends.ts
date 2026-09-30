@@ -19,7 +19,7 @@ export const friendsData: FriendItem[] = [
 	{
 		id: 1,
 		title: "Mizuki",
-		imgurl: "/assets/avatars/avatar_01.webp",
+		imgurl: "/assets/avatars/frieren.webp",
 		desc: "Another Fuwari-based blog theme with docs",
 		siteurl: "https://mizuki.mysqil.com",
 		tags: ["Blog", "Theme"],
@@ -27,7 +27,7 @@ export const friendsData: FriendItem[] = [
 	{
 		id: 2,
 		title: "Astro",
-		imgurl: "/assets/avatars/avatar_02.webp",
+		imgurl: "/assets/avatars/fern.webp",
 		desc: "The web framework for content-driven websites",
 		siteurl: "https://astro.build",
 		tags: ["Framework"],
@@ -35,7 +35,7 @@ export const friendsData: FriendItem[] = [
 	{
 		id: 3,
 		title: "Material 3",
-		imgurl: "/assets/avatars/avatar_03.webp",
+		imgurl: "/assets/avatars/stark.webp",
 		desc: "Material Design 3 — the next generation of Material Design",
 		siteurl: "https://m3.material.io",
 		tags: ["Design"],

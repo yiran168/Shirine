@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import presetAvatars from "../../../public/assets/avatars/avatars.json";
   import { authStore } from "../../stores/auth";
   import { userApi } from "../../services/api";
   import { getUserMenuText } from "../../i18n/userMenu";
@@ -11,59 +12,16 @@
 
   let { open = $bindable(false), onClose }: Props = $props();
 
-  let avatars: Array<{ id: number; code: string; name: string; prompt: string; url: string; thumbUrl: string }> = $state([]);
+  const avatars = presetAvatars;
   let selectedUrl = $state("");
   let saving = $state(false);
+  let error = $state("");
   let currentLang = $state("zh_CN");
-
-  onMount(async () => {
-    if (typeof window !== "undefined") {
-      currentLang = localStorage.getItem("shirine_lang") || "zh_CN";
-    }
-    try {
-      const res = await fetch("/assets/avatars/avatars.json");
-      if (res.ok) {
-        const baseAvatars = await res.json();
-        if (Array.isArray(baseAvatars) && baseAvatars.length < 50) {
-          const names = [
-            "紫发星眸·神秘", "银灰波浪·清冷", "蓝发侧马尾·元气", "浅金卷发·贵族", "赤发赤瞳·热烈",
-            "翡翠短发·清新", "淡紫双丸子·俏皮", "浅粉长直·甜美", "墨发异色瞳·冷艳", "白金短碎发·帅气",
-            "冰蓝长卷发·空灵", "焦糖色微卷·知性", "橘粉半扎发·阳光", "暗紫长发·魔女", "纯白短发·精灵",
-            "青金双马尾·未来", "深棕内扣·学妹", "薄荷绿卷发·森林", "浅蓝编发·人鱼", "金橙微卷·晚霞",
-            "银蓝短发·机甲", "黛紫及腰·梦幻", "琥珀浅金·学者", "红白发丝·巫女", "星空紫蓝·银河",
-            "浅墨短发·剑客", "茶色卷发·猫系", "珊瑚橙长发·海洋", "奶灰挑染·朋克", "夜色黑发·星光"
-          ];
-          const extra = Array.from({ length: 50 - baseAvatars.length }, (_, idx) => {
-            const num = baseAvatars.length + idx + 1;
-            const code = `avatar_${String(num).padStart(2, "0")}`;
-            return {
-              id: num,
-              code,
-              name: names[idx] || `二次元形象 ${num}`,
-              prompt: `Anime avatar style illustration portrait ${code}`,
-              url: `/assets/avatars/${code}.webp`,
-              thumbUrl: `/assets/avatars/${code}_thumb.webp`,
-            };
-          });
-          avatars = [...baseAvatars, ...extra];
-        } else {
-          avatars = baseAvatars;
-        }
-      }
-    } catch (e) {
-      // Fallback 50 list if json fetch fails
-      avatars = Array.from({ length: 50 }, (_, i) => {
-        const num = String(i + 1).padStart(2, "0");
-        return {
-          id: i + 1,
-          code: `avatar_${num}`,
-          name: `二次元形象 ${num}`,
-          prompt: "anime portrait",
-          url: `/assets/avatars/avatar_${num}.webp`,
-          thumbUrl: `/assets/avatars/avatar_${num}_thumb.webp`,
-        };
-      });
-    }
+  onMount(() => {
+    const sync = () => { currentLang = localStorage.getItem("shirine_lang") || document.documentElement.lang || "zh_CN"; };
+    sync();
+    window.addEventListener("shirine-lang-change", sync);
+    return () => window.removeEventListener("shirine-lang-change", sync);
   });
 
   $effect(() => {
@@ -75,16 +33,19 @@
   const t = $derived(getUserMenuText(currentLang));
 
   async function handleSelect(url: string) {
-    selectedUrl = url;
+    if (saving) return;
+    error = "";
     saving = true;
     try {
       const res = await userApi.updateProfile({ avatar: url });
-      if (res.success && authStore.user) {
+      if (!res.success) throw new Error(res.error || "头像保存失败，请重试");
+      if (authStore.user) {
+        selectedUrl = url;
         authStore.user.avatar = url;
         authStore.notify();
       }
     } catch (err) {
-      console.error("Failed to update avatar:", err);
+      error = err instanceof Error ? err.message : "头像保存失败，请重试";
     } finally {
       saving = false;
     }
@@ -115,7 +76,7 @@
     ></button>
 
     <!-- Modal Box: Semi-transparent frosted glass centered in viewport -->
-    <div class="relative w-full max-w-2xl max-h-[85vh] bg-white/85 dark:bg-zinc-900/90 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-3xl shadow-2xl p-6 md:p-8 flex flex-col z-10 overflow-hidden">
+    <div role="dialog" aria-modal="true" aria-label={t.selectAvatar} tabindex="-1" onkeydown={(event) => { if (event.key === "Escape") onClose(); }} class="relative w-full max-w-2xl max-h-[85vh] bg-white/85 dark:bg-zinc-900/90 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-3xl shadow-2xl p-6 md:p-8 flex flex-col z-10 overflow-hidden">
       <!-- Header -->
       <div class="flex items-center justify-between pb-4 border-b border-outline/10">
         <div>
@@ -132,16 +93,20 @@
         </button>
       </div>
 
+      {#if error}<p role="alert" class="text-error text-sm mt-3">{error}</p>{/if}
       <!-- Avatar Grid -->
-      <div class="flex-1 overflow-y-auto py-5 pr-1 grid grid-cols-4 sm:grid-cols-5 gap-3.5 custom-scrollbar">
+      <div class="flex-1 overflow-y-auto py-5 pr-1 grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3.5 custom-scrollbar">
         {#each avatars as av}
           {@const isSelected = selectedUrl === av.url}
           <button
             type="button"
+            disabled={saving}
+            aria-pressed={isSelected}
+            title={`${av.name} · ${av.series}`}
             onclick={() => handleSelect(av.url)}
-            class="group relative flex flex-col items-center p-2 rounded-2xl border transition-all duration-200 {isSelected ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/30' : 'border-outline/15 hover:border-outline/40 hover:bg-surface-container'}"
+            class="group relative flex flex-col items-center p-1.5 sm:p-2 rounded-2xl border transition-all duration-200 {isSelected ? 'border-primary bg-primary/10 shadow-md ring-2 ring-primary/30' : 'border-outline/15 hover:border-outline/40 hover:bg-surface-container'}"
           >
-            <div class="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden shadow-sm bg-surface-container-high transition-transform duration-200 group-hover:scale-105">
+            <div class="relative w-14 h-14 sm:w-20 sm:h-20 rounded-full overflow-hidden shadow-sm bg-surface-container-high transition-transform duration-200 group-hover:scale-105">
               <img
                 src={av.thumbUrl || av.url}
                 alt={av.name}
@@ -167,6 +132,7 @@
             <span class="text-[11px] font-medium text-on-surface mt-2 text-center line-clamp-1 group-hover:text-primary transition-colors">
               {av.name}
             </span>
+            <span class="text-[10px] text-on-surface-variant text-center line-clamp-1">{av.series}</span>
           </button>
         {/each}
       </div>

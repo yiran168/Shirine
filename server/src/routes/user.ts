@@ -4,6 +4,7 @@ import type { Env, Variables } from "../types";
 import { getDb, schema } from "../db";
 import { requireAuth } from "../core/middleware";
 import { hashPassword, generateSalt, verifyPassword, signToken } from "../core/auth";
+import { isPresetAvatar } from "../core/avatar-presets";
 
 export const userRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -26,6 +27,9 @@ function getYesterdayDateString(date: Date, timeZone = "Asia/Shanghai"): string 
 userRouter.post("/checkin", requireAuth, async (c) => {
   try {
     const current = c.get("user")!;
+    if (current.role === "admin" || current.role === "superadmin") {
+      return c.json({ success: false, error: "Administrator accounts do not participate in check-in rewards" }, 403);
+    }
     const db = getDb(c.env.DB);
 
     const user = await db.query.users.findFirst({
@@ -236,6 +240,9 @@ userRouter.put("/profile", requireAuth, async (c) => {
       updates.nickname = String(nickname).trim().slice(0, 50);
     }
     if (avatar !== undefined) {
+      if (current.role === "user" && !isPresetAvatar(String(avatar).trim())) {
+        return c.json({ success: false, error: "Please choose an avatar from the preset library" }, 400);
+      }
       updates.avatar = String(avatar).trim();
     }
 

@@ -29,10 +29,9 @@ export function getAuthKey(request?: Request): string {
 export function getApiBase(): string {
   let base = "";
   if (typeof window !== "undefined") {
-    base =
-      (window as any).__SHIRINE_API_URL__ ||
-      import.meta.env.PUBLIC_API_URL ||
-      (window.location.port === "4321" ? "http://localhost:11498/api" : "/api");
+    // Keep auth, password grants and protected media on the frontend origin.
+    // The Pages proxy/service binding forwards these requests to the Worker.
+    base = "/api";
   } else {
     base = import.meta.env.PUBLIC_API_URL || "http://localhost:11498/api";
   }

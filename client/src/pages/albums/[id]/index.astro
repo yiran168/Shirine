@@ -171,7 +171,7 @@ if (isLocked) {
 					)}
 					<span>
 						<Icon name="material-symbols:photo-library-outline-rounded" aria-hidden="true" />
-						<span>{resolvedAlbum.photos.length} {i18n(I18nKey.albumsPhotos)}</span>
+						<span>{resolvedAlbum.photoCount ?? resolvedAlbum.photos.length} {i18n(I18nKey.albumsPhotos)}</span>
 					</span>
 				</div>
 				{resolvedAlbum.tags.length > 0 && (

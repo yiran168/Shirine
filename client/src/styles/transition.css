@@ -1,5 +1,10 @@
 @reference "tailwindcss";
 
+/* Avoid hundreds of simultaneous color/backdrop animations on theme changes. */
+html.theme-switching *, html.theme-switching *::before, html.theme-switching *::after {
+    transition: none !important;
+}
+
 /* Page transition animations with Swup */
 html.is-changing .transition-swup-fade {
     transition: opacity 200ms cubic-bezier(0.2, 0, 0, 1), transform 200ms cubic-bezier(0.2, 0, 0, 1);

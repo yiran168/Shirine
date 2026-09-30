@@ -382,6 +382,7 @@ if (runtimeApiUrl && !(globalThis as any).__SHIRINE_RUNTIME_API_URL__) {
 </style>
 
 <script>
+  import "@utils/media-refresh";
 import { initLastUpdatedNotices } from "../utils/last-updated-notice";
 import {getHue, getStoredTheme, setHue, setTheme} from "../utils/setting-utils";
 import { WALLPAPER_MODE_CHANGE_EVENT, BANNER_HEIGHT, BANNER_HEIGHT_EXTEND } from "../constants/constants";
@@ -471,7 +472,6 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 const setup = () => {
 	if (!window.swup || window.__shirineNavigationBound) return;
 	window.__shirineNavigationBound = true;
-	let scrollStarted = false;
 	let visitActive = false;
 	let finishTimer: number | undefined;
 	let navWatchdogTimer: number | undefined;
@@ -481,10 +481,8 @@ const setup = () => {
 		visitActive = false;
 		window.clearTimeout(finishTimer);
 		window.clearTimeout(navWatchdogTimer);
-		finishTimer = window.setTimeout(() => {
-			document.getElementById('page-height-extend')?.classList.add('hidden');
-			document.documentElement.classList.remove('is-changing', 'is-animating');
-		}, 150);
+		document.getElementById('page-height-extend')?.classList.add('hidden');
+		document.documentElement.classList.remove('is-changing', 'is-animating');
 	}
 
 	window.swup.hooks.on('link:click', () => document.documentElement.style.setProperty('--content-delay', '0ms'));
@@ -493,7 +491,6 @@ const setup = () => {
 		window.clearTimeout(finishTimer);
 		window.clearTimeout(navWatchdogTimer);
 		visitActive = true;
-		scrollStarted = false;
 		document.getElementById('page-height-extend')?.classList.remove('hidden');
 
 		// Hard navigation watchdog: never allow page transition to lock up in is-animating state
@@ -509,10 +506,11 @@ const setup = () => {
 	window.swup.hooks.on('visit:end', () => {
 		finishFurinaTopProgressBar();
 		document.documentElement.classList.remove('is-changing', 'is-animating');
-		if (!scrollStarted) finishVisit();
+		finishVisit();
 	});
 
 	window.swup.hooks.on('page:view', () => {
+		finishVisit();
 		window.clearTimeout(navWatchdogTimer);
 		finishFurinaTopProgressBar();
 		document.documentElement.classList.remove('is-changing', 'is-animating');
@@ -543,10 +541,6 @@ const setup = () => {
 		});
 	}
 
-	if (window.swup.hooks.exists('scroll:end')) {
-		window.swup.hooks.on('scroll:start', () => { if (visitActive) scrollStarted = true; });
-		window.swup.hooks.on('scroll:end', finishVisit);
-	}
 };
 if (window.swup?.hooks) setup();
 else document.addEventListener('swup:enable', setup, { once: true });

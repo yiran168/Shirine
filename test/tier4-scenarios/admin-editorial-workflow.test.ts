@@ -35,13 +35,13 @@ describe("Tier 4 - Scenario: Admin Editorial & Site Management Workflow", () => 
     const postId = createPostRes.data.data.id;
 
     // 3. Media is associated with draft post only -> Regular visitor cannot access it (403)
-    const visitorMediaRes = await env.request(`/api/blob/${heroImageKey}`);
+    const visitorMediaRes = await env.requestMedia(`/api/blob/${heroImageKey}`);
     expect(visitorMediaRes.status).toBe(403);
     const visitorText = await visitorMediaRes.text();
     expect(visitorText).toContain("Draft post media is unpublished");
 
     // Admin CAN preview the draft media
-    const adminMediaRes = await env.request(`/api/blob/${heroImageKey}`, {
+    const adminMediaRes = await env.requestMedia(`/api/blob/${heroImageKey}`, {
       headers: { Authorization: `Bearer ${admin.token}` },
     });
     expect(adminMediaRes.status).toBe(200);
@@ -71,7 +71,7 @@ describe("Tier 4 - Scenario: Admin Editorial & Site Management Workflow", () => 
     expect(publishedPost.title).toBe("Announcing Shirine Blog System");
 
     // 7. Hero media is now publicly accessible
-    const publicMediaRes = await env.request(`/api/blob/${heroImageKey}`);
+    const publicMediaRes = await env.requestMedia(`/api/blob/${heroImageKey}`);
     expect(publicMediaRes.status).toBe(200);
 
     // 8. Admin updates site branding & configuration

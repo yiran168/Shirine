@@ -37,7 +37,7 @@ describe("Tier 2 - Boundary: Blob Handler & R2 Storage Boundaries", () => {
       image: `/api/blob/${mediaKey}`,
     });
 
-    const res = await env.request(`/api/blob/${mediaKey}`);
+    const res = await env.requestMedia(`/api/blob/${mediaKey}`);
     expect(res.status).toBe(401);
     const text = await res.text();
     expect(text).toContain("Unauthorized");
@@ -59,7 +59,7 @@ describe("Tier 2 - Boundary: Blob Handler & R2 Storage Boundaries", () => {
 
     const user = await env.createUser("vip_watcher", "pass123456", 0);
 
-    const res = await env.request(`/api/blob/${mediaKey}`, {
+    const res = await env.requestMedia(`/api/blob/${mediaKey}`, {
       headers: { Authorization: `Bearer ${user.token}` },
     });
     expect(res.status).toBe(403);
@@ -91,7 +91,7 @@ describe("Tier 2 - Boundary: Blob Handler & R2 Storage Boundaries", () => {
     // Close SQLite database to simulate database connection loss or D1 failure
     env.d1.sqlite.close();
 
-    const res = await env.request(`/api/blob/${mediaKey}`);
+    const res = await env.requestMedia(`/api/blob/${mediaKey}`);
     expect(res.status).toBe(503);
     const text = await res.text();
     expect(text).toContain("Media authorization backend unavailable");

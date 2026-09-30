@@ -4,13 +4,13 @@
 
 -- 1. Friends
 INSERT INTO friends (name, desc, avatar, url, accepted, sort_order, uid)
-VALUES ('Mizuki', 'Another Fuwari-based blog theme with docs', '/assets/avatars/avatar_01.webp', 'https://mizuki.mysqil.com', 1, 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
+VALUES ('Mizuki', 'Another Fuwari-based blog theme with docs', '/assets/avatars/frieren.webp', 'https://mizuki.mysqil.com', 1, 1, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
 ON CONFLICT(url) DO NOTHING;
 INSERT INTO friends (name, desc, avatar, url, accepted, sort_order, uid)
-VALUES ('Astro', 'The web framework for content-driven websites', '/assets/avatars/avatar_02.webp', 'https://astro.build', 1, 2, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
+VALUES ('Astro', 'The web framework for content-driven websites', '/assets/avatars/fern.webp', 'https://astro.build', 1, 2, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
 ON CONFLICT(url) DO NOTHING;
 INSERT INTO friends (name, desc, avatar, url, accepted, sort_order, uid)
-VALUES ('Material 3', 'Material Design 3 — the next generation of Material Design', '/assets/avatars/avatar_03.webp', 'https://m3.material.io', 1, 3, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
+VALUES ('Material 3', 'Material Design 3 — the next generation of Material Design', '/assets/avatars/stark.webp', 'https://m3.material.io', 1, 3, (SELECT id FROM users WHERE role = 'superadmin' LIMIT 1))
 ON CONFLICT(url) DO NOTHING;
 
 -- 2. Moments

@@ -374,7 +374,7 @@ describe("Adversarial: Security & API Stress Verification", () => {
       const key = "uploads/2026/09/isolated-private-file.png";
       await env.storage.put(key, new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
 
-      const res = await env.request(`/api/blob/${key}`);
+      const res = await env.requestMedia(`/api/blob/${key}`);
       expect(res.status).toBe(403);
       const text = await res.text();
       expect(text).toContain("Unattached or unpublished asset");
@@ -388,7 +388,7 @@ describe("Adversarial: Security & API Stress Verification", () => {
       const key = "uploads/2026/09/isolated-backup.zip";
       await env.storage.put(key, new Uint8Array([0x50, 0x4b, 0x03, 0x04]));
 
-      const res = await env.request(`/api/blob/${key}`, {
+      const res = await env.requestMedia(`/api/blob/${key}`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       expect(res.status).toBe(403);
@@ -430,20 +430,20 @@ describe("Adversarial: Security & API Stress Verification", () => {
       });
 
       // Anonymous -> 403
-      const anonRes = await env.request(`/api/blob/${mediaKey}`);
+      const anonRes = await env.requestMedia(`/api/blob/${mediaKey}`);
       expect(anonRes.status).toBe(403);
       expect(await anonRes.text()).toContain("Draft post media is unpublished");
 
       // Regular user -> 403
       const user = await env.createUser("draft_sniffer", "pass123", 0);
-      const userRes = await env.request(`/api/blob/${mediaKey}`, {
+      const userRes = await env.requestMedia(`/api/blob/${mediaKey}`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       expect(userRes.status).toBe(403);
 
       // Admin -> 200
       const admin = await env.createSuperadmin("draft_admin", "adminpass");
-      const adminRes = await env.request(`/api/blob/${mediaKey}`, {
+      const adminRes = await env.requestMedia(`/api/blob/${mediaKey}`, {
         headers: { Authorization: `Bearer ${admin.token}` },
       });
       expect(adminRes.status).toBe(200);
@@ -467,13 +467,13 @@ describe("Adversarial: Security & API Stress Verification", () => {
       });
 
       // 1. Anonymous visitor -> 401 (Authentication required)
-      const anonRes = await env.request(`/api/blob/${photoKey}`);
+      const anonRes = await env.requestMedia(`/api/blob/${photoKey}`);
       expect(anonRes.status).toBe(401);
       expect(await anonRes.text()).toContain("Authentication required");
 
       // 2. Regular user -> 403 (Draft album media is unpublished)
       const user = await env.createUser("album_draft_viewer", "pass123", 0);
-      const userRes = await env.request(`/api/blob/${photoKey}`, {
+      const userRes = await env.requestMedia(`/api/blob/${photoKey}`, {
         headers: { Authorization: `Bearer ${user.token}` },
       });
       expect(userRes.status).toBe(403);
@@ -481,7 +481,7 @@ describe("Adversarial: Security & API Stress Verification", () => {
 
       // 3. Admin user -> 200 OK
       const admin = await env.createSuperadmin("album_draft_admin", "adminpass");
-      const adminRes = await env.request(`/api/blob/${photoKey}`, {
+      const adminRes = await env.requestMedia(`/api/blob/${photoKey}`, {
         headers: { Authorization: `Bearer ${admin.token}` },
       });
       expect(adminRes.status).toBe(200);
@@ -504,12 +504,12 @@ describe("Adversarial: Security & API Stress Verification", () => {
       });
 
       // 1. Without grant -> 403
-      const resNoGrant = await env.request(`/api/blob/${mediaKey}`);
+      const resNoGrant = await env.requestMedia(`/api/blob/${mediaKey}`);
       expect(resNoGrant.status).toBe(403);
       expect(await resNoGrant.text()).toContain("Password verification required");
 
       // 2. With invalid grant -> 403
-      const resBadGrant = await env.request(`/api/blob/${mediaKey}`, {
+      const resBadGrant = await env.requestMedia(`/api/blob/${mediaKey}`, {
         headers: { "X-Post-Grant": "invalid.jwt.grant" },
       });
       expect(resBadGrant.status).toBe(403);
@@ -524,7 +524,7 @@ describe("Adversarial: Security & API Stress Verification", () => {
       const grant = verifyRes.data.grant;
 
       // 4. Access with valid grant -> 200 OK
-      const resValidGrant = await env.request(`/api/blob/${mediaKey}`, {
+      const resValidGrant = await env.requestMedia(`/api/blob/${mediaKey}`, {
         headers: { "X-Post-Grant": grant },
       });
       expect(resValidGrant.status).toBe(200);
@@ -561,7 +561,7 @@ describe("Adversarial: Security & API Stress Verification", () => {
       env.d1.sqlite.close();
 
       // Request the asset
-      const res = await env.request(`/api/blob/${assetKey}`);
+      const res = await env.requestMedia(`/api/blob/${assetKey}`);
 
       // Must fail closed with 503
       expect(res.status).toBe(503);
