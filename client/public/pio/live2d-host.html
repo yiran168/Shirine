@@ -8,13 +8,9 @@
 
   /* Hide vendor tips anchored to the empty canvas, use the measured character instead. */
   div[style*="calc(100%"] { display: none !important; }
-  #shirine-l2d-bubble { position: fixed; max-width: 220px; width: max-content; transform: translate(-50%, -100%); pointer-events: none; z-index: 10; }
 </style>
 </head>
 <body>
-<div id="shirine-l2d-bubble" style="display:none; opacity:0; position:fixed; top:24px; left:50%; transform:translate(-50%, -100%); max-width:220px; width:max-content; background:rgba(26,26,36,0.92); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.25); box-shadow:0 6px 20px rgba(0,0,0,0.4); border-radius:12px; color:#ffffff; font-size:12px; font-weight:500; line-height:1.5; padding:8px 12px; text-align:center; pointer-events:none; z-index:99999; transition:opacity 0.3s ease;">
-  <span id="shirine-l2d-bubble-text"></span>
-</div>
 <script src="/pio/live2dcubismcore.min.js"></script>
 <script src="/pio/live2d.min.js"></script>
 <script src="/pio/l2d-widget.min.js"></script>
@@ -73,18 +69,8 @@
   };
 
   function showSpeechBubble(quote) {
-    var fallback = document.getElementById('shirine-l2d-bubble');
-    var fallbackText = document.getElementById('shirine-l2d-bubble-text');
-    if (fallback && fallbackText) {
-      fallbackText.textContent = quote;
-      fallback.style.display = 'block';
-      fallback.style.opacity = '1';
-      clearTimeout(window.__bubbleTimer);
-      window.__bubbleTimer = setTimeout(function() {
-        fallback.style.opacity = '0';
-        setTimeout(function() { fallback.style.display = 'none'; }, 300);
-      }, 3500);
-    }
+    // The parent positions speech in the viewport, outside transparent canvas padding.
+    parent.postMessage({ type: 'l2d-speech', text: String(quote) }, location.origin);
   }
 
   var menuActions = {
@@ -132,9 +118,6 @@
       var rect = canvas.getBoundingClientRect();
       characterBounds = { x: rect.left + left / 140 * rect.width, y: rect.top + top / 180 * rect.height, width: (right - left + 1) / 140 * rect.width, height: (bottom - top + 1) / 180 * rect.height };
       parent.postMessage({ type: 'l2d-bounds', bounds: characterBounds }, location.origin);
-      var bubble = document.getElementById('shirine-l2d-bubble');
-      bubble.style.left = Math.max(110, Math.min(window.innerWidth - 110, characterBounds.x + characterBounds.width / 2)) + 'px';
-      bubble.style.top = Math.max(56, characterBounds.y - 8) + 'px';
     } catch (error) { console.warn('Could not measure mascot bounds', error); }
   }
 
