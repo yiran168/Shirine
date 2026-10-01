@@ -9,6 +9,7 @@ const textureOptions = resolveTextureOptions(siteConfig.texture, siteConfig.disp
 <div
 	id="config-carrier"
 	data-hue={siteConfig.themeColor.hue}
+	data-liquid-glass={siteConfig.liquidGlassMode || "none"}
 	data-wallpaper-mode={siteConfig.wallpaperMode.defaultMode}
 	{...(textureOptions.enable
 		? {

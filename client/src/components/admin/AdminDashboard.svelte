@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import TurnstileGate from "@components/auth/TurnstileGate.svelte";
   import { authStore } from "../../stores/auth";
   import {
     adminApi,
@@ -62,6 +63,9 @@
   let loginUsername = $state("");
   let loginPassword = $state("");
   let loginLoading = $state(false);
+  let loginVerificationReady = $state(false);
+  let loginVerificationToken = $state("");
+  let loginVerificationReset = $state(0);
 
   // Initial Setup Wizard State
   let needsSetup = $state(false);
@@ -288,7 +292,7 @@
     subtitle: "A Material 3 anime blog",
     lang: "zh_CN",
     githubUrl: "https://github.com/yiran168/Shirine",
-    liquidGlassMode: "none" as "none" | "subtle" | "vibrant",
+    liquidGlassMode: "none" as "none" | "subtle" | "vibrant" | "crystal",
     themeHue: 315,
     themeStyle: "tonalSpot",
     topAppBarAlign: "center",
@@ -305,6 +309,8 @@
       { name: "Twitter", icon: "fa6-brands:twitter", url: "https://twitter.com" },
       { name: "Steam", icon: "fa6-brands:steam", url: "https://store.steampowered.com" },
       { name: "GitHub", icon: "fa6-brands:github", url: "https://github.com/yiran168/Shirine" },
+      { name: "B 站", icon: "fa6-brands:bilibili", url: "https://www.bilibili.com/" },
+      { name: "QQ", icon: "fa6-brands:qq", url: "https://im.qq.com/" },
     ] as Array<{ name: string; icon: string; url: string }>,
     announcementEnable: true,
     announcementTitle: "",
@@ -504,10 +510,11 @@
   }
 
   async function handleAdminLogin() {
+    if (!loginVerificationReady) { showMessage("请先完成人机验证", true); return; }
     loginLoading = true;
     errorMsg = "";
     try {
-      const res = await authApi.login({ username: loginUsername, password: loginPassword });
+      const res = await authApi.login({ username: loginUsername, password: loginPassword, turnstileToken: loginVerificationToken || undefined });
       if (res.success && res.user) {
         if (res.user.role !== "superadmin" && res.user.role !== "admin") {
           showMessage("该账户不是管理员角色，无法进入后台控制台", true);
@@ -519,19 +526,13 @@
           loadDashboardData();
         }
       } else {
-        const errorText = res.error || "登录失败";
-        // If turnstile verification was required by server, prompt unified AuthModal (V8-P1-14)
-        if (errorText.toLowerCase().includes("turnstile") || errorText.includes("verification") || errorText.includes("验证")) {
-          authStore.openAuthModal("login");
-          showMessage("系统已启用人机验证，请在弹出的登录窗口中完成验证并登录", false);
-        } else {
-          showMessage(errorText, true);
-        }
+        showMessage(res.error || "登录失败", true);
       }
     } catch (err: any) {
       showMessage(err.message || "登录请求异常", true);
     } finally {
       loginLoading = false;
+      if (!isAdmin) loginVerificationReset++;
     }
   }
 
@@ -621,7 +622,7 @@
             subtitle: s.subtitle ?? siteConfigState.subtitle,
             lang: s.lang ?? siteConfigState.lang,
             githubUrl: s.githubUrl ?? siteConfigState.githubUrl,
-            liquidGlassMode: s.liquidGlassMode && s.liquidGlassMode !== "none" ? "subtle" : "none",
+            liquidGlassMode: ["subtle", "vibrant", "crystal"].includes(s.liquidGlassMode) ? s.liquidGlassMode : "none",
             themeHue: s.themeColor?.hue ?? siteConfigState.themeHue,
             themeStyle: s.themeColor?.style ?? siteConfigState.themeStyle,
             topAppBarAlign: s.topAppBar?.contentAlign ?? siteConfigState.topAppBarAlign,
@@ -1922,8 +1923,6 @@
       const res = await mediaApi.delete(key);
       if (res.success) {
         showMessage("文件已成功从 R2 删除！");
-        window.dispatchEvent(new CustomEvent("shirine-config-updated"));
-        document.body.dataset.liquidGlass = siteConfigState.liquidGlassMode;
         await loadMediaLibrary();
       } else {
         showMessage(res.error || "删除失败", true);
@@ -2275,6 +2274,7 @@
       ]);
       if (siteRes.success && sysRes.success) {
         showMessage("全站外观设定、存储配置、音乐曲目、背景图与系统设置已保存生效！");
+        window.dispatchEvent(new CustomEvent("shirine-config-updated"));
         await loadMediaLibrary();
       } else {
         showMessage(siteRes.error || sysRes.error || "保存失败", true);
@@ -2590,20 +2590,15 @@
                 class="w-full px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/40 bg-[var(--surface-container-low)] text-sm focus:border-primary outline-none"
               />
             </div>
+            <TurnstileGate bind:token={loginVerificationToken} bind:ready={loginVerificationReady} resetKey={loginVerificationReset} />
             <button
               type="submit"
-              disabled={loginLoading}
+              disabled={loginLoading || !loginVerificationReady}
               class="w-full py-3 rounded-full bg-primary text-on-primary font-semibold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all disabled:opacity-50 mt-4"
             >
               {loginLoading ? "验证中..." : "进入管理面板"}
             </button>
-            <button
-              type="button"
-              onclick={() => authStore.openAuthModal("login")}
-              class="w-full py-2.5 rounded-full border border-primary/30 text-primary font-medium text-xs hover:bg-primary/5 active:scale-98 transition-all mt-2"
-            >
-              使用安全弹窗登录 (支持人机验证)
-            </button>
+
           </form>
         </div>
       </div>
@@ -5020,15 +5015,7 @@
                       <option value="none">无纹理 (None)</option>
                     </select>
                   </div>
-                  <div>
-                    <label class="flex items-center gap-3 text-sm font-semibold cursor-pointer">
-                      <input type="checkbox" role="switch" checked={siteConfigState.liquidGlassMode !== "none"}
-                        onchange={(event) => siteConfigState.liquidGlassMode = event.currentTarget.checked ? "subtle" : "none"}
-                        class="w-5 h-5 accent-primary" />
-                      全站毛玻璃效果
-                    </label>
-                    <p class="text-xs text-[var(--on-surface-variant)] mt-2">统一应用到导航栏、菜单与卡片。</p>
-                  </div>
+
                   <div>
                     <label for="settings-github-url" class="text-xs font-semibold block mb-1.5">更多菜单 · GitHub 跳转地址</label>
                     <input id="settings-github-url" type="url" bind:value={siteConfigState.githubUrl}
@@ -5058,6 +5045,15 @@
                 </div>
               </div>
             </div>
+
+            <section class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm" aria-labelledby="glass-settings-title">
+              <h2 id="glass-settings-title" class="text-lg font-bold mb-2">液态玻璃效果</h2>
+              <p class="text-xs text-[var(--on-surface-variant)] mb-4">独立于横幅和壁纸设置，应用到前台导航、菜单与卡片。正文和图片保持清晰。</p>
+              <label for="settings-liquid-glass" class="text-xs font-semibold block mb-2">效果风格</label>
+              <select id="settings-liquid-glass" bind:value={siteConfigState.liquidGlassMode} class="w-full max-w-md px-4 py-2.5 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-low)] text-sm">
+                <option value="none">关闭</option><option value="subtle">轻雾玻璃 · 柔和微透</option><option value="vibrant">流彩玻璃 · 染色高光</option><option value="crystal">水晶玻璃 · 清透折射</option>
+              </select>
+            </section>
 
             <!-- Profile & Bio Settings -->
             <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
@@ -5117,7 +5113,7 @@
                 <div class="flex items-center justify-between mb-2">
                   <div>
                     <h3 class="text-xs font-bold text-primary uppercase tracking-wider">社交平台与外链跳转 (Social Links)</h3>
-                    <p class="text-[11px] text-[var(--on-surface-variant)]">配置侧边栏名片底部的社交图标，支持 GitHub、Steam、Facebook、Twitter 等点击直接跳转</p>
+                    <p class="text-[11px] text-[var(--on-surface-variant)]">配置名片底部的社交图标与地址，支持 B 站、QQ、GitHub、Steam 等。保存后在前台显示，未填写地址的项目不显示。</p>
                   </div>
                   <button
                     type="button"
@@ -5161,10 +5157,17 @@
                   </button>
                   <button
                     type="button"
-                    onclick={() => addProfileLink({ name: "Bilibili", icon: "fa6-brands:bilibili", url: "https://space.bilibili.com" })}
+                    onclick={() => addProfileLink({ name: "B 站", icon: "fa6-brands:bilibili", url: "https://www.bilibili.com/" })}
                     class="px-2.5 py-1 rounded-md bg-[var(--surface-container-high)] text-xs hover:bg-[var(--surface-container-highest)] transition-colors"
                   >
-                    Bilibili
+                    B 站
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => addProfileLink({ name: "QQ", icon: "fa6-brands:qq", url: "https://im.qq.com/" })}
+                    class="px-2.5 py-1 rounded-md bg-[var(--surface-container-high)] text-xs hover:bg-[var(--surface-container-highest)] transition-colors"
+                  >
+                    QQ
                   </button>
                   <button
                     type="button"
@@ -5202,7 +5205,7 @@
                           <input
                             type="text"
                             bind:value={link.url}
-                            placeholder="https://..."
+                            placeholder={link.icon === "fa6-brands:bilibili" ? "https://space.bilibili.com/你的 UID" : link.icon === "fa6-brands:qq" ? "粘贴 QQ 个人或群聊分享链接" : "https://..."}
                             class="w-full px-2.5 py-1 rounded-md border border-[var(--outline-variant)]/30 bg-[var(--surface)] text-xs outline-none font-mono"
                           />
                         </div>

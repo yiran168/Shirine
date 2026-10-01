@@ -2,8 +2,9 @@
   import { onMount, tick } from "svelte";
   import { configApi } from "../../../services/api";
   import { clampMascotPosition } from "../../../utils/mascot-position";
+  import type { PublicSystemConfig } from "../../../utils/system-config";
 
-  let { mode = "guest" }: { mode?: "guest" | "admin" } = $props();
+  let { mode = "guest", initialConfig = null }: { mode?: "guest" | "admin"; initialConfig?: PublicSystemConfig | null } = $props();
   let enabled = $state(false);
   let visible = $state(false);
   let started = $state(false);
@@ -101,7 +102,11 @@
     const finish = (e: PointerEvent) => {
       if (e.pointerId !== event.pointerId) return;
       stopDrag();
-      if (moved) savePosition(); else if (e.type === "pointerup") talk();
+      if (moved) savePosition(); else if (e.type === "pointerup") {
+        const rect = frame?.getBoundingClientRect();
+        if (rect) send("l2d-tap", { x: e.clientX - rect.left, y: e.clientY - rect.top });
+        talk();
+      }
     };
     stopDrag = () => {
       window.removeEventListener("pointermove", move, true);
@@ -128,19 +133,35 @@
     } catch {}
     lang = document.documentElement.lang.replace("-", "_");
     clampPosition();
-    const refresh = async () => {
-      const res = await (mode === "admin" ? configApi.getAdminSystem() : configApi.getSystem());
+    const applyConfig = async (conf: PublicSystemConfig) => {
       if (!alive) return;
-      const conf = res.data || res.config || {};
       enabled = mode === "admin"
-        ? Boolean(conf.live2dAdminEnable ?? conf.live2dAdminEnabled ?? conf.live2d?.adminEnabled ?? true)
-        : Boolean(conf.live2dGuestEnable ?? conf.live2dGuestEnabled ?? conf.live2d?.guestEnabled ?? true);
-      model = conf.live2dModel || conf.live2d?.model || model;
-      const configuredQuotes = conf.live2dQuotes ?? conf.live2d?.quotes;
-      quotes = Array.isArray(configuredQuotes) ? configuredQuotes : typeof configuredQuotes === "string" ? configuredQuotes.split("\n").filter(Boolean) : [];
+        ? conf.live2dAdminEnabled !== false
+        : conf.live2dGuestEnabled !== false;
+      model = conf.live2dModel || model;
+      const configuredQuotes = conf.live2dQuotes;
+      // Hydrated props may be Svelte proxies; postMessage needs a plain array.
+      quotes = Array.isArray(configuredQuotes) ? Array.from(configuredQuotes, String) : typeof configuredQuotes === "string" ? configuredQuotes.split("\n").filter(Boolean) : [];
       started = started || (enabled && visible);
       await tick(); if (started) init();
     };
+    const refresh = async () => {
+      const res = await configApi.getSystem();
+      if (res.success) await applyConfig(res.data || res.config || {});
+    };
+    let pointerFrame = 0;
+    let pointerX = 0, pointerY = 0;
+    const pointer = (event: PointerEvent) => {
+      if (!loaded || !visible || event.pointerType === "touch") return;
+      pointerX = event.clientX; pointerY = event.clientY;
+      if (pointerFrame) return;
+      pointerFrame = requestAnimationFrame(() => {
+        pointerFrame = 0;
+        const rect = frame?.getBoundingClientRect();
+        if (rect && visible) send("l2d-pointer", { x: pointerX - rect.left, y: pointerY - rect.top });
+      });
+    };
+    const pointerExit = () => { cancelAnimationFrame(pointerFrame); pointerFrame = 0; send("l2d-pointer", { exit: true }); };
     const message = (e: MessageEvent) => {
       if (e.origin !== window.location.origin || e.source !== frame?.contentWindow) return;
       if (e.data?.type === "l2d-ready") init();
@@ -164,11 +185,18 @@
     window.addEventListener("resize", clampPosition);
     window.addEventListener("shirine-lang-change", language);
     window.addEventListener("shirine-config-updated", refresh);
-    void refresh();
+    window.addEventListener("pointermove", pointer, { passive: true });
+    document.documentElement.addEventListener("pointerleave", pointerExit);
+    window.addEventListener("blur", pointerExit);
+    if (initialConfig) void applyConfig(initialConfig); else void refresh();
     return () => {
       alive = false;
       stopDrag();
       clearTimeout(speechTimer);
+      cancelAnimationFrame(pointerFrame);
+      window.removeEventListener("pointermove", pointer);
+      document.documentElement.removeEventListener("pointerleave", pointerExit);
+      window.removeEventListener("blur", pointerExit);
       window.removeEventListener("message", message);
       window.removeEventListener("resize", clampPosition);
       window.removeEventListener("shirine-lang-change", language);
@@ -216,7 +244,7 @@
   .mascot-hidden { opacity: 0; visibility: hidden; transition: opacity 350ms ease, visibility 0s 350ms; }
   iframe { border: 0; display: block; pointer-events: none; }
   p { position: absolute; bottom: 10px; padding: 8px; border-radius: 12px; background: var(--surface-container-high); color: var(--on-surface); font-size: 12px; }
-  .mascot-body { position: absolute; pointer-events: auto; touch-action: none; cursor: grab; border-radius: 40% 40% 8% 8%; }
+  .mascot-body { position: absolute; pointer-events: auto; touch-action: none; cursor: grab; border: 0; outline: none !important; box-shadow: none !important; }
   .mascot-body:active { cursor: grabbing; }
   .mascot-hidden .mascot-body { pointer-events: none; }
   .mascot-actions { position: absolute; width: 50px; padding-inline: 3px; display: flex; flex-direction: column; pointer-events: auto; opacity: 0; visibility: hidden; transition: opacity 300ms ease, visibility 0s 300ms; }

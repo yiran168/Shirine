@@ -6,7 +6,7 @@ import { i18n } from "@i18n/translation";
  * M3E 博客原子 — PostCard 文章卡片。
  * 数据驱动：标题 / 描述 / 封面 / 元信息（复用 blog/PostMeta）/ 阅读时长。
  * 视觉对齐 display/Card 令牌：surface-container-high 基、corner-large、
- * hover 抬升阴影 + 标题 primary + 箭头滑出；有封面时桌面端右侧 28% 图。
+ * hover 抬升阴影 + 标题 primary + 箭头滑出；封面贴边并向正文渐隐。
  */
 import { Icon } from "astro-icon/components";
 import type { BlogMetaLink } from "./PostMeta.astro";
@@ -333,13 +333,15 @@ const titleLabel =
 
 		@media (min-width: bp-md)
 			position: absolute
-			top: 0.75rem
-			right: 0.75rem
-			bottom: 0.75rem
-			width: 28%
+			top: 0
+			right: 0
+			bottom: 0
+			width: 42%
 			height: auto
-			border-radius: var(--shape-corner-s)
+			border-radius: 0
 			overflow: hidden
+			-webkit-mask-image: linear-gradient(to right, transparent, rgba(0,0,0,.18) 10%, rgba(0,0,0,.65) 24%, black 42%)
+			mask-image: linear-gradient(to right, transparent, rgba(0,0,0,.18) 10%, rgba(0,0,0,.65) 24%, black 42%)
 
 	/* 封面触摸箭头：卡片 hover 时深色遮罩 + 白色大箭头（与原版封面一致） */
 	&__cover-mask
@@ -377,15 +379,15 @@ const titleLabel =
 
 	&__enter
 		position: absolute
-		top: 0.75rem
-		right: 0.75rem
-		bottom: 0.75rem
+		top: 0
+		right: 0
+		bottom: 0
 		display: flex
 		align-items: center
 		justify-content: center
-		width: 3.25rem
-		border-radius: var(--shape-corner-s)
-		background: var(--enter-btn-bg)
+		width: 5.25rem
+		padding-left: 1rem
+		background: linear-gradient(to right, transparent, var(--enter-btn-bg) 78%)
 		color: var(--primary)
 		text-decoration: none
 		transition: background-color var(--m3e-duration-short) var(--m3e-easing-standard)
@@ -393,7 +395,7 @@ const titleLabel =
 			width: 2.25rem
 			height: 2.25rem
 		.m3-blog-postcard:hover &
-			background: var(--enter-btn-bg-hover)
+			background: linear-gradient(to right, transparent, var(--enter-btn-bg-hover) 78%)
 			color: var(--primary)
 		@media (max-width: bp-md - 1px)
 			display: none
@@ -403,8 +405,8 @@ const titleLabel =
 	@media (min-width: bp-md)
 		flex-direction: column
 		&--cover &__body
-			padding-right: calc(28% + 1.5rem)
-		/* 无封面时给右侧进入按钮（3.25rem + 0.75rem 边距）预留空间，描述提前换行 */
+			padding-right: calc(35% + 1.25rem)
+		/* 无封面时为右侧渐隐箭头预留空间。 */
 		&:not(.m3-blog-postcard--cover) &__body
 			padding-right: 4.75rem
 
@@ -414,12 +416,14 @@ const titleLabel =
 		.m3-blog-postcard__title :global(.m3-accent-bar)
 			display: none
 
-		/* 封面内缩置顶：四周留 1rem、2:1 宽比、0.75rem 圆角 */
+		/* 窄屏封面贴边置顶，向正文方向柔和淡出。 */
 		&__cover
 			width: auto
 			aspect-ratio: 2 / 1
-			margin: 1rem 1rem 0
-			border-radius: var(--shape-corner-m)
+			margin: 0
+			border-radius: 0
+			-webkit-mask-image: linear-gradient(to bottom, black 65%, transparent)
+			mask-image: linear-gradient(to bottom, black 65%, transparent)
 			> picture,
 			> picture > img
 				width: 100%
@@ -444,22 +448,24 @@ const titleLabel =
    ============================================================ */
 .m3-blog-postcard
 	/* —— 网格（瀑布流）模式：仅在容器确实能形成至少两列时生效 ——
-	   封面内缩（与正文左右边缘对齐 --m3e-space-4，圆角 m、2:1）；
+	   封面贴边置顶并向下渐隐；
 	   无封面卡片沿用 list 的右上 enter 箭头区块（正文右缘自动让位）；
 	   卡片高度天然混合（有/无封面），由 PostPage 的 JS 最短列打包消除空洞 */
 	grid-card-layout(shell-selector)
 		:global({shell-selector} .m3e-post-list--grid) &
 			flex-direction: column-reverse
 
-		/* 封面和正文使用同一套内缩节奏，避免出现错位的内容边缘 */
+		/* 纵向卡片使用向下渐隐。 */
 		:global({shell-selector} .m3e-post-list--grid) &__cover
 			position: relative
 			inset: auto
 			width: auto
 			height: auto
 			aspect-ratio: 16 / 9
-			margin: var(--m3e-space-4) var(--m3e-space-4) 0
-			border-radius: var(--shape-corner-m)
+			margin: 0
+			border-radius: 0
+			-webkit-mask-image: linear-gradient(to bottom, black 65%, transparent)
+			mask-image: linear-gradient(to bottom, black 65%, transparent)
 
 		/* 显式加入卡片根类，提高优先级并覆写 list 的封面让位内边距。 */
 		:global({shell-selector} .m3e-post-list--grid .m3-blog-postcard) &__body
@@ -495,9 +501,11 @@ const titleLabel =
 	@media (min-width: bp-md)
 		:global(.m3e-post-list--cover-left) &__cover
 			right: auto
-			left: 0.75rem
+			left: 0
+			-webkit-mask-image: linear-gradient(to left, transparent, rgba(0,0,0,.18) 10%, rgba(0,0,0,.65) 24%, black 42%)
+			mask-image: linear-gradient(to left, transparent, rgba(0,0,0,.18) 10%, rgba(0,0,0,.65) 24%, black 42%)
 
 		:global(.m3e-post-list--cover-left) &--cover &__body
 			padding-right: 1.5rem
-			padding-left: calc(28% + 1.5rem)
+			padding-left: calc(35% + 1.25rem)
 </style>

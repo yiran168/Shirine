@@ -1,0 +1,15 @@
+---
+import type { PublicSystemConfig } from "@utils/system-config";
+const { config, mode = "guest" } = Astro.props as { config: PublicSystemConfig | null; mode?: "guest" | "admin" };
+const enabled = config && (mode === "admin" ? config.live2dAdminEnabled : config.live2dGuestEnabled) !== false;
+const defaultModel = !config?.live2dModel || config.live2dModel === "/pio/models/NOIR/noir.model3.json";
+---
+{enabled && <>
+  <link rel="preload" href="/pio/live2dcubismcore.min.js" as="script" />
+  <link rel="preload" href="/pio/l2d-widget.min.js" as="script" />
+  {defaultModel && <>
+    <link rel="preload" href="/pio/models/NOIR/noir.model3.json" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="/pio/models/NOIR/noir.moc3" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="/pio/models/NOIR/noir.2048/texture_00.png" as="image" />
+  </>}
+</>}

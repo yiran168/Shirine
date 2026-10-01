@@ -93,6 +93,8 @@ export const defaultSiteConfig = {
         icon: "fa6-brands:github",
         url: "https://github.com/yiran168/Shirine",
       },
+      { name: "B 站", icon: "fa6-brands:bilibili", url: "https://www.bilibili.com/" },
+      { name: "QQ", icon: "fa6-brands:qq", url: "https://im.qq.com/" },
     ],
   },
   announcement: {
@@ -833,7 +835,10 @@ configRouter.put("/site", requireAdmin, async (c) => {
         siteUpdates.lang = body.lang || body.defaultLang;
       }
       if (body.liquidGlassMode !== undefined) {
-        siteUpdates.liquidGlassMode = body.liquidGlassMode === "none" ? "none" : "subtle";
+        if (!["none", "subtle", "vibrant", "crystal"].includes(body.liquidGlassMode)) {
+          return c.json({ success: false, error: "Invalid liquid glass style" }, 400);
+        }
+        siteUpdates.liquidGlassMode = body.liquidGlassMode;
       }
       if (body.githubUrl !== undefined) {
         try {
@@ -1262,6 +1267,7 @@ configRouter.get("/system", async (c) => {
       turnstileSiteKey: sys.turnstile.siteKey,
       defaultLang: sys.i18n.defaultLang,
       live2dGuestEnabled: sys.live2d.guestEnabled,
+      live2dAdminEnabled: sys.live2d.adminEnabled,
       live2dModel: sys.live2d?.model || defaultSystemConfig.live2d.model,
       live2dLang: sys.live2d?.lang || "zh_CN",
       live2dModels: sys.live2d?.models || defaultSystemConfig.live2d.models,

@@ -152,7 +152,7 @@ export default defineConfig({
 			theme: false,
 			ignore: 'a[href="#"]',
 			animationClass: "transition-swup-",
-			containers: ["main", "#toc"],
+			containers: ["main", "#toc", "#config-carrier"],
 			smoothScrolling: false,
 			cache: false,
 			preload: false,

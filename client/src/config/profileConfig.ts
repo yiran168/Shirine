@@ -27,5 +27,7 @@ export const profileConfig: ProfileConfig = withUserConfig("profile", {
 			icon: "fa6-brands:github",
 			url: "https://github.com/yiran168/Shirine",
 		},
+		{ name: "B 站", icon: "fa6-brands:bilibili", url: "https://www.bilibili.com/" },
+		{ name: "QQ", icon: "fa6-brands:qq", url: "https://im.qq.com/" },
 	],
 });

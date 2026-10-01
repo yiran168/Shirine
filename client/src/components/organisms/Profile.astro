@@ -24,6 +24,7 @@ const style = Astro.props.style;
 const priority = Astro.props.priority ?? false;
 
 const { profile: config } = await getDynamicSiteConfig(Astro.request);
+const socialLinks = config.links.filter(item => item.url?.trim() && item.url.trim() !== "#" && !/^(javascript|vbscript|data):/i.test(item.url.trim()));
 const avatarAsset = await resolveImageAsset(config.avatar ?? "");
 let avatarUrl = typeof avatarAsset === "string" ? avatarAsset : avatarAsset.src;
 let avatarSrcset: string | undefined;
@@ -85,21 +86,20 @@ if (typeof avatarAsset !== "string") {
         <div class="h-1 w-5 bg-[var(--primary)] mx-auto rounded-full mb-2 transition"></div>
         <div class="text-center text-50 mb-2.5 transition">{config.bio}</div>
         <div class="flex flex-wrap gap-2 justify-center mb-1">
-            {config.links.length > 1 && config.links.filter(item => !/^(javascript|vbscript|data):/i.test(item.url?.trim() || "")).map(item =>
+            {socialLinks.length > 1 && socialLinks.map(item =>
                 <Tooltip label={item.name} placement="top" client:load>
                     <IconButton href={url(item.url)} target="_blank" rel="me" label={item.name}>
                         <Icon name={item.icon} class="text-[1.5rem]"></Icon>
                     </IconButton>
                 </Tooltip>
             )}
-            {config.links.length == 1 && !/^(javascript|vbscript|data):/i.test(config.links[0].url?.trim() || "") && <Button href={url(config.links[0].url)} target="_blank" ariaLabel={config.links[0].name}
+            {socialLinks.length == 1 && <Button href={url(socialLinks[0].url)} target="_blank" ariaLabel={socialLinks[0].name}
                                                  variant="text" size="small" class="!px-3 !font-bold !text-[var(--on-surface)]">
-                <Icon name={config.links[0].icon} class="text-[1.5rem]"></Icon>
-                {config.links[0].name}
+                <Icon name={socialLinks[0].icon} class="text-[1.5rem]"></Icon>
+                {socialLinks[0].name}
             </Button>}
         </div>
         <UmamiStats variant="profile" />
     </div>
 	</Card>
 </div>
-

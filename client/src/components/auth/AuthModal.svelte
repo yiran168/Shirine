@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import TurnstileGate from "./TurnstileGate.svelte";
   import { authStore } from "../../stores/auth";
-  import { authApi, configApi, setToken } from "../../services/api";
+  import { authApi, setToken } from "../../services/api";
 
   let username = $state("");
   let email = $state("");
@@ -10,75 +10,14 @@
   let loading = $state(false);
   let errorMsg = $state("");
 
-  let turnstileEnabled = $state(false);
-  let turnstileSiteKey = $state("");
   let turnstileToken = $state("");
-  let turnstileWidgetId: any = null;
-
-  onMount(async () => {
-    try {
-      const res = await configApi.getSystem();
-      if (res.success && res.config?.turnstileEnabled && res.config?.turnstileSiteKey) {
-        turnstileEnabled = true;
-        turnstileSiteKey = res.config.turnstileSiteKey;
-        loadTurnstile();
-      }
-    } catch {}
-  });
-
-  function loadTurnstile() {
-    if (typeof window === "undefined" || !turnstileSiteKey) return;
-    if (!(window as any).turnstile) {
-      const script = document.createElement("script");
-      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      script.async = true;
-      script.defer = true;
-      script.onload = () => renderTurnstile();
-      document.head.appendChild(script);
-    } else {
-      renderTurnstile();
-    }
-  }
-
-  function renderTurnstile() {
-    const el = document.getElementById("shirine-turnstile-container");
-    if (!el || !(window as any).turnstile) return;
-    if (turnstileWidgetId) {
-      (window as any).turnstile.reset(turnstileWidgetId);
-      turnstileToken = "";
-      return;
-    }
-    turnstileWidgetId = (window as any).turnstile.render(el, {
-      sitekey: turnstileSiteKey,
-      callback: (token: string) => {
-        turnstileToken = token;
-      },
-      "expired-callback": () => {
-        turnstileToken = "";
-      },
-      "error-callback": () => {
-        turnstileToken = "";
-      },
-    });
-  }
-
-  function resetTurnstile() {
-    turnstileToken = "";
-    if (turnstileWidgetId && typeof window !== "undefined" && (window as any).turnstile) {
-      try {
-        (window as any).turnstile.reset(turnstileWidgetId);
-      } catch {}
-    }
-  }
-
-  $effect(() => {
-    if (authStore.authModalOpen && turnstileEnabled) {
-      setTimeout(renderTurnstile, 200);
-    }
-  });
+  let verificationReady = $state(false);
+  let verificationReset = $state(0);
+  function resetTurnstile() { verificationReset++; }
 
   async function handleSubmit(e: Event) {
     e.preventDefault();
+    if (!verificationReady) { errorMsg = "请先完成人机验证"; return; }
     loading = true;
     errorMsg = "";
 
@@ -87,7 +26,7 @@
         const res = await authApi.login({
           username,
           password,
-          turnstileToken: turnstileEnabled ? turnstileToken : undefined,
+          turnstileToken: turnstileToken || undefined,
         });
 
         if (res.success && res.token && res.user) {
@@ -105,7 +44,7 @@
           email: email.trim(),
           password,
           nickname: nickname.trim() || undefined,
-          turnstileToken: turnstileEnabled ? turnstileToken : undefined,
+          turnstileToken: turnstileToken || undefined,
         });
 
         if (res.success && res.token && res.user) {
@@ -253,16 +192,11 @@
           </div>
         {/if}
 
-        <!-- Turnstile container if enabled -->
-        {#if turnstileEnabled}
-          <div class="pt-2 flex justify-center">
-            <div id="shirine-turnstile-container"></div>
-          </div>
-        {/if}
+        <TurnstileGate bind:token={turnstileToken} bind:ready={verificationReady} resetKey={verificationReset} />
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !verificationReady}
           class="w-full mt-4 py-3 rounded-xl bg-primary text-on-primary font-bold text-sm shadow-md hover:shadow-lg hover:brightness-105 active:scale-98 transition-all disabled:opacity-50"
         >
           {loading ? "提交处理中..." : (authStore.authModalTab === "login" ? "立即登录" : "注册新账号")}

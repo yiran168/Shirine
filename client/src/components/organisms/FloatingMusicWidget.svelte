@@ -25,6 +25,8 @@ let snapshot = $state<MusicSnapshot>({
 });
 
 let showControls = $state(false);
+let playButton: HTMLButtonElement;
+const controlsId = $props.id();
 
 const playing = $derived(snapshot.status === "playing");
 const currentTitle = $derived(snapshot.currentTrack?.title || "Shirine 音乐");
@@ -52,6 +54,10 @@ function prevTrack(e?: MouseEvent) {
 onMount(() => {
 	let unsubscribe = () => {};
 	let active = true;
+	const dismiss = (event: PointerEvent) => {
+		if (!(event.target instanceof Node) || !playButton?.parentElement?.contains(event.target)) showControls = false;
+	};
+	document.addEventListener("pointerdown", dismiss);
 
 
 	void import("@utils/music").then(({ getMusicRuntime }) => {
@@ -70,66 +76,29 @@ onMount(() => {
 	return () => {
 		active = false;
 		unsubscribe();
+		document.removeEventListener("pointerdown", dismiss);
 	};
 });
 </script>
 
 <div
-	class="floating-music-wrapper relative flex items-center gap-1.5 pointer-events-auto select-none"
+	class="floating-music-wrapper relative pointer-events-auto select-none"
 	onmouseenter={() => (showControls = true)}
 	onmouseleave={() => (showControls = false)}
+	onfocusin={() => (showControls = true)}
+	onfocusout={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) showControls = false; }}
+	onkeydown={(event) => { if (event.key === "Escape") { playButton?.focus(); showControls = false; } }}
 >
-	<!-- 悬浮曲目信息与扩展控制按钮（展开时显示） -->
-	{#if showControls}
-		<div
-			class="music-info-pill absolute right-0 bottom-full flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--surface-container-high)] text-[var(--on-surface)] shadow-lg border border-[var(--outline-variant)]/30 backdrop-blur-md animate-fade-in text-xs"
-		>
-			<button
-				type="button"
-				onclick={prevTrack}
-				class="p-1 rounded-full hover:bg-[var(--surface-container-highest)] active:scale-95 transition-all text-[var(--on-surface-variant)] hover:text-primary"
-				title="上一首"
-				aria-label="上一首"
-			>
-				<Icon icon="material-symbols:skip-previous-rounded" class="text-base" />
-			</button>
-
-			<div class="max-w-[130px] truncate select-none text-[11px] font-medium leading-tight">
-				<span class="block truncate text-primary font-bold">{currentTitle}</span>
-				{#if currentArtist}
-					<span class="block truncate text-[10px] text-[var(--on-surface-variant)]">{currentArtist}</span>
-				{/if}
-			</div>
-
-			<button
-				type="button"
-				onclick={nextTrack}
-				class="p-1 rounded-full hover:bg-[var(--surface-container-highest)] active:scale-95 transition-all text-[var(--on-surface-variant)] hover:text-primary"
-				title="切换下一首"
-				aria-label="切换下一首"
-			>
-				<Icon icon="material-symbols:skip-next-rounded" class="text-base" />
-			</button>
-		</div>
-	{/if}
-		<!-- 紧凑模式下的快捷切换下一首按钮 -->
-		<button
-			type="button"
-			onclick={nextTrack}
-			class="switch-track-btn w-8 h-8 rounded-full bg-[var(--surface-container-high)] text-[var(--on-surface-variant)] hover:text-primary hover:bg-[var(--surface-container-highest)] border border-[var(--outline-variant)]/20 shadow-md flex items-center justify-center active:scale-95 transition-all"
-			title="切换下一首音乐"
-			aria-label="切换下一首音乐"
-		>
-			<Icon icon="material-symbols:skip-next-rounded" class="text-lg" />
-		</button>
-
 	<!-- 主悬浮音乐控制按钮（含播放状态、跳动动效） -->
 	<button
 		type="button"
+		bind:this={playButton}
 		onclick={togglePlay}
 		class="floating-music-btn w-11 h-11 sm:w-12 sm:h-12 rounded-full shadow-lg border border-[var(--outline-variant)]/30 flex items-center justify-center transition-all duration-300 relative overflow-hidden group active:scale-95 {playing ? 'bg-primary text-on-primary shadow-primary/30' : 'bg-[var(--surface-container-high)] text-[var(--on-surface)] hover:bg-[var(--surface-container-highest)]'}"
 		title={playing ? `正在播放: ${currentTitle} (点击暂停)` : `音乐播放器 (点击播放)`}
 		aria-label={playing ? "暂停音乐" : "播放音乐"}
+		aria-expanded={showControls}
+		aria-controls={controlsId}
 	>
 		{#if playing}
 			<!-- 音乐播放中的跳动动效：4 条声波跳跃波柱 -->
@@ -143,12 +112,32 @@ onMount(() => {
 			<Icon icon="material-symbols:music-note-rounded" class="text-2xl transition-transform group-hover:scale-110" />
 		{/if}
 	</button>
+	<div id={controlsId} class="music-expanded" class:music-expanded--open={showControls} inert={!showControls}>
+		<div class="music-info-pill" role="group" aria-label="歌曲信息和切歌控制">
+			<button type="button" class="music-skip m3-state-layer" onclick={prevTrack} aria-label="上一首" title="上一首">
+				<Icon icon="material-symbols:skip-previous-rounded" class="text-xl" />
+			</button>
+			<div class="music-track-info" title={currentArtist ? `${currentTitle} · ${currentArtist}` : currentTitle}>
+				<span class="block truncate text-primary font-bold">{currentTitle}</span>
+				{#if currentArtist}<span class="block truncate text-[var(--on-surface-variant)]">{currentArtist}</span>{/if}
+			</div>
+			<button type="button" class="music-skip m3-state-layer" onclick={nextTrack} aria-label="下一首" title="下一首">
+				<Icon icon="material-symbols:skip-next-rounded" class="text-xl" />
+			</button>
+		</div>
+	</div>
 </div>
 
 <style>
 	.floating-music-wrapper {
 		pointer-events: auto;
 	}
+	.floating-music-btn { min-width: 44px; min-height: 44px; }
+	.music-expanded { position: absolute; right: 100%; top: 50%; width: min(208px, calc(100vw - 6.5rem)); padding-right: 8px; box-sizing: border-box; opacity: 0; visibility: hidden; pointer-events: none; transform: translate(10px, -50%); transition: opacity 220ms ease, transform 220ms ease, visibility 0s 220ms; }
+	.music-expanded--open { opacity: 1; visibility: visible; pointer-events: auto; transform: translate(0, -50%); transition-delay: 0s; }
+	.music-info-pill { display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 999px; background: var(--surface-container-high); color: var(--on-surface); border: 1px solid var(--outline-variant); box-shadow: var(--m3e-elevation-2); }
+	.music-skip { flex: 0 0 44px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--on-surface-variant); cursor: pointer; }
+	.music-track-info { flex: 1; min-width: 0; font-size: 11px; line-height: 1.5; }
 	.wave-bar {
 		display: inline-block;
 		width: 2.5px;
@@ -204,12 +193,4 @@ onMount(() => {
 		100% { height: 5px; }
 	}
 
-	@keyframes fadeIn {
-		from { opacity: 0; transform: scale(0.95); }
-		to { opacity: 1; transform: scale(1); }
-	}
-
-	.animate-fade-in {
-		animation: fadeIn 0.2s cubic-bezier(0.2, 0, 0, 1) forwards;
-	}
 </style>

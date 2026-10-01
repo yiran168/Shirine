@@ -2,6 +2,9 @@
 export const prerender = false;
 
 import AdminDashboard from "@components/admin/AdminDashboard.svelte";
+import Live2DPreload from "@components/features/pio/Live2DPreload.astro";
+import { getPublicSystemConfig } from "@utils/system-config";
+const publicSystemConfig = await getPublicSystemConfig(Astro.request);
 import Live2DControl from "@components/features/pio/Live2DControl.svelte";
 import { url } from "@utils/url-utils";
 import "@/styles/main.css";
@@ -15,6 +18,7 @@ const htmlLang = currentAdminLang.replace("_", "-");
 <!doctype html>
 <html lang={htmlLang} class="h-full">
 	<head>
+    <Live2DPreload config={publicSystemConfig} mode="admin" />
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Shirine 管理控制台</title>
@@ -63,7 +67,7 @@ const htmlLang = currentAdminLang.replace("_", "-");
 			</div>
 		</div>
 		<AdminDashboard client:only="svelte" />
-		<Live2DControl client:only="svelte" mode="admin" />
+		<Live2DControl client:load mode="admin" initialConfig={publicSystemConfig} />
 		<script is:inline>
 			const adminLoader = document.getElementById('furina-admin-loader');
 			if (adminLoader) {

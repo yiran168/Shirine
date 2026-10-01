@@ -214,34 +214,17 @@ html.motion-reduced *::after {
     scroll-behavior: auto !important;
 }
 
-/* ==========================================================================
-   Liquid Frosted Glass Effects (Material 3 Liquid Glass)
-   - subtle: 轻量微透液态毛玻璃
-   - vibrant: 深邃高透折射流体毛玻璃
-   - Applied to widget cards & navigation shells, keeping post article prose completely clean!
-   ========================================================================== */
-body[data-liquid-glass="subtle"] .card-base:not(.prose *),
-body[data-liquid-glass="subtle"] #top-app-bar,
-body[data-liquid-glass="subtle"] .nav-menu-panel,
-body[data-liquid-glass="subtle"] #display-setting,
-body[data-liquid-glass="subtle"] #search-panel {
-    background-color: color-mix(in srgb, var(--surface) 75%, transparent) !important;
-    backdrop-filter: blur(14px) saturate(140%) !important;
-    -webkit-backdrop-filter: blur(14px) saturate(140%) !important;
-    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.06), inset 0 1px 1px 0 rgba(255, 255, 255, 0.25) !important;
-    border: 1px solid color-mix(in srgb, var(--outline-variant) 30%, transparent) !important;
-}
-
-body[data-liquid-glass="vibrant"] .card-base:not(.prose *),
-body[data-liquid-glass="vibrant"] #top-app-bar,
-body[data-liquid-glass="vibrant"] .nav-menu-panel,
-body[data-liquid-glass="vibrant"] #display-setting,
-body[data-liquid-glass="vibrant"] #search-panel {
-    background-color: color-mix(in srgb, var(--surface) 58%, transparent) !important;
-    backdrop-filter: blur(22px) saturate(180%) contrast(105%) !important;
-    -webkit-backdrop-filter: blur(22px) saturate(180%) contrast(105%) !important;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.12), inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.4) !important;
-    border: 1px solid color-mix(in srgb, var(--outline-variant) 45%, transparent) !important;
+/* Liquid glass is independent of banner / wallpaper mode. */
+body[data-liquid-glass="subtle"] { --glass-opacity: 76%; --glass-blur: 12px; --glass-saturation: 125%; --glass-tint: 3%; --glass-edge: 30%; }
+body[data-liquid-glass="vibrant"] { --glass-opacity: 56%; --glass-blur: 22px; --glass-saturation: 165%; --glass-tint: 17%; --glass-edge: 52%; }
+body[data-liquid-glass="crystal"] { --glass-opacity: 35%; --glass-blur: 8px; --glass-saturation: 135%; --glass-tint: 6%; --glass-edge: 72%; }
+body:is([data-liquid-glass="subtle"], [data-liquid-glass="vibrant"], [data-liquid-glass="crystal"]) :is(.m3-card, .m3-blog-postcard, .card-base, #navbar, .nav-menu-panel, #display-setting, #search-panel):not(.prose *, .custom-md *) {
+    background-color: color-mix(in srgb, var(--surface) var(--glass-opacity), transparent) !important;
+    background-image: linear-gradient(135deg, color-mix(in srgb, var(--primary) var(--glass-tint), transparent), transparent 48%, color-mix(in srgb, var(--tertiary) var(--glass-tint), transparent)) !important;
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)) !important;
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)) !important;
+    box-shadow: 0 6px 24px rgb(0 0 0 / .08), inset 0 1px 1px color-mix(in srgb, white var(--glass-edge), transparent), inset 0 -1px 1px color-mix(in srgb, var(--primary) 10%, transparent) !important;
+    border: 1px solid color-mix(in srgb, var(--outline-variant) var(--glass-edge), transparent) !important;
 }
 
 /* Ensure blog post prose text and code remain pristine and crystal clear with ZERO glass distortion */

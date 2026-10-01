@@ -39,7 +39,7 @@ export type SiteConfig = {
 	displaySettings?: DisplaySettingsConfig;
 
 	/** 液态毛玻璃特效模式："none"（默认关闭）| "subtle"（轻量微透液态毛玻璃）| "vibrant"（高透折射流体液态毛玻璃） */
-	liquidGlassMode?: "none" | "subtle" | "vibrant";
+	liquidGlassMode?: "none" | "subtle" | "vibrant" | "crystal";
 
 	lang:
 		| "en"

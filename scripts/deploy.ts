@@ -400,6 +400,9 @@ export async function migrateDatabase(): Promise<void> {
       runWrangler(["d1", "execute", DB_NAME, "--remote", `--command=${cmd}`, "-y"], serverDir);
     } catch {}
   }
+  const profileMigration = runWrangler(["d1", "execute", DB_NAME, "--remote", "--file=./src/db/migrations/20261001-profile-socials.sql", "-y"], serverDir);
+  if (profileMigration.exitCode !== 0) throw new Error("Profile social link migration failed; deployment stopped.");
+  console.log("✅ Profile social links migration checked.");
 }
 
 let detectedWorkerApiUrl = "";

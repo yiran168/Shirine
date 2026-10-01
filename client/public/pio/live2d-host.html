@@ -11,10 +11,11 @@
 </style>
 </head>
 <body>
-<script src="/pio/live2dcubismcore.min.js"></script>
-<script src="/pio/live2d.min.js"></script>
-<script src="/pio/l2d-widget.min.js"></script>
+<script defer src="/pio/live2dcubismcore.min.js"></script>
+<script defer src="/pio/live2d.min.js"></script>
+<script defer src="/pio/l2d-widget.min.js"></script>
 <script>
+window.addEventListener("DOMContentLoaded", function() {
   var widgetInstance = null;
   var activeConfigKey = '';
   var loadingConfigKey = '';
@@ -170,6 +171,16 @@
 
   window.addEventListener('message', function(e) {
     if (e.source !== parent || e.origin !== location.origin || !e.data) return;
+    if (e.data.type === 'l2d-pointer') {
+      if (e.data.exit) document.dispatchEvent(new MouseEvent('mouseout', { bubbles: true }));
+      else if (Number.isFinite(e.data.x) && Number.isFinite(e.data.y)) document.dispatchEvent(new MouseEvent('mousemove', {clientX:e.data.x,clientY:e.data.y,bubbles:true}));
+      return;
+    }
+    if (e.data.type === 'l2d-tap' && Number.isFinite(e.data.x) && Number.isFinite(e.data.y)) {
+      var canvas = widgetInstance && widgetInstance.l2d && widgetInstance.l2d.getCanvas();
+      if (canvas) { canvas.dispatchEvent(new PointerEvent('pointerdown', {clientX:e.data.x,clientY:e.data.y,bubbles:true})); canvas.dispatchEvent(new MouseEvent('click', {clientX:e.data.x,clientY:e.data.y,bubbles:true})); }
+      return;
+    }
     if (e.data.type === 'l2d-talk') { menuActions.talk(widgetInstance); return; }
     if (e.data.type === 'l2d-wake') {
       try {
@@ -321,6 +332,7 @@
 
   window.addEventListener('resize', scheduleLayoutMeasurement);
   parent.postMessage({ type: 'l2d-ready' }, location.origin);
+});
 </script>
 </body>
 </html>

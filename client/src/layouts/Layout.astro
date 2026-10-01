@@ -1,5 +1,7 @@
 ---
 import Snackbar from "@components/atoms/overlay/Snackbar.svelte";
+import Live2DPreload from "@components/features/pio/Live2DPreload.astro";
+import { getPublicSystemConfig } from "@utils/system-config";
 import Live2DControl from "@components/features/pio/Live2DControl.svelte";
 import AuthModal from "@components/auth/AuthModal.svelte";
 import UserDrawer from "@components/auth/UserDrawer.svelte";
@@ -17,7 +19,7 @@ import {
 import { getDynamicSiteConfig } from "@utils/dynamic-config";
 import { setSiteLang } from "@i18n/translation";
 
-const { site: siteConfig, profile: profileConfig } = await getDynamicSiteConfig(Astro.request);
+const [{ site: siteConfig, profile: profileConfig }, publicSystemConfig] = await Promise.all([getDynamicSiteConfig(Astro.request), getPublicSystemConfig(Astro.request)]);
 import type { SidebarPage } from "@/types/sidebarConfig";
 import {
 	AUTO_MODE,
@@ -126,6 +128,7 @@ if (runtimeApiUrl && !(globalThis as any).__SHIRINE_RUNTIME_API_URL__) {
 <!DOCTYPE html>
 <html lang={siteLang} class="bg-[var(--page-bg)] transition text-[14px] md:text-[16px]">
 	<head>
+    <Live2DPreload config={publicSystemConfig} />
 		<style is:inline>@layer properties, theme, base, components, utilities;</style>
 
 		{runtimeApiUrl && (
@@ -336,7 +339,7 @@ if (runtimeApiUrl && !(globalThis as any).__SHIRINE_RUNTIME_API_URL__) {
 		<Snackbar client:only="svelte"></Snackbar>
 		<slot />
 		<div id="page-height-extend" class="hidden h-[300vh]"></div>
-		<Live2DControl client:only="svelte" mode="guest" />
+		<Live2DControl client:load mode="guest" initialConfig={publicSystemConfig} />
 		<AuthModal client:only="svelte" />
 		<UserDrawer client:only="svelte" />
 	</body>
@@ -510,6 +513,7 @@ const setup = () => {
 	});
 
 	window.swup.hooks.on('page:view', () => {
+		document.body.dataset.liquidGlass = document.getElementById('config-carrier')?.dataset.liquidGlass || 'none';
 		finishVisit();
 		window.clearTimeout(navWatchdogTimer);
 		finishFurinaTopProgressBar();
