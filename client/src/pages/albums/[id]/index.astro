@@ -70,6 +70,8 @@ try {
 					requiresPassword: Boolean(a.requiresPassword),
 					passwordHint: a.passwordHint || "",
 					isUnlocked: Boolean(a.isUnlocked),
+					lockReason: a.lockReason,
+					userPoints: a.userPoints ?? 0,
 					dbId: a.id,
 				} as any;
 			}
@@ -189,6 +191,8 @@ if (isLocked) {
 					postId={dbId || resolvedAlbum.id || id}
 					permissionType={permissionType}
 					requiredPoints={requiredPoints}
+					lockReason={resolvedAlbum.lockReason}
+					userPoints={resolvedAlbum.userPoints ?? 0}
 					passwordHint={resolvedAlbum.passwordHint}
 					itemType="album"
 				/>

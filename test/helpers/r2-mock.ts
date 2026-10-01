@@ -130,16 +130,14 @@ export class MockR2Bucket {
   }> {
     const prefix = options?.prefix || "";
     const limit = options?.limit || 1000;
-    const objects: MockR2ObjectBody[] = [];
-    for (const [key, item] of this.storage.entries()) {
-      if (key.startsWith(prefix)) {
-        objects.push(new MockR2ObjectBody(key, item.data, item.metadata));
-        if (objects.length >= limit) break;
-      }
-    }
+    const entries = [...this.storage.entries()].filter(([key]) => key.startsWith(prefix)).sort(([a], [b]) => a.localeCompare(b));
+    const start = Number(options?.cursor || 0);
+    const objects = entries.slice(start, start + limit).map(([key, item]) => new MockR2ObjectBody(key, item.data, item.metadata));
+    const truncated = start + limit < entries.length;
     return {
       objects,
-      truncated: false,
+      truncated,
+      ...(truncated ? { cursor: String(start + limit) } : {}),
     };
   }
 

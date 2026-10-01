@@ -41,12 +41,16 @@ const map: { [key: string]: Translation } = {
 };
 
 let activeRuntimeLang: string | null = null;
+let serverLanguage: (() => string | undefined) | undefined;
+
+// Installed by server middleware only; browser bundles do not import Node APIs.
+export function setServerLanguageResolver(resolve: () => string | undefined) {
+	serverLanguage = resolve;
+}
 
 export function setSiteLang(lang: string) {
+	if (typeof window === "undefined") return;
 	activeRuntimeLang = lang;
-	if (siteConfig) {
-		siteConfig.lang = lang as any;
-	}
 }
 
 export function getCurrentLang(): string {
@@ -56,7 +60,7 @@ export function getCurrentLang(): string {
 		const htmlLang = document.documentElement.lang?.replace("-", "_");
 		if (htmlLang) return htmlLang;
 	}
-	return activeRuntimeLang || siteConfig.lang || "zh_CN";
+	return serverLanguage?.() || activeRuntimeLang || siteConfig.lang || "zh_CN";
 }
 
 export function getTranslation(lang: string): Translation {

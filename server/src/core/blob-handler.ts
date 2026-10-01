@@ -80,7 +80,7 @@ export async function handleBlobStream(
               const isAuthor = Boolean(user && album.uid && user.id === album.uid);
 
               if (!isAdmin && !isAuthor) {
-                if (!user && !hasPassword) {
+                if (!user && (!hasPassword || album.permissionType === "login_required" || album.permissionType === "points_required")) {
                   return c.text("Unauthorized: Authentication required to access protected media", 401);
                 }
                 if (album.draft === 1) {

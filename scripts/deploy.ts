@@ -106,9 +106,8 @@ export function extractJsonArray(text: string): any[] | null {
 // Strip comments and trailing commas for clean JSON parsing
 export function stripJsonCommentsAndTrailingCommas(jsonc: string): string {
   return jsonc
-    .replace(/\/\/.*$/gm, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/,\s*([\]}])/g, "$1");
+    .replace(/"(?:\\.|[^"\\])*"|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*/g, match => match.startsWith('"') ? match : "")
+    .replace(/"(?:\\.|[^"\\])*"|,\s*([\]}])/g, (match, close) => close || match);
 }
 
 export function collectWorkerSecrets(source: Record<string, string | undefined> = process.env): Record<string, string> {
@@ -153,8 +152,10 @@ async function syncWorkerSecrets(workerName: string): Promise<void> {
           });
           if (putProc.exitCode === 0) {
             console.log(`  ✅ Synced secret ${k}`);
+          } else {
+            throw new Error(`Failed to synchronize worker secret ${k}`);
           }
-        } catch {}
+        } catch (error) { throw error; }
       }
     }
   } finally {
@@ -276,15 +277,21 @@ export async function prepareBackendConfig(isPrepareOnly = false): Promise<strin
     // Also write a sanitized server/wrangler.json for maximum tool compatibility
     try {
       const cleanJson = JSON.parse(stripJsonCommentsAndTrailingCommas(content));
+      if (!isPrepareOnly) {
+        cleanJson.vars = { ...cleanJson.vars, ENVIRONMENT: "production" };
+        // Never redeploy the publicly known development key over a Worker secret.
+        delete cleanJson.vars.JWT_SECRET;
+      }
       writeFileSync(wranglerJsonPath, JSON.stringify(cleanJson, null, 2), "utf-8");
       console.log(`📝 Generated server/wrangler.json successfully.`);
-    } catch {
+    } catch (error) {
       // If parsing fails, remove wrangler.json so it does not shadow wrangler.jsonc with stale data
       if (existsSync(wranglerJsonPath)) {
         try {
           unlinkSync(wranglerJsonPath);
         } catch {}
       }
+      if (!isPrepareOnly) throw new Error("Invalid backend configuration; refusing production deployment", { cause: error });
     }
   }
 

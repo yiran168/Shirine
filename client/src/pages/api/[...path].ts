@@ -32,8 +32,8 @@ export const ALL: APIRoute = async ({ request, params, locals }) => {
   const serviceBinding = runtimeEnv.SHIRINE_SERVER || runtimeEnv.BACKEND || runtimeEnv.API || (globalThis as any).__SHIRINE_SERVICE_BINDING__;
   if (serviceBinding && typeof serviceBinding.fetch === "function") {
     const targetUrl = cleanPath
-      ? `https://shirine-internal/api/${cleanPath}${incomingUrl.search}`
-      : `https://shirine-internal/api${incomingUrl.search}`;
+      ? `${incomingUrl.origin}/api/${cleanPath}${incomingUrl.search}`
+      : `${incomingUrl.origin}/api${incomingUrl.search}`;
     const forwardHeaders = new Headers(request.headers);
     forwardHeaders.delete("host");
 
@@ -101,7 +101,8 @@ export const ALL: APIRoute = async ({ request, params, locals }) => {
     // @ts-ignore Node/Cloudflare duplex streaming support
     init.duplex = "half";
   }
-  init.signal = AbortSignal.any([request.signal, AbortSignal.timeout(15000)]);
+  const timeout = cleanPath === "admin/ai/generate" || cleanPath === "upload" ? 180000 : 15000;
+  init.signal = AbortSignal.any([request.signal, AbortSignal.timeout(timeout)]);
 
   try {
     const upstreamRes = await fetch(targetUrl, init);

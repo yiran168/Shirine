@@ -90,7 +90,7 @@ authRouter.post("/register", async (c) => {
 
     // Check if username already exists
     const existing = await db.query.users.findFirst({
-      where: eq(schema.users.username, username.trim()),
+      where: sql`lower(${schema.users.username}) = lower(${username.trim()})`,
     });
     if (existing) {
       return c.json({ success: false, error: "Username is already taken" }, 400);
@@ -102,21 +102,12 @@ authRouter.post("/register", async (c) => {
     const salt = generateSalt();
     const passwordHash = await hashPassword(password, salt);
 
-    const inserted = await db
-      .insert(schema.users)
-      .values({
-        username: username.trim(),
-        email: trimmedEmail.toLowerCase(),
-        nickname: nickname?.trim() || username.trim(),
-        passwordHash,
-        salt,
-        role,
-        points,
-        status: "active",
-      })
-      .returning();
-
-    const newUser = inserted[0];
+    // A single guarded insert also prevents concurrent case/email duplicates.
+    const inserted = await c.env.DB.prepare(
+      "INSERT INTO users (username, email, nickname, password_hash, salt, role, points, status) SELECT ?, ?, ?, ?, ?, 'user', 0, 'active' WHERE NOT EXISTS (SELECT 1 FROM users WHERE lower(username) = lower(?) OR (? != '' AND lower(email) = lower(?))) RETURNING id"
+    ).bind(username.trim(), trimmedEmail.toLowerCase(), nickname?.trim() || username.trim(), passwordHash, salt, username.trim(), trimmedEmail, trimmedEmail).first<{ id: number }>();
+    if (!inserted) return c.json({ success: false, error: "Username or email is already registered" }, 400);
+    const newUser = (await db.query.users.findFirst({ where: eq(schema.users.id, inserted.id) }))!;
     const token = await signToken(
       { id: newUser.id, username: newUser.username, role: newUser.role, sessionVersion: newUser.sessionVersion },
       c.env.JWT_SECRET
@@ -268,21 +259,11 @@ authRouter.post("/setup/admin", async (c) => {
 
     let newUser;
     try {
-      const inserted = await db
-        .insert(schema.users)
-        .values({
-          username: username.trim(),
-          nickname: nickname?.trim() || username.trim(),
-          passwordHash,
-          salt,
-          role: "superadmin",
-          points: 100,
-          status: "active",
-          sessionVersion: 1,
-        })
-        .returning();
-
-      newUser = inserted[0];
+      const inserted = await c.env.DB.prepare(
+        "INSERT INTO users (username, nickname, password_hash, salt, role, points, status, session_version) SELECT ?, ?, ?, ?, 'superadmin', 0, 'active', 1 WHERE NOT EXISTS (SELECT 1 FROM users WHERE role = 'superadmin' OR lower(username) = lower(?)) RETURNING id"
+      ).bind(username.trim(), nickname?.trim() || username.trim(), passwordHash, salt, username.trim()).first<{ id: number }>();
+      if (!inserted) return c.json({ success: false, error: "System initialization or username was claimed concurrently" }, 409);
+      newUser = (await db.query.users.findFirst({ where: eq(schema.users.id, inserted.id) }))!;
 
       // Mark setup state completed
       await db.update(schema.setupState).set({ completed: 1 }).where(eq(schema.setupState.id, 1));
@@ -538,6 +519,9 @@ authRouter.get("/me", requireAuth, async (c) => {
 
 // Logout current session (Per-session revocation: V8-P0-09, V8-P0-10)
 authRouter.post("/logout", async (c) => {
+  if (c.get("authBackendError")) {
+    return c.json({ success: false, error: "Authentication service temporarily unavailable" }, 503);
+  }
   const user = c.get("user");
   if (user && c.env.DB) {
     try {
@@ -562,6 +546,7 @@ authRouter.post("/logout", async (c) => {
       }
     } catch (err) {
       console.error("Logout session revocation failed:", err);
+      return c.json({ success: false, error: "Session revocation failed; please retry logout" }, 503);
     }
   }
 
@@ -591,6 +576,7 @@ authRouter.post("/logout-all", requireAuth, async (c) => {
         .where(eq(schema.users.id, user.id));
     } catch (err) {
       console.error("Logout-all session revocation failed:", err);
+      return c.json({ success: false, error: "Session revocation failed; please retry logout" }, 503);
     }
   }
 

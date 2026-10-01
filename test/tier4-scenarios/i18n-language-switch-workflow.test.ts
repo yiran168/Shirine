@@ -160,39 +160,48 @@ describe("Tier 4 - Scenario: 4-Language Switching & UI Text Parity", () => {
   });
 
   it("Verifies dynamic i18n runtime switching and translation output parity", async () => {
-    const { setSiteLang, i18n, getCurrentLang } = await import("../../client/src/i18n/translation");
+    const { i18n, getCurrentLang } = await import("../../client/src/i18n/translation");
     const I18nKey = (await import("../../client/src/i18n/i18nKey")).default;
 
+    const { withRequestLanguage } = await import("../../client/src/utils/request-language");
+
     // Test zh_CN
-    setSiteLang("zh_CN");
+    withRequestLanguage("zh_CN", () => {
     expect(getCurrentLang()).toBe("zh_CN");
     expect(i18n(I18nKey.archive)).toBe("归档");
     expect(i18n(I18nKey.categories)).toBe("分类");
     expect(i18n(I18nKey.tags)).toBe("标签");
 
+    });
+
     // Test en
-    setSiteLang("en");
+    withRequestLanguage("en", () => {
     expect(getCurrentLang()).toBe("en");
     expect(i18n(I18nKey.archive)).toBe("Archive");
     expect(i18n(I18nKey.categories)).toBe("Categories");
     expect(i18n(I18nKey.tags)).toBe("Tags");
 
+    });
+
     // Test ja
-    setSiteLang("ja");
+    withRequestLanguage("ja", () => {
     expect(getCurrentLang()).toBe("ja");
     expect(i18n(I18nKey.search)).toBe("検索");
     expect(i18n(I18nKey.categories)).toBe("カテゴリ");
     expect(i18n(I18nKey.tags)).toBe("タグ");
 
+    });
+
     // Test zh_TW
-    setSiteLang("zh_TW");
+    withRequestLanguage("zh_TW", () => {
     expect(getCurrentLang()).toBe("zh_TW");
     expect(i18n(I18nKey.archive)).toBe("彙整");
     expect(i18n(I18nKey.categories)).toBe("分類");
     expect(i18n(I18nKey.tags)).toBe("標籤");
 
-    // Restore to zh_CN
-    setSiteLang("zh_CN");
+    });
+
+    // Request scopes restore automatically.
   });
 
   it("Verifies Astro SSR language middleware exists and correctly binds language runtime", () => {
@@ -200,7 +209,7 @@ describe("Tier 4 - Scenario: 4-Language Switching & UI Text Parity", () => {
     expect(existsSync(middlewarePath)).toBe(true);
     const middlewareContent = readFileSync(middlewarePath, "utf-8");
     expect(middlewareContent).toContain("defineMiddleware");
-    expect(middlewareContent).toContain("setSiteLang");
+    expect(middlewareContent).toContain("withRequestLanguage");
     expect(middlewareContent).toContain("shirine_lang");
     expect(middlewareContent).toContain("context.locals.lang");
   });

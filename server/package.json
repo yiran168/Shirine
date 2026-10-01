@@ -13,14 +13,14 @@
     "db:migrate:remote": "wrangler d1 execute shirine-db --remote --file=./src/db/schema.sql -y"
   },
   "dependencies": {
-    "drizzle-orm": "^0.35.3",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.6.9",
     "jose": "^5.9.6"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241106.0",
-    "drizzle-kit": "^0.28.0",
+    "drizzle-kit": "^0.31.11",
     "typescript": "^5.6.3",
-    "wrangler": "^3.86.0"
+    "wrangler": "^4.144.0"
   }
 }

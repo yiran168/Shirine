@@ -146,44 +146,25 @@ const handleAdjustUserPoints = async (c: any) => {
       return c.json({ success: false, error: "Administrator accounts do not participate in the points system" }, 403);
     }
 
-    let targetPoints = user.points;
-    let deltaAmount = 0;
-    if (exactPoints !== undefined) {
-      targetPoints = Math.max(0, parseInt(exactPoints) || 0);
-      deltaAmount = targetPoints - user.points;
-    } else if (amount !== undefined) {
-      const d = parseInt(amount) || 0;
-      targetPoints = Math.max(0, user.points + d);
-      deltaAmount = targetPoints - user.points;
-    } else if (delta !== undefined) {
-      const d = parseInt(delta) || 0;
-      targetPoints = Math.max(0, user.points + d);
-      deltaAmount = targetPoints - user.points;
+    const raw = exactPoints ?? amount ?? delta;
+    // Preserve existing numeric-input normalization while computing balances atomically.
+    const value = parseInt(raw) || 0;
+    if (!Number.isSafeInteger(value) || Math.abs(value) > 1_000_000_000) {
+      return c.json({ success: false, error: "Points adjustment must be an integer within the supported range" }, 400);
     }
-
-    if (deltaAmount !== 0) {
-      const idempotencyKey = `admin_adjust_${currentUser.id}_${user.id}_${crypto.randomUUID()}`;
-      const stmtUser = c.env.DB.prepare(
-        "UPDATE users SET points = ?, updated_at = unixepoch() WHERE id = ?"
-      ).bind(targetPoints, id);
-
-      const descText =
-        description ||
-        `Admin adjust points by ${currentUser.username} (${deltaAmount > 0 ? "+" : ""}${deltaAmount})`;
-
-      const stmtLedger = c.env.DB.prepare(
-        "INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at) VALUES (?, 'admin_adjust', ?, ?, ?, ?, ?, unixepoch())"
-      ).bind(
-        user.id,
-        deltaAmount,
-        targetPoints,
-        currentUser.id,
-        idempotencyKey,
-        descText
-      );
-
-      await c.env.DB.batch([stmtUser, stmtLedger]);
-    }
+    const key = `admin_adjust_${currentUser.id}_${user.id}_${crypto.randomUUID()}`;
+    // Compute both the change and its balance from the same database snapshot.
+    // D1 batch commits the ledger and the balance together, including concurrent requests.
+    const target = exactPoints !== undefined ? "max(0, ?)" : "max(0, points + ?)";
+    const stmtLedger = c.env.DB.prepare(
+      `INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at)
+       SELECT id, 'admin_adjust', ${target} - points, ${target}, ?, ?, ?, unixepoch()
+       FROM users WHERE id = ? AND role = 'user' AND ${target} != points`
+    ).bind(value, value, currentUser.id, key, String(description || `Admin adjustment by ${currentUser.username}`), id, value);
+    const stmtUser = c.env.DB.prepare(
+      "UPDATE users SET points = (SELECT balance_after FROM point_transactions WHERE idempotency_key = ?), updated_at = unixepoch() WHERE id = ? AND role = 'user' AND EXISTS (SELECT 1 FROM point_transactions WHERE idempotency_key = ?)"
+    ).bind(key, id, key);
+    await c.env.DB.batch([stmtLedger, stmtUser]);
 
     const updatedUser = await db.query.users.findFirst({
       where: eq(schema.users.id, id),
@@ -364,7 +345,7 @@ adminRouter.post("/ai/models", async (c) => {
     const db = getDb(c.env.DB);
 
     let apiUrl = body.apiUrl;
-    let apiKey = body.apiKey;
+    let apiKey = typeof body.apiKey === "string" && body.apiKey !== "••••••••" ? body.apiKey.trim() : "";
 
     if (!apiUrl || !apiKey) {
       const row = await db.query.systemConfigs.findFirst({
@@ -421,7 +402,7 @@ adminRouter.post("/ai/generate", async (c) => {
     const db = getDb(c.env.DB);
 
     let apiUrl = body.apiUrl;
-    let apiKey = body.apiKey;
+    let apiKey = typeof body.apiKey === "string" && body.apiKey !== "••••••••" ? body.apiKey.trim() : "";
     let chosenModel = model;
 
     const row = await db.query.systemConfigs.findFirst({

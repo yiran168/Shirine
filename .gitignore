@@ -23,6 +23,7 @@ pnpm-debug.log*
 .env
 .env.local
 .env.*.local
+.wrangler-secrets.json
 *.pem
 
 # OS

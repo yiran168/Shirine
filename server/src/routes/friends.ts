@@ -16,6 +16,10 @@ function isValidHttpUrl(urlStr: string): boolean {
   }
 }
 
+function isValidAdminAvatar(value: string): boolean {
+  return isValidHttpUrl(value) || (/^\/(?:api\/(?:upload\/)?blob\/|assets\/avatars\/)/.test(value) && !/[\\\s]/.test(value));
+}
+
 // List friends (public returns accepted only, admin returns all)
 friendsRouter.get("/", async (c) => {
   try {
@@ -60,7 +64,7 @@ friendsRouter.post("/apply", async (c) => {
     if (name.trim().length > 64) {
       return c.json({ success: false, error: "Friend name too long (max 64 characters)" }, 400);
     }
-    if (desc && typeof desc === "string" && desc.length > 500) {
+    if (typeof desc !== "string" || desc.length > 500) {
       return c.json({ success: false, error: "Description too long (max 500 characters)" }, 400);
     }
     if (!url || typeof url !== "string" || url.length > 2048 || !isValidHttpUrl(url.trim())) {
@@ -109,13 +113,13 @@ friendsRouter.post("/", requireAdmin, async (c) => {
     if (name.trim().length > 64) {
       return c.json({ success: false, error: "Friend name too long (max 64 characters)" }, 400);
     }
-    if (desc && typeof desc === "string" && desc.length > 500) {
+    if (typeof desc !== "string" || desc.length > 500) {
       return c.json({ success: false, error: "Description too long (max 500 characters)" }, 400);
     }
     if (!url || typeof url !== "string" || url.length > 2048 || !isValidHttpUrl(url.trim())) {
       return c.json({ success: false, error: "A valid http:// or https:// website URL is required (max 2048 characters)" }, 400);
     }
-    if (!avatar || typeof avatar !== "string" || avatar.length > 2048 || !isValidHttpUrl(avatar.trim())) {
+    if (!avatar || typeof avatar !== "string" || avatar.length > 2048 || !isValidAdminAvatar(avatar.trim())) {
       return c.json({ success: false, error: "A valid http:// or https:// avatar URL is required (max 2048 characters)" }, 400);
     }
 
@@ -167,7 +171,7 @@ friendsRouter.put("/:id", requireAdmin, async (c) => {
     };
     if (body.name !== undefined) updates.name = body.name.trim();
     if (body.desc !== undefined) updates.desc = body.desc.trim();
-    if (body.avatar !== undefined && isValidHttpUrl(body.avatar.trim())) {
+    if (body.avatar !== undefined && typeof body.avatar === "string" && isValidAdminAvatar(body.avatar.trim())) {
       updates.avatar = body.avatar.trim();
     }
     if (body.url !== undefined && isValidHttpUrl(body.url.trim())) {

@@ -6,60 +6,13 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
 
-  /* Speech bubble sitting neatly right above the Live2D character's head */
-  div[style*="calc(100%"] {
-    bottom: calc(100% - 50px) !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    max-width: 220px !important;
-    pointer-events: none !important;
-    z-index: 99999 !important;
-  }
-  div[style*="calc(100%"] > div {
-    background: rgba(26, 26, 36, 0.92) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.25) !important;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4) !important;
-    border-radius: 12px !important;
-    color: #ffffff !important;
-    font-size: 12px !important;
-    font-weight: 500 !important;
-    line-height: 1.5 !important;
-    padding: 8px 12px !important;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6) !important;
-  }
-  div[style*="calc(100%"] > div > div[style*="border-top"] {
-    border-top-color: rgba(26, 26, 36, 0.92) !important;
-  }
-
-  /* Right-side menu buttons strictly within bounds */
-  div[style*="display: flex"][style*="flex-direction: column"] {
-    right: 8px !important;
-    max-width: 32px !important;
-  }
-  div[style*="display: flex"][style*="flex-direction: column"] button {
-    width: 28px !important;
-    height: 28px !important;
-    border-radius: 50% !important;
-    overflow: hidden !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 0 !important;
-    font-size: 0 !important; /* Hide any raw text overflow */
-  }
-  div[style*="display: flex"][style*="flex-direction: column"] button svg {
-    width: 15px !important;
-    height: 15px !important;
-    pointer-events: none !important;
-    fill: currentColor !important;
-  }
+  /* Hide vendor tips anchored to the empty canvas, use the measured character instead. */
+  div[style*="calc(100%"] { display: none !important; }
+  #shirine-l2d-bubble { position: fixed; max-width: 220px; width: max-content; transform: translate(-50%, -100%); pointer-events: none; z-index: 10; }
 </style>
 </head>
 <body>
-<div id="shirine-l2d-bubble" style="display:none; opacity:0; position:fixed; top:24px; left:50%; transform:translateX(-50%); max-width:220px; width:max-content; background:rgba(26,26,36,0.92); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.25); box-shadow:0 6px 20px rgba(0,0,0,0.4); border-radius:12px; color:#ffffff; font-size:12px; font-weight:500; line-height:1.5; padding:8px 12px; text-align:center; pointer-events:none; z-index:99999; transition:opacity 0.3s ease;">
+<div id="shirine-l2d-bubble" style="display:none; opacity:0; position:fixed; top:24px; left:50%; transform:translate(-50%, -100%); max-width:220px; width:max-content; background:rgba(26,26,36,0.92); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.25); box-shadow:0 6px 20px rgba(0,0,0,0.4); border-radius:12px; color:#ffffff; font-size:12px; font-weight:500; line-height:1.5; padding:8px 12px; text-align:center; pointer-events:none; z-index:99999; transition:opacity 0.3s ease;">
   <span id="shirine-l2d-bubble-text"></span>
 </div>
 <script src="/pio/live2dcubismcore.min.js"></script>
@@ -120,20 +73,6 @@
   };
 
   function showSpeechBubble(quote) {
-    var tipSpan = document.querySelector('div[style*="calc(100%"] span');
-    if (tipSpan) {
-      tipSpan.textContent = quote;
-      var bubble = tipSpan.parentElement;
-      if (bubble) {
-        bubble.style.opacity = '1';
-        bubble.style.animation = 'l2dw-tips-float 2.5s ease-in-out infinite';
-        clearTimeout(window.__bubbleTimer);
-        window.__bubbleTimer = setTimeout(function() {
-          if (bubble) bubble.style.opacity = '0';
-        }, 3500);
-        return;
-      }
-    }
     var fallback = document.getElementById('shirine-l2d-bubble');
     var fallbackText = document.getElementById('shirine-l2d-bubble-text');
     if (fallback && fallbackText) {
@@ -174,31 +113,29 @@
     return 500;
   }
 
+  var characterBounds = null;
   function measureContentHeight() {
     if (!widgetLoaded) return;
-
-    var viewportHeight = window.innerHeight;
-    var minTop = viewportHeight - baseContentHeight;
-    document.body.querySelectorAll('*').forEach(function(el) {
-      if (!el.getBoundingClientRect || /^(SCRIPT|STYLE)$/.test(el.tagName)) return;
-      var style = getComputedStyle(el);
-      if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return;
-      var paintsBox =
-        !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(style.backgroundColor) ||
-        style.backgroundImage !== 'none' ||
-        style.boxShadow !== 'none';
-      if (!paintsBox) return;
-      var rect = el.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0 && rect.top < minTop) minTop = rect.top;
-    });
-
-    var measuredHeight = Math.ceil(viewportHeight - minTop);
-    var nextHeight = measuredHeight > baseContentHeight
-      ? measuredHeight + floatingContentPadding
-      : baseContentHeight;
-    if (nextHeight === lastContentHeight) return;
-    lastContentHeight = nextHeight;
-    notifyLoaded();
+    var canvas = widgetInstance && widgetInstance.l2d && widgetInstance.l2d.getCanvas();
+    if (!canvas || !canvas.width || !canvas.height) return;
+    try {
+      // One small alpha scan after loading/resizing. The bundled renderer preserves its buffer.
+      var sample = document.createElement('canvas'); sample.width = 140; sample.height = 180;
+      var ctx = sample.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(canvas, 0, 0, 140, 180);
+      var data = ctx.getImageData(0, 0, 140, 180).data;
+      var left = 140, right = 0, top = 180, bottom = 0;
+      for (var row = 0; row < 180; row++) for (var col = 0; col < 140; col++) {
+        if (data[(row * 140 + col) * 4 + 3] > 40) { left = Math.min(left, col); right = Math.max(right, col); top = Math.min(top, row); bottom = Math.max(bottom, row); }
+      }
+      if (right <= left || bottom <= top) return;
+      var rect = canvas.getBoundingClientRect();
+      characterBounds = { x: rect.left + left / 140 * rect.width, y: rect.top + top / 180 * rect.height, width: (right - left + 1) / 140 * rect.width, height: (bottom - top + 1) / 180 * rect.height };
+      parent.postMessage({ type: 'l2d-bounds', bounds: characterBounds }, location.origin);
+      var bubble = document.getElementById('shirine-l2d-bubble');
+      bubble.style.left = Math.max(110, Math.min(window.innerWidth - 110, characterBounds.x + characterBounds.width / 2)) + 'px';
+      bubble.style.top = Math.max(56, characterBounds.y - 8) + 'px';
+    } catch (error) { console.warn('Could not measure mascot bounds', error); }
   }
 
   function scheduleLayoutMeasurement() {
@@ -207,16 +144,8 @@
   }
 
   function observeWidgetLayout() {
-    if (layoutObserver) layoutObserver.disconnect();
-    layoutObserver = new MutationObserver(scheduleLayoutMeasurement);
-    if (!document.body) return;
-    layoutObserver.observe(document.body, {
-      subtree: true,
-      childList: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: ['class', 'style'],
-    });
+    [100, 400, 1000].forEach(function(delay) { setTimeout(scheduleLayoutMeasurement, delay); });
+    setTimeout(function() { var quotes = quotesByLang[currentLang] || quotesByLang.zh_CN; showSpeechBubble(quotes[Math.floor(Math.random() * quotes.length)]); }, 1100);
   }
 
   function hideAboutMenu() {
@@ -256,54 +185,9 @@
     cancelAnimationFrame(layoutFrame);
   }
 
-  // Dragging support inside iframe using screen coordinates (invariant to container motion)
-  var isDragging = false;
-  var startScreenX = 0;
-  var startScreenY = 0;
-
-  function onDragStart(e) {
-    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
-    isDragging = true;
-    var pt = e.touches ? e.touches[0] : e;
-    startScreenX = pt.screenX;
-    startScreenY = pt.screenY;
-  }
-
-  function onDragMove(e) {
-    if (!isDragging) return;
-    var pt = e.touches ? e.touches[0] : e;
-    var dx = pt.screenX - startScreenX;
-    var dy = pt.screenY - startScreenY;
-    if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1) {
-      parent.postMessage({ type: 'l2d-drag', dx: dx, dy: dy }, '*');
-      startScreenX = pt.screenX;
-      startScreenY = pt.screenY;
-    }
-  }
-
-  function onDragEnd() {
-    isDragging = false;
-  }
-
-  window.addEventListener('mousedown', onDragStart);
-  window.addEventListener('mousemove', onDragMove);
-  window.addEventListener('mouseup', onDragEnd);
-  window.addEventListener('touchstart', onDragStart, { passive: true });
-  window.addEventListener('touchmove', onDragMove, { passive: true });
-  window.addEventListener('touchend', onDragEnd);
-  window.addEventListener('touchcancel', onDragEnd);
-  window.addEventListener('blur', onDragEnd);
-
-  window.addEventListener('click', function(e) {
-    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
-    if (isDragging) return;
-    var quotes = quotesByLang[currentLang] || quotesByLang.zh_CN;
-    var q = quotes[Math.floor(Math.random() * quotes.length)];
-    showSpeechBubble(q);
-  });
-
   window.addEventListener('message', function(e) {
     if (e.source !== parent || e.origin !== location.origin || !e.data) return;
+    if (e.data.type === 'l2d-talk') { menuActions.talk(widgetInstance); return; }
     if (e.data.type === 'l2d-wake') {
       try {
         if (widgetInstance && typeof widgetInstance.wake === 'function') {

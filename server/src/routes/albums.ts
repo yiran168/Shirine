@@ -29,6 +29,32 @@ function extractAlbumGrant(c: any, albumId: number): string | undefined {
   return undefined;
 }
 
+// Every entry point applies all configured access requirements.
+async function albumAccess(c: any, album: typeof schema.albums.$inferSelect, unlockedIds?: Set<number>, passwordVerified = false) {
+  const user = c.get("user");
+  const privileged = user && (user.role === "admin" || user.role === "superadmin" || user.id === album.uid);
+  const hasPassword = album.permissionType === "password" || album.encrypted === 1 || Boolean(album.password);
+  let lockReason = "";
+  if (!privileged) {
+    if (hasPassword && !passwordVerified) {
+      const grant = extractAlbumGrant(c, album.id);
+      if (!grant || !await verifyAlbumGrant(grant, album.id, album.passwordVersion ?? 1, user?.id ?? null, c.env.JWT_SECRET)) {
+        lockReason = "password_required";
+      }
+    }
+    if (!lockReason && ["login_required", "points_required"].includes(album.permissionType) && !user) {
+      lockReason = "login_required";
+    }
+    if (!lockReason && album.permissionType === "points_required" && user) {
+      const purchased = unlockedIds ? unlockedIds.has(album.id) : await getDb(c.env.DB).query.albumUnlocks.findFirst({
+        where: and(eq(schema.albumUnlocks.userId, user.id), eq(schema.albumUnlocks.albumId, album.id)),
+      });
+      if (!purchased) lockReason = "points_required";
+    }
+  }
+  return { hasPassword, isUnlocked: !lockReason, lockReason };
+}
+
 // List albums
 albumsRouter.get("/", async (c) => {
   try {
@@ -72,33 +98,7 @@ albumsRouter.get("/", async (c) => {
 
     const albumsWithPerms: AlbumIndexDto[] = await Promise.all(
       allAlbums.map(async (album) => {
-        const hasPassword =
-          album.permissionType === "password" ||
-          album.encrypted === 1 ||
-          Boolean(album.password && album.password.length > 0);
-
-        let isUnlocked = true;
-        if (hasPassword) {
-          const grant = extractAlbumGrant(c, album.id);
-          let grantValid = false;
-          if (grant) {
-            grantValid = await verifyAlbumGrant(
-              grant,
-              album.id,
-              album.passwordVersion ?? 1,
-              user ? user.id : null,
-              c.env.JWT_SECRET
-            );
-          }
-          isUnlocked = Boolean(grantValid || isAdmin || (user && user.id === album.uid));
-        } else if (album.permissionType === "login_required") {
-          isUnlocked = !!user;
-        } else if (album.permissionType === "points_required") {
-          isUnlocked = !!(
-            user &&
-            (isAdmin || user.id === album.uid || unlockedAlbumIds.has(album.id))
-          );
-        }
+        const { hasPassword, isUnlocked } = await albumAccess(c, album, unlockedAlbumIds);
 
         const photoCount = countMap.get(album.id) ?? 0;
 
@@ -162,52 +162,7 @@ albumsRouter.get("/:id", async (c) => {
       return c.json({ success: false, error: "Album not published" }, 404);
     }
 
-    let isUnlocked = true;
-    let lockReason = "";
-
-    const hasPassword =
-      album.permissionType === "password" ||
-      album.encrypted === 1 ||
-      Boolean(album.password && album.password.length > 0);
-
-    if (hasPassword) {
-      const grant = extractAlbumGrant(c, album.id);
-      let grantValid = false;
-      if (grant) {
-        grantValid = await verifyAlbumGrant(
-          grant,
-          album.id,
-          album.passwordVersion ?? 1,
-          user ? user.id : null,
-          c.env.JWT_SECRET
-        );
-      }
-      if (!grantValid && !isAdmin && (!user || user.id !== album.uid)) {
-        isUnlocked = false;
-        lockReason = "password_required";
-      }
-    } else if (album.permissionType === "login_required") {
-      if (!user) {
-        isUnlocked = false;
-        lockReason = "login_required";
-      }
-    } else if (album.permissionType === "points_required") {
-      if (!user) {
-        isUnlocked = false;
-        lockReason = "login_required";
-      } else if (!isAdmin && user.id !== album.uid) {
-        const unlock = await db.query.albumUnlocks.findFirst({
-          where: and(
-            eq(schema.albumUnlocks.userId, user.id),
-            eq(schema.albumUnlocks.albumId, album.id)
-          ),
-        });
-        if (!unlock) {
-          isUnlocked = false;
-          lockReason = "points_required";
-        }
-      }
-    }
+    const { hasPassword, isUnlocked, lockReason } = await albumAccess(c, album);
 
     // Get current user points if logged in
     let userPoints = 0;
@@ -348,6 +303,11 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
       });
     }
 
+    const access = await albumAccess(c, album);
+    if (access.lockReason === "password_required") {
+      return c.json({ success: false, isUnlocked: false, lockReason: access.lockReason, error: "Verify the album password before unlocking" }, 403);
+    }
+
     // 2. Check if already unlocked
     const existingUnlock = await db.query.albumUnlocks.findFirst({
       where: and(
@@ -423,8 +383,8 @@ albumsRouter.post("/:id/unlock", requireAuth, async (c) => {
     ).bind(album.requiredPoints, user.id, album.requiredPoints, user.id, album.id);
 
     const stmtLedger = c.env.DB.prepare(
-      "INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at) SELECT ?, 'album_unlock', -?, points, ?, ?, ?, unixepoch() FROM users WHERE id = ?"
-    ).bind(user.id, album.requiredPoints, album.id, idempotencyKey, `Unlock album: ${album.title}`, user.id);
+      "INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at) SELECT ?, 'album_unlock', -?, points, ?, ?, ?, unixepoch() FROM users WHERE id = ? AND EXISTS (SELECT 1 FROM album_unlocks WHERE user_id = ? AND album_id = ?)"
+    ).bind(user.id, album.requiredPoints, album.id, idempotencyKey, `Unlock album: ${album.title}`, user.id, user.id, album.id);
 
     let batchResults;
     try {
@@ -541,6 +501,8 @@ albumsRouter.post("/:id/password/verify", async (c) => {
       Boolean(album.password && album.password.length > 0);
 
     if (!hasPassword) {
+      const access = await albumAccess(c, album);
+      if (!access.isUnlocked) return c.json({ success: false, isUnlocked: false, lockReason: access.lockReason, photos: [], error: "Album access requirements not met" }, 403);
       const dbPhotos = await db.query.albumPhotos.findMany({
         where: eq(schema.albumPhotos.albumId, album.id),
         orderBy: [schema.albumPhotos.sortOrder],
@@ -588,6 +550,11 @@ albumsRouter.post("/:id/password/verify", async (c) => {
       "Set-Cookie",
       `shirine_album_grant_${album.id}=${grant}; Path=/; HttpOnly; SameSite=Lax; Max-Age=7200${secureFlag}`
     );
+
+    const access = await albumAccess(c, album, undefined, true);
+    if (!access.isUnlocked) {
+      return c.json({ success: true, message: "密码验证成功，请继续满足相册访问条件", isUnlocked: false, lockReason: access.lockReason, grant, photos: [] });
+    }
 
     const dbPhotos = await db.query.albumPhotos.findMany({
       where: eq(schema.albumPhotos.albumId, album.id),
@@ -669,36 +636,37 @@ albumsRouter.post("/", requireAdmin, async (c) => {
       uid: user.id,
     };
 
-    let inserted;
+    const createAlbum = async () => {
+      const insert = db.insert(schema.albums).values(valuesToInsert).toSQL();
+      const statements = [c.env.DB.prepare(insert.sql).bind(...insert.params)];
+      for (const [i, p] of (Array.isArray(photos) ? photos : []).entries()) {
+        const photoUrl = typeof p === "string" ? p : p?.src || p?.url;
+        if (typeof photoUrl !== "string" || !photoUrl.trim()) continue;
+        const photo = db.insert(schema.albumPhotos).values({
+          // D1 executes the batch atomically: no other album can be inserted
+          // between the parent insert and these photo inserts.
+          albumId: sql`(SELECT max(id) FROM albums)`,
+          url: photoUrl.trim(),
+          alt: typeof p === "object" ? String(p.alt || "") : "",
+          title: typeof p === "object" ? String(p.title || "") : "",
+          description: typeof p === "object" ? String(p.description || "") : "",
+          sortOrder: i,
+        }).toSQL();
+        statements.push(c.env.DB.prepare(photo.sql).bind(...photo.params));
+      }
+      const result = await c.env.DB.batch(statements);
+      return db.query.albums.findFirst({ where: eq(schema.albums.id, result[0].meta.last_row_id) });
+    };
+    let newAlbum;
     try {
-      inserted = await db.insert(schema.albums).values(valuesToInsert).returning();
+      newAlbum = await createAlbum();
     } catch (insertErr: any) {
       if (insertErr.message?.includes("CHECK constraint failed") && valuesToInsert.permissionType === "password") {
         valuesToInsert.permissionType = "public";
         valuesToInsert.encrypted = 1;
-        inserted = await db.insert(schema.albums).values(valuesToInsert).returning();
+        newAlbum = await createAlbum();
       } else {
         throw insertErr;
-      }
-    }
-
-    const newAlbum = inserted[0];
-
-    // Batch insert photos if provided (#17)
-    if (Array.isArray(photos) && photos.length > 0) {
-      for (let i = 0; i < photos.length; i++) {
-        const p = photos[i];
-        const photoUrl = typeof p === "string" ? p : p.src || p.url;
-        if (photoUrl && typeof photoUrl === "string" && photoUrl.trim()) {
-          await db.insert(schema.albumPhotos).values({
-            albumId: newAlbum.id,
-            url: photoUrl.trim(),
-            alt: typeof p === "object" ? p.alt || "" : "",
-            title: typeof p === "object" ? p.title || "" : "",
-            description: typeof p === "object" ? p.description || "" : "",
-            sortOrder: i,
-          });
-        }
       }
     }
 
@@ -766,51 +734,47 @@ albumsRouter.put("/:id", requireAdmin, async (c) => {
     }
     if (body.draft !== undefined) updates.draft = body.draft ? 1 : 0;
 
-    let updated;
-    try {
-      updated = await db
-        .update(schema.albums)
-        .set(updates)
-        .where(eq(schema.albums.id, id))
-        .returning();
-    } catch (updateErr: any) {
-      if (updateErr.message?.includes("CHECK constraint failed") && updates.permissionType === "password") {
-        updates.permissionType = "public";
-        updates.encrypted = 1;
-        updated = await db
-          .update(schema.albums)
-          .set(updates)
-          .where(eq(schema.albums.id, id))
-          .returning();
-      } else {
-        throw updateErr;
-      }
-    }
-
-    // If photos array provided, update photos
-    if (Array.isArray(body.photos)) {
-      // Remove previous photos and insert new batch
-      await db.delete(schema.albumPhotos).where(eq(schema.albumPhotos.albumId, id));
-      for (let i = 0; i < body.photos.length; i++) {
-        const p = body.photos[i];
-        const photoUrl = typeof p === "string" ? p : p.src || p.url;
-        if (photoUrl && typeof photoUrl === "string" && photoUrl.trim()) {
-          await db.insert(schema.albumPhotos).values({
-            albumId: id,
-            url: photoUrl.trim(),
-            alt: typeof p === "object" ? p.alt || "" : "",
-            title: typeof p === "object" ? p.title || "" : "",
-            description: typeof p === "object" ? p.description || "" : "",
+    // Replace metadata and photos in one transaction: a failed insert must
+    // never erase the previous gallery or leave a partially saved album.
+    const statements = () => {
+      const queries: Array<{ toSQL(): { sql: string; params: unknown[] } }> = [
+        db.update(schema.albums).set(updates).where(eq(schema.albums.id, id)),
+      ];
+      if (Array.isArray(body.photos)) {
+        queries.push(db.delete(schema.albumPhotos).where(eq(schema.albumPhotos.albumId, id)));
+        for (let i = 0; i < body.photos.length; i++) {
+          const p = body.photos[i];
+          const photoUrl = typeof p === "string" ? p : p?.src || p?.url;
+          if (typeof photoUrl !== "string" || !photoUrl.trim()) throw new Error("Invalid photo URL");
+          queries.push(db.insert(schema.albumPhotos).values({
+            albumId: id, url: photoUrl.trim(),
+            alt: typeof p === "object" ? String(p.alt || "") : "",
+            title: typeof p === "object" ? String(p.title || "") : "",
+            description: typeof p === "object" ? String(p.description || "") : "",
             sortOrder: i,
-          });
+          }));
         }
       }
+      return queries.map(query => {
+        const built = query.toSQL();
+        return c.env.DB.prepare(built.sql).bind(...built.params);
+      });
+    };
+    try {
+      await c.env.DB.batch(statements());
+    } catch (err: any) {
+      if (err.message?.includes("CHECK constraint failed") && updates.permissionType === "password") {
+        updates.permissionType = "public";
+        updates.encrypted = 1;
+        await c.env.DB.batch(statements());
+      } else throw err;
     }
+    const updated = await db.query.albums.findFirst({ where: eq(schema.albums.id, id) });
 
     return c.json({
       success: true,
-      data: updated[0],
-      album: updated[0],
+      data: updated,
+      album: updated,
     });
   } catch (err: any) {
     return c.json({ success: false, error: err.message || "Failed to update album" }, 500);

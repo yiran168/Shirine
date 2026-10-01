@@ -77,7 +77,8 @@ class StoreManager {
   }
 
   async logout() {
-    await authApi.logout();
+    const res = await authApi.logout();
+    if (!res.success) throw new Error(res.error || "退出登录失败，请重试");
     this.user = null;
     this.userDrawerOpen = false;
     this.notify();
@@ -90,7 +91,8 @@ class StoreManager {
   }
 
   async logoutAll() {
-    await authApi.logoutAll();
+    const res = await authApi.logoutAll();
+    if (!res.success) throw new Error(res.error || "退出登录失败，请重试");
     this.user = null;
     this.userDrawerOpen = false;
     this.notify();

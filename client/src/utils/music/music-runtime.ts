@@ -607,36 +607,49 @@ export function createMusicRuntime(
 	};
 }
 
-let sharedRuntime: MusicRuntime | null = null;
-let sharedOptionsKey = "";
-
+// Cover optimization and expiring media signatures do not identify a song.
 function resolveOptionsKey(options: ResolvedMusicOptions): string {
-	return [
-		options.provider,
-		options.defaultMode,
-		options.defaultVolume,
-		options.meting?.server,
-		options.meting?.type,
-		options.meting?.id,
-		JSON.stringify(options.playlist),
-	].join(":");
+  const stableSource = (source: string) => source.replace(/(\/api\/(?:upload\/)?blob\/[^?]+)\?expires=\d+&signature=[a-f0-9]+/, "$1");
+  return JSON.stringify({
+    provider: options.provider, meting: options.meting,
+    playlist: options.playlist.map(track => ({ id: track.id, source: stableSource(track.source) })),
+  });
 }
 
-export function getMusicRuntime(options: ResolvedMusicOptions): MusicRuntime {
-	const key = resolveOptionsKey(options);
-	if (sharedRuntime && sharedOptionsKey && sharedOptionsKey !== key) {
-		sharedRuntime.destroy();
-		sharedRuntime = null;
-	}
-	if (!sharedRuntime) {
-		sharedRuntime = createMusicRuntime(options);
-		sharedOptionsKey = key;
-	}
-	return sharedRuntime;
+/** Stable controller: every island keeps the same handle and subscriptions,
+ * including after navigation or a real playlist configuration change. */
+export function createMusicController(dependencies: MusicRuntimeDependencies = {}) {
+  let player: MusicRuntime | null = null;
+  let optionsKey = "";
+  let unsubscribe = () => {};
+  const listeners = new Set<(snapshot: MusicSnapshot) => void>();
+  const current = () => { if (!player) throw new Error("Music is not configured"); return player; };
+  const controller: MusicRuntime = {
+    initialize: () => current().initialize(),
+    getSnapshot: () => current().getSnapshot(),
+    subscribe(listener) { listeners.add(listener); listener(current().getSnapshot()); return () => { listeners.delete(listener); }; },
+    play: () => current().play(), pause: () => current().pause(), toggle: () => current().toggle(),
+    select: index => current().select(index), next: () => current().next(), previous: () => current().previous(),
+    seek: seconds => current().seek(seconds), setVolume: value => current().setVolume(value),
+    setMuted: value => current().setMuted(value), setMode: mode => current().setMode(mode),
+    destroy() { unsubscribe(); player?.destroy(); player = null; optionsKey = ""; listeners.clear(); },
+  };
+  return {
+    get(options: ResolvedMusicOptions) {
+      const key = resolveOptionsKey(options);
+      if (!player || key !== optionsKey) {
+        const wasPlaying = player?.getSnapshot().status === "playing";
+        unsubscribe(); player?.destroy();
+        player = createMusicRuntime(options, dependencies); optionsKey = key;
+        unsubscribe = player.subscribe(snapshot => { for (const listener of listeners) listener(snapshot); });
+        if (wasPlaying) void player.play();
+      }
+      return controller;
+    },
+    destroy: () => controller.destroy(),
+  };
 }
 
-export function destroyMusicRuntime(): void {
-	sharedRuntime?.destroy();
-	sharedRuntime = null;
-	sharedOptionsKey = "";
-}
+const sharedController = createMusicController();
+export function getMusicRuntime(options: ResolvedMusicOptions): MusicRuntime { return sharedController.get(options); }
+export function destroyMusicRuntime(): void { sharedController.destroy(); }

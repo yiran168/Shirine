@@ -560,6 +560,9 @@
     }
   }
 
+  let settingsReady = $state(false);
+  let friendSettingsReady = $state(false);
+
   async function loadTabData(tab: TabType) {
     if (!isAdmin) return;
     try {
@@ -581,6 +584,7 @@
           configApi.getSite(),
         ]);
         if (friendsRes.success) friends = friendsRes.data || [];
+        friendSettingsReady = Boolean(siteRes.success && siteRes.data);
         if (siteRes.success && siteRes.data?.friendApplyInfo) {
           siteConfigState = {
             ...siteConfigState,
@@ -596,10 +600,16 @@
       } else if (tab === "media") {
         await loadMediaLibrary();
       } else if (tab === "settings" || tab === "compass" || tab === "anime" || tab === "projects" || tab === "devices" || tab === "skills" || tab === "timeline") {
+        settingsReady = false;
         const [siteRes, sysRes] = await Promise.all([
           configApi.getSite(),
           configApi.getAdminSystem(),
         ]);
+        if (!siteRes.success || !sysRes.success || !siteRes.data || !sysRes.data) {
+          showMessage("设置加载失败，请重新打开此选项后再保存", true);
+          return;
+        }
+        settingsReady = true;
         if (siteRes.success && siteRes.data) {
           const s = siteRes.data.site || {};
           const p = siteRes.data.profile || {};
@@ -630,13 +640,13 @@
             authorName: p.name ?? siteConfigState.authorName,
             bio: p.bio ?? siteConfigState.bio,
             avatar: p.avatar ?? siteConfigState.avatar,
-            profileLinks: Array.isArray(p.links) && p.links.length > 0 ? p.links : siteConfigState.profileLinks,
+            profileLinks: Array.isArray(p.links) ? p.links : siteConfigState.profileLinks,
             announcementEnable: a.enable ?? siteConfigState.announcementEnable,
             announcementTitle: a.title ?? siteConfigState.announcementTitle,
             announcementContent: a.content ?? siteConfigState.announcementContent,
             announcementLinkText: a.link?.text ?? siteConfigState.announcementLinkText,
             announcementLinkUrl: a.link?.url ?? siteConfigState.announcementLinkUrl,
-            announcementLinks: Array.isArray(a.links) && a.links.length > 0
+            announcementLinks: Array.isArray(a.links)
               ? a.links
               : (a.link && a.link.url ? [{ text: a.link.text || "GitHub", url: a.link.url }] : siteConfigState.announcementLinks),
             musicEnable: m.enable ?? siteConfigState.musicEnable,
@@ -645,47 +655,12 @@
             musicMetingServer: m.meting?.server ?? siteConfigState.musicMetingServer,
             musicMetingId: m.meting?.id ?? siteConfigState.musicMetingId,
             musicTracks: Array.isArray(m.tracks) ? m.tracks : siteConfigState.musicTracks,
-            timeline: Array.isArray(siteRes.data.timeline) && siteRes.data.timeline.length > 0 ? siteRes.data.timeline : (siteConfigState.timeline?.length ? siteConfigState.timeline : JSON.parse(JSON.stringify(timelineData))),
-            compass: (() => {
-              const fetched = Array.isArray(siteRes.data.compass) ? siteRes.data.compass : [];
-              if (fetched.length === 0) return JSON.parse(JSON.stringify(compassData));
-              const defaultMap = new Map(compassData.map((s: any) => [s.key, s]));
-              const seenKeys = new Set<string>();
-              const mergedShelves: any[] = [];
-              for (const shelf of fetched) {
-                if (!shelf || typeof shelf !== "object") continue;
-                const def = defaultMap.get(shelf.key);
-                const entries = Array.isArray(shelf.entries) && shelf.entries.length > 0
-                  ? shelf.entries
-                  : (def?.entries || []);
-                mergedShelves.push({ ...def, ...shelf, entries });
-                seenKeys.add(shelf.key);
-              }
-              for (const def of compassData) {
-                if (!seenKeys.has(def.key)) {
-                  mergedShelves.push(JSON.parse(JSON.stringify(def)));
-                }
-              }
-              return mergedShelves;
-            })(),
-            anime: (() => {
-              const fetched = Array.isArray(siteRes.data.anime) ? siteRes.data.anime : [];
-              if (fetched.length === 0) return JSON.parse(JSON.stringify(animeData));
-              const seenTitles = new Set(
-                fetched.map((a: any) => (a && typeof a.title === "string" ? a.title.trim().toLowerCase() : ""))
-              );
-              const mergedAnime = [...fetched];
-              for (const def of animeData) {
-                if (!seenTitles.has(def.title.trim().toLowerCase())) {
-                  mergedAnime.push(JSON.parse(JSON.stringify(def)));
-                  seenTitles.add(def.title.trim().toLowerCase());
-                }
-              }
-              return mergedAnime;
-            })(),
-            projects: Array.isArray(siteRes.data.projects) && siteRes.data.projects.length > 0 ? siteRes.data.projects : (siteConfigState.projects?.length ? siteConfigState.projects : JSON.parse(JSON.stringify(projectsData))),
-            devices: Array.isArray(siteRes.data.devices) && siteRes.data.devices.length > 0 ? siteRes.data.devices : (siteConfigState.devices?.length ? siteConfigState.devices : JSON.parse(JSON.stringify(devicesData))),
-            skills: Array.isArray(siteRes.data.skills) && siteRes.data.skills.length > 0 ? siteRes.data.skills : (siteConfigState.skills?.length ? siteConfigState.skills : JSON.parse(JSON.stringify(skillsData))),
+            timeline: Array.isArray(siteRes.data.timeline) ? siteRes.data.timeline : (siteConfigState.timeline?.length ? siteConfigState.timeline : JSON.parse(JSON.stringify(timelineData))),
+            compass: Array.isArray(siteRes.data.compass) ? siteRes.data.compass : structuredClone(compassData),
+            anime: Array.isArray(siteRes.data.anime) ? siteRes.data.anime : structuredClone(animeData),
+            projects: Array.isArray(siteRes.data.projects) ? siteRes.data.projects : (siteConfigState.projects?.length ? siteConfigState.projects : JSON.parse(JSON.stringify(projectsData))),
+            devices: Array.isArray(siteRes.data.devices) ? siteRes.data.devices : (siteConfigState.devices?.length ? siteConfigState.devices : JSON.parse(JSON.stringify(devicesData))),
+            skills: Array.isArray(siteRes.data.skills) ? siteRes.data.skills : (siteConfigState.skills?.length ? siteConfigState.skills : JSON.parse(JSON.stringify(skillsData))),
             friendApplyInfo: siteRes.data.friendApplyInfo ?? siteConfigState.friendApplyInfo,
             publicR2Url: siteRes.data.publicR2Url ?? siteConfigState.publicR2Url,
           };
@@ -1432,6 +1407,7 @@
   }
 
   async function saveCompassSettings() {
+    if (!settingsReady) return showMessage("请先成功加载设置，再保存修改", true);
     try {
       const res = await configApi.updateSite({ compass: siteConfigState.compass });
       if (res.success) {
@@ -1445,6 +1421,7 @@
   }
 
   async function saveAnimeSettings() {
+    if (!settingsReady) return showMessage("请先成功加载设置，再保存修改", true);
     try {
       const res = await configApi.updateSite({ anime: siteConfigState.anime });
       if (res.success) {
@@ -1604,6 +1581,7 @@
   }
 
   async function saveProjectsSettings() {
+    if (!settingsReady) return showMessage("请先成功加载设置，再保存修改", true);
     try {
       const res = await configApi.updateSite({ projects: siteConfigState.projects });
       if (res.success) {
@@ -1653,6 +1631,7 @@
   }
 
   async function saveDevicesSettings() {
+    if (!settingsReady) return showMessage("请先成功加载设置，再保存修改", true);
     try {
       const res = await configApi.updateSite({ devices: siteConfigState.devices });
       if (res.success) {
@@ -1695,6 +1674,7 @@
   }
 
   async function saveSkillsSettings() {
+    if (!settingsReady) return showMessage("请先成功加载设置，再保存修改", true);
     try {
       const res = await configApi.updateSite({ skills: siteConfigState.skills });
       if (res.success) {
@@ -1709,6 +1689,7 @@
 
   // --- Friend Apply Info Operation ---
   async function saveFriendApplyInfo() {
+    if (!friendSettingsReady) return showMessage("请先成功加载友链设置，再保存修改", true);
     try {
       const res = await configApi.updateSite({ friendApplyInfo: siteConfigState.friendApplyInfo });
       if (res.success) {
@@ -1756,6 +1737,7 @@
   }
 
   async function saveTimelineSettings() {
+    if (!settingsReady) return showMessage("请先成功加载设置，再保存修改", true);
     try {
       const res = await configApi.updateSite({ timeline: siteConfigState.timeline });
       if (res.success) {
@@ -1861,7 +1843,11 @@
   }
 
   // --- Media Library Operations ---
-  async function loadMediaLibrary() {
+  let mediaCursor = $state<string | null>(null);
+  let mediaLoading = $state(false);
+  async function loadMediaLibrary(append = false) {
+    if (mediaLoading) return;
+    mediaLoading = true;
     try {
       try {
         const siteRes = await configApi.getSite();
@@ -1879,20 +1865,24 @@
           }
         }
       } catch {}
-      const r2Base = getR2Base();
-      const res = await mediaApi.list();
-      const rawList = res.success ? (res.objects || res.data || []) : [];
+      const res = await mediaApi.list(append ? mediaCursor || undefined : undefined);
+      if (!res.success) throw new Error(res.error || "媒体列表加载失败");
+      const rawList = res.objects || res.data || [];
+      mediaCursor = res.cursor || null;
       const uploadedList = rawList.map((f: any) => ({
         ...f,
-        url: f.url?.startsWith("http") ? f.url : `${r2Base}/${f.key.replace(/^\/+/, "")}`,
+        url: f.url || `/api/blob/${f.key.split("/").map(encodeURIComponent).join("/")}`,
         isPreset: false,
       }));
-      const uploadedKeys = new Set(uploadedList.map((f: any) => f.key));
+      const mergedUploads = [...new Map([
+        ...(append ? mediaFiles.filter(f => !f.isPreset) : []), ...uploadedList,
+      ].map(f => [f.key, f])).values()];
+      const uploadedKeys = new Set(mergedUploads.map((f: any) => f.key));
       const presets = PRESET_MEDIA.filter((p) => !uploadedKeys.has(p.key)).map((p) => ({
         ...p,
-        url: `${r2Base}/${p.key.replace(/^\/+/, "")}`,
+        url: p.fallbackUrl || `/api/blob/${p.key.split("/").map(encodeURIComponent).join("/")}`,
       }));
-      mediaFiles = [...uploadedList, ...presets];
+      mediaFiles = [...mergedUploads, ...presets];
       if (typeof window !== "undefined") {
         try {
           const savedNames = localStorage.getItem("shirine_media_custom_names");
@@ -1918,12 +1908,12 @@
       }
     } catch (err: any) {
       console.error(err);
-      const r2Base = getR2Base();
-      mediaFiles = PRESET_MEDIA.map((p) => ({
+      showMessage(err.message || "媒体列表加载失败", true);
+      if (!mediaFiles.length) mediaFiles = PRESET_MEDIA.map((p) => ({
         ...p,
-        url: `${r2Base}/${p.key.replace(/^\/+/, "")}`,
+        url: p.fallbackUrl || `/api/blob/${p.key.split("/").map(encodeURIComponent).join("/")}`,
       }));
-    }
+    } finally { mediaLoading = false; }
   }
 
   async function deleteMediaFile(key: string) {
@@ -1956,15 +1946,17 @@
     if (!input.files || input.files.length === 0) return;
     mediaUploading = true;
     try {
+      let failed = 0;
       for (let i = 0; i < input.files.length; i++) {
         const file = input.files[i];
         showMessage(`正在上传 ${file.name} 至 R2 存储...`);
         const res = await uploadFile(file);
         if (!res.success) {
+          failed++;
           showMessage(res.error || `上传 ${file.name} 失败`, true);
         }
       }
-      showMessage("所有文件上传成功！");
+      showMessage(failed ? `${input.files.length - failed} 个文件上传成功，${failed} 个失败，请重试。` : "所有文件上传成功！", failed > 0);
       await loadMediaLibrary();
     } catch (err: any) {
       showMessage(err.message || "上传异常", true);
@@ -2249,6 +2241,7 @@
 
   // --- Settings Save ---
   async function saveAllSettings() {
+    if (!settingsReady) return showMessage("请先成功加载设置，再保存修改", true);
     isSavingAllSettings = true;
     try {
       const desktopBanners = siteConfigState.bannerDesktop
@@ -2294,6 +2287,7 @@
   }
 
   async function saveR2Settings() {
+    if (!settingsReady) return showMessage("请先成功加载设置，再保存修改", true);
     try {
       const publicR2 = (systemConfigState.publicR2Url ?? "").trim();
       siteConfigState.publicR2Url = publicR2;
@@ -2478,7 +2472,7 @@
             <span class="text-[10px] text-primary capitalize font-medium">{authStore.user.role}</span>
           </div>
           <button
-            onclick={() => authStore.logout()}
+            onclick={() => authStore.logout().catch(err => window.alert(err.message))}
             class="text-xs text-[var(--on-surface-variant)] hover:text-error ml-2 p-1.5 rounded-lg hover:bg-[var(--surface-container)]"
             title={at.signOut}
           >
@@ -5850,7 +5844,7 @@
           <div class="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-4">
               <span class="text-xs font-semibold text-[var(--on-surface)]">
-                总文件数: <strong class="text-primary">{mediaFiles.length}</strong>
+                已加载文件数: <strong class="text-primary">{mediaFiles.length}</strong>
               </span>
               <span class="text-xs font-semibold text-[var(--on-surface-variant)]">
                 占用存储: <strong class="text-[var(--on-surface)]">{formatFileSize(totalMediaStorageBytes)}</strong>
@@ -6034,6 +6028,12 @@
               <p class="text-sm font-semibold text-[var(--on-surface)]">暂无匹配的媒体文件</p>
               <p class="text-xs text-[var(--on-surface-variant)]">点击右上角「上传文件到 R2」，可上传图片、音频及媒体素材</p>
             </div>
+          {/if}
+
+          {#if mediaCursor}
+            <button type="button" disabled={mediaLoading} onclick={() => loadMediaLibrary(true)} class="min-h-11 px-5 py-2 rounded-xl bg-primary/10 text-primary disabled:opacity-50">
+              {mediaLoading ? "加载中…" : "加载更多媒体文件"}
+            </button>
           {/if}
 
           <!-- Image Lightbox Preview Modal -->

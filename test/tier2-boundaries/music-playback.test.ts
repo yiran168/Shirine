@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import { musicRouter } from "../../server/src/routes/music";
-import { createMusicRuntime } from "../../client/src/utils/music/music-runtime";
+import { createMusicRuntime, createMusicController } from "../../client/src/utils/music/music-runtime";
 
 let fetchSpy: ReturnType<typeof spyOn> | undefined;
 afterEach(() => { fetchSpy?.mockRestore(); fetchSpy = undefined; });
@@ -54,6 +54,31 @@ function runtime(audio: FakeAudio, fetcher: typeof fetch) {
   return createMusicRuntime({provider:"custom",playlist:tracks,defaultVolume:0.7,defaultMode:"sequence"}, {createAudio:()=>audio as any,getStorage:()=>null,fetch:fetcher});
 }
 describe("Music playback recovery", () => {
+  it("both controls share playback when cover metadata or signed URLs differ, including after playlist replacement", async () => {
+    const audios: FakeAudio[] = [];
+    const shared = createMusicController({ createAudio: () => { const audio = new FakeAudio(); audios.push(audio); return audio as any; }, getStorage: () => null });
+    const options = { provider: "custom" as const, defaultMode: "sequence" as const, defaultVolume: .7, playlist: [{id:"one", title:"One", source:"/api/blob/music/one.mp3?expires=100&signature=abc123", cover:"/cover.webp"}, {id:"two",title:"Two",source:"/assets/two.mp3"}] };
+    const sidebar = shared.get(options);
+    const seen: string[] = [];
+    sidebar.subscribe(s => seen.push(`${s.currentTrack?.id}:${s.status}`));
+    try {
+      await sidebar.play();
+      const floating = shared.get({ ...options, playlist: options.playlist.map(t => ({...t,source:t.source.replace("expires=100&signature=abc123", "expires=200&signature=def456"),cover:"/_astro/optimized.webp",coverSizes:"52px"})) });
+      expect(floating).toBe(sidebar);
+      expect(audios).toHaveLength(1);
+      floating.pause();
+      expect(sidebar.getSnapshot().status).not.toBe("playing");
+      await floating.next();
+      expect(sidebar.getSnapshot().currentTrack?.id).toBe("two");
+      expect(seen).toContain("two:playing");
+      const changed = shared.get({...options,playlist:[{id:"new",title:"New",source:"/assets/new.mp3"}]});
+      expect(changed).toBe(sidebar);
+      await changed.play();
+      expect(seen).toContain("new:playing");
+      expect(audios[0].paused).toBe(true);
+      expect(audios.filter(a=>!a.paused)).toHaveLength(1);
+    } finally { shared.destroy(); }
+  });
   it("uses resolved audio, reads the real duration, and stops on failure without skipping through the playlist", async () => {
     const audio = new FakeAudio();
     const player = runtime(audio, (async()=>Response.json({success:true,url:"https://audio.example.test/one.mp3"})) as typeof fetch);

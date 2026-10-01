@@ -5,7 +5,7 @@ import Tooltip from "@components/atoms/overlay/Tooltip.svelte";
 import Icon from "@iconify/svelte";
 import { collapse } from "@utils/motion";
 import { onMount } from "svelte";
-import { resolveMusicOptions, type ResolvedMusicOptions } from "@/config/musicConfig";
+import { type ResolvedMusicOptions } from "@/config/musicConfig";
 import type {
 	MusicErrorCode,
 	MusicRuntime,
@@ -127,26 +127,6 @@ onMount(() => {
 	let active = true;
 
 	void (async () => {
-		try {
-			const res = await fetch("/api/config/site");
-			if (res.ok) {
-				const json = await res.json();
-				const data = json.data || json.config;
-				if (json.success && data?.music) {
-					const dynOptions = resolveMusicOptions(data.music);
-					if (dynOptions && active) {
-						options = dynOptions;
-						snapshot = {
-							...snapshot,
-							playlist: dynOptions.playlist,
-							currentIndex: dynOptions.playlist.length > 0 ? 0 : -1,
-							currentTrack: dynOptions.playlist[0] ?? null,
-							duration: dynOptions.playlist[0]?.duration ?? 0,
-						};
-					}
-				}
-			}
-		} catch {}
 
 		if (!active) return;
 		const { getMusicRuntime } = await import("@utils/music");

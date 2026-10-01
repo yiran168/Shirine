@@ -1,3 +1,5 @@
+import { createRequestCache } from "./request-cache";
+const contentCache = createRequestCache();
 import { type CollectionEntry, getCollection } from "astro:content";
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
@@ -110,34 +112,16 @@ export async function fetchApi(
 	}
 }
 
-const POSTS_CACHE_TTL_MS = 2_000;
-let cachedPostsMap = new Map<string, { time: number; data: CollectionEntry<"posts">[] }>();
-let inFlightPostsPromise = new Map<string, Promise<CollectionEntry<"posts">[]>>();
-let cachedPages: { time: number; data: any[] } | null = null;
-let inFlightPagesPromise: Promise<any[]> | null = null;
 
-export function clearContentCache() {
-	cachedPostsMap.clear();
-	cachedMoments = null;
-	cachedFriends = null;
-	cachedAlbumsMap.clear();
-	cachedDiscovery = null;
-	cachedPages = null;
-}
+export function clearContentCache() { contentCache.clear(); }
 
 // Retrieve posts dynamically from backend API and sort them by publication date
-async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"posts">[]> {
-	const authKey = getAuthKey(request);
-	const now = Date.now();
-	const cached = cachedPostsMap.get(authKey);
-	if (cached && now - cached.time < POSTS_CACHE_TTL_MS) {
-		return cached.data;
-	}
+function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"posts">[]> {
+	return contentCache.get(request, "getRawSortedPosts", () => getRawSortedPostsUncached(request));
+}
 
-	const existingPromise = inFlightPostsPromise.get(authKey);
-	if (existingPromise) {
-		return existingPromise;
-	}
+async function getRawSortedPostsUncached(request?: Request): Promise<CollectionEntry<"posts">[]> {
+
 
 	const fetchPromise = (async () => {
 		let apiPosts: CollectionEntry<"posts">[] = [];
@@ -197,7 +181,7 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 		const localPostsMap = new Map(localPosts.map((lp) => [lp.id, lp]));
 
 		let postsToUse: CollectionEntry<"posts">[] = [];
-		if (apiConnected && apiPosts.length > 0) {
+		if (apiConnected) {
 			postsToUse = apiPosts.map((ap) => {
 				const local =
 					localPostsMap.get(ap.id) ||
@@ -240,16 +224,10 @@ async function getRawSortedPosts(request?: Request): Promise<CollectionEntry<"po
 		const sorted = postsToUse.sort(comparePublicationEntries);
 		initPostIdMap(sorted);
 
-		cachedPostsMap.set(authKey, { time: Date.now(), data: sorted });
 		return sorted;
 	})();
 
-	inFlightPostsPromise.set(authKey, fetchPromise);
-	try {
-		return await fetchPromise;
-	} finally {
-		inFlightPostsPromise.delete(authKey);
-	}
+	return await fetchPromise;
 }
 
 export async function getSortedPosts(request?: Request): Promise<CollectionEntry<"posts">[]> {
@@ -404,18 +382,12 @@ function withMomentThumbnails(image: any): MomentImage {
 	};
 }
 
-let cachedMoments: { time: number; data: MomentItem[] } | null = null;
-let inFlightMomentsPromise: Promise<MomentItem[]> | null = null;
-const MOMENTS_CACHE_TTL_MS = 2_000;
 
-export async function getSortedMoments(request?: Request): Promise<MomentItem[]> {
-	const now = Date.now();
-	if (cachedMoments && now - cachedMoments.time < MOMENTS_CACHE_TTL_MS) {
-		return cachedMoments.data;
-	}
-	if (inFlightMomentsPromise) {
-		return inFlightMomentsPromise;
-	}
+export function getSortedMoments(request?: Request): Promise<MomentItem[]> {
+	return contentCache.get(request, "getSortedMoments", () => getSortedMomentsUncached(request));
+}
+
+async function getSortedMomentsUncached(request?: Request): Promise<MomentItem[]> {
 
 	const promise = (async () => {
 		let apiMoments: MomentItem[] = [];
@@ -441,7 +413,7 @@ export async function getSortedMoments(request?: Request): Promise<MomentItem[]>
 		} catch {}
 
 		let momentsToUse: MomentItem[] = [];
-		if (apiConnected && apiMoments.length > 0) {
+		if (apiConnected) {
 			momentsToUse = apiMoments;
 		} else {
 			let entries: CollectionEntry<"moments">[] = [];
@@ -478,26 +450,18 @@ export async function getSortedMoments(request?: Request): Promise<MomentItem[]>
 			return new Date(b.published).getTime() - new Date(a.published).getTime();
 		});
 
-		cachedMoments = { time: Date.now(), data: sorted };
 		return sorted;
 	})();
 
-	inFlightMomentsPromise = promise;
-	try {
-		return await promise;
-	} finally {
-		inFlightMomentsPromise = null;
-	}
+	return await promise;
 }
 
-let cachedFriends: { time: number; data: FriendItem[] } | null = null;
-const FRIENDS_CACHE_TTL_MS = 2_000;
 
-export async function getDynamicFriends(request?: Request): Promise<FriendItem[]> {
-	const now = Date.now();
-	if (cachedFriends && now - cachedFriends.time < FRIENDS_CACHE_TTL_MS) {
-		return cachedFriends.data;
-	}
+export function getDynamicFriends(request?: Request): Promise<FriendItem[]> {
+	return contentCache.get(request, "getDynamicFriends", () => getDynamicFriendsUncached(request));
+}
+
+async function getDynamicFriendsUncached(request?: Request): Promise<FriendItem[]> {
 
 	let allFriends: FriendItem[] = [];
 	let apiConnected = false;
@@ -521,7 +485,7 @@ export async function getDynamicFriends(request?: Request): Promise<FriendItem[]
 		}
 	} catch {}
 
-	if (!apiConnected || allFriends.length === 0) {
+	if (!apiConnected) {
 		try {
 			const { getFriendsList } = await import("../data/friends");
 			allFriends = [...getFriendsList()];
@@ -530,20 +494,15 @@ export async function getDynamicFriends(request?: Request): Promise<FriendItem[]
 		}
 	}
 
-	cachedFriends = { time: Date.now(), data: allFriends };
 	return allFriends;
 }
 
-let cachedAlbumsMap = new Map<string, { time: number; data: any[] }>();
-const ALBUMS_CACHE_TTL_MS = 2_000;
 
-export async function getDynamicAlbums(request?: Request): Promise<any[]> {
-	const authKey = getAuthKey(request);
-	const now = Date.now();
-	const cached = cachedAlbumsMap.get(authKey);
-	if (cached && now - cached.time < ALBUMS_CACHE_TTL_MS) {
-		return cached.data;
-	}
+export function getDynamicAlbums(request?: Request): Promise<any[]> {
+	return contentCache.get(request, "getDynamicAlbums", () => getDynamicAlbumsUncached(request));
+}
+
+async function getDynamicAlbumsUncached(request?: Request): Promise<any[]> {
 
 	let dynamicAlbums: any[] = [];
 	let apiConnected = false;
@@ -578,30 +537,24 @@ export async function getDynamicAlbums(request?: Request): Promise<any[]> {
 		} catch {}
 
 	let localAlbums: any[] = [];
-	if (!apiConnected || dynamicAlbums.length === 0) {
+	if (!apiConnected) {
 		try {
 			const { scanVisibleAlbums, toAlbumIndexItem } = await import("./album-scanner");
 			localAlbums = scanVisibleAlbums().map(toAlbumIndexItem);
 		} catch {}
 	}
 
-	const result = (apiConnected && dynamicAlbums.length > 0) ? dynamicAlbums : localAlbums;
-	cachedAlbumsMap.set(authKey, { time: Date.now(), data: result });
+	const result = apiConnected ? dynamicAlbums : localAlbums;
+
 	return result;
 }
 
-let cachedDiscovery: { time: number; data: any[] } | null = null;
-let inFlightDiscoveryPromise: Promise<any[]> | null = null;
-const DISCOVERY_CACHE_TTL_MS = 10_000;
 
-export async function getDiscoveryCandidates(request?: Request): Promise<any[]> {
-	const now = Date.now();
-	if (cachedDiscovery && now - cachedDiscovery.time < DISCOVERY_CACHE_TTL_MS) {
-		return cachedDiscovery.data;
-	}
-	if (inFlightDiscoveryPromise) {
-		return inFlightDiscoveryPromise;
-	}
+export function getDiscoveryCandidates(request?: Request): Promise<any[]> {
+	return contentCache.get(request, "getDiscoveryCandidates", () => getDiscoveryCandidatesUncached(request));
+}
+
+async function getDiscoveryCandidatesUncached(request?: Request): Promise<any[]> {
 
 	const promise = (async () => {
 		let candidates: any[] = [];
@@ -622,19 +575,18 @@ export async function getDiscoveryCandidates(request?: Request): Promise<any[]> 
 				}
 			}
 		} catch {}
-		cachedDiscovery = { time: Date.now(), data: candidates };
+
 		return candidates;
 	})();
 
-	inFlightDiscoveryPromise = promise;
-	try {
-		return await promise;
-	} finally {
-		inFlightDiscoveryPromise = null;
-	}
+	return await promise;
 }
 
-async function getRawSiteConfigData(request?: Request): Promise<any> {
+function getRawSiteConfigData(request?: Request): Promise<any> {
+	return contentCache.get(request, "getRawSiteConfigData", () => getRawSiteConfigDataUncached(request));
+}
+
+async function getRawSiteConfigDataUncached(request?: Request): Promise<any> {
 	try {
 		const res = await fetchApi("/config/site", request);
 		if (res && res.ok) {
@@ -646,53 +598,17 @@ async function getRawSiteConfigData(request?: Request): Promise<any> {
 }
 
 export async function getDynamicCompass(request?: Request): Promise<any[]> {
-	const siteCfg = await getRawSiteConfigData(request);
-	const { compassData } = await import("../data/compass");
-	if (siteCfg && Array.isArray(siteCfg.compass) && siteCfg.compass.length > 0) {
-		const defaultMap = new Map(compassData.map((s) => [s.key, s]));
-		const seenKeys = new Set<string>();
-		const result: any[] = [];
-		for (const shelf of siteCfg.compass) {
-			if (!shelf || typeof shelf !== "object") continue;
-			const def = defaultMap.get(shelf.key);
-			const entries = Array.isArray(shelf.entries) && shelf.entries.length > 0
-				? shelf.entries
-				: (def?.entries || []);
-			result.push({
-				...def,
-				...shelf,
-				entries,
-			});
-			seenKeys.add(shelf.key);
-		}
-		for (const def of compassData) {
-			if (!seenKeys.has(def.key)) {
-				result.push(def);
-			}
-		}
-		return result;
-	}
-	return compassData;
+  const cfg = await getRawSiteConfigData(request);
+  if (Array.isArray(cfg?.compass)) return cfg.compass;
+  const { compassData } = await import("../data/compass");
+  return compassData;
 }
 
 export async function getDynamicAnime(request?: Request): Promise<any[]> {
-	const siteCfg = await getRawSiteConfigData(request);
-	const { animeData } = await import("../data/anime");
-	if (siteCfg && Array.isArray(siteCfg.anime) && siteCfg.anime.length > 0) {
-		const seenTitles = new Set(
-			siteCfg.anime.map((a: any) => (a && typeof a.title === "string" ? a.title.trim().toLowerCase() : ""))
-		);
-		const result = [...siteCfg.anime];
-		for (const def of animeData) {
-			if (!seenTitles.has(def.title.trim().toLowerCase())) {
-				result.push(def);
-				seenTitles.add(def.title.trim().toLowerCase());
-			}
-		}
-		return result;
-	}
-	const { getAnimeList } = await import("./anime-data");
-	return await getAnimeList();
+  const cfg = await getRawSiteConfigData(request);
+  if (Array.isArray(cfg?.anime)) return cfg.anime;
+  const { getAnimeList } = await import("./anime-data");
+  return getAnimeList();
 }
 
 export async function getDynamicProjects(request?: Request): Promise<any[]> {
@@ -763,14 +679,11 @@ export async function getDynamicFriendApplyInfo(request?: Request): Promise<{
 	return defaultInfo;
 }
 
-export async function getDynamicPages(request?: Request): Promise<any[]> {
-	const now = Date.now();
-	if (cachedPages && now - cachedPages.time < 5_000) {
-		return cachedPages.data;
-	}
-	if (inFlightPagesPromise) {
-		return inFlightPagesPromise;
-	}
+export function getDynamicPages(request?: Request): Promise<any[]> {
+	return contentCache.get(request, "getDynamicPages", () => getDynamicPagesUncached(request));
+}
+
+async function getDynamicPagesUncached(request?: Request): Promise<any[]> {
 
 	const promise = (async () => {
 		try {
@@ -779,19 +692,14 @@ export async function getDynamicPages(request?: Request): Promise<any[]> {
 				const json = await res.json();
 				if (json.success && Array.isArray(json.data)) {
 					const publishedPages = json.data.filter((p: any) => !p.draft && p.status !== "draft");
-					cachedPages = { time: Date.now(), data: publishedPages };
+
 					return publishedPages;
 				}
 			}
 		} catch {}
-		cachedPages = { time: Date.now(), data: [] };
+
 		return [];
 	})();
 
-	inFlightPagesPromise = promise;
-	try {
-		return await promise;
-	} finally {
-		inFlightPagesPromise = null;
-	}
+	return await promise;
 }

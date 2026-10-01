@@ -16,7 +16,7 @@ export async function authMiddleware(
   if (authHeader && authHeader.startsWith("Bearer ")) {
     bearerToken = authHeader.substring(7);
   }
-  const match = cookieHeader.match(/shirine_token=([^;]+)/);
+  const match = cookieHeader.match(/(?:^|;\s*)shirine_token=([^;]+)/);
   if (match) {
     cookieToken = match[1];
   }
@@ -84,12 +84,11 @@ export async function authMiddleware(
       try {
         const originUrl = new URL(origin);
         const reqUrl = new URL(c.req.url);
-        const isSameHost = originUrl.host === reqUrl.host;
-        const isLocal = reqUrl.hostname === "localhost" || reqUrl.hostname === "127.0.0.1";
+        const isSameOrigin = originUrl.origin === reqUrl.origin;
         const allowedOrigins = c.env.ALLOWED_ORIGINS
           ? c.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim())
           : [];
-        const isAllowed = isSameHost || isLocal || allowedOrigins.includes(originUrl.origin);
+        const isAllowed = isSameOrigin || allowedOrigins.includes(originUrl.origin);
         if (!isAllowed) {
           return c.json({ success: false, error: "Forbidden: CSRF check failed" }, 403);
         }

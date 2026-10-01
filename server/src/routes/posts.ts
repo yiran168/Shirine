@@ -463,11 +463,13 @@ postsRouter.post("/:id/password/verify", async (c) => {
 
     const hasPassword = post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
     if (!hasPassword) {
+      const access = await resolvePostAccess(post, user, undefined, db, c.env.JWT_SECRET);
       return c.json({
         success: true,
         message: "This post does not require a password",
-        isUnlocked: true,
-        content: post.content,
+        isUnlocked: access.allGatesSatisfied,
+        lockReason: access.lockReason,
+        content: access.allGatesSatisfied ? post.content : null,
       });
     }
 

@@ -734,6 +734,10 @@ configRouter.get("/site", async (c) => {
     });
   } catch (err: any) {
     const flatDefault = (defaultSiteConfig as any).site || {};
+    const user = c.get("user");
+    if (user?.role === "admin" || user?.role === "superadmin") {
+      return c.json({ success: false, error: "Site settings are temporarily unavailable" }, 503);
+    }
     const defaultData = {
       ...flatDefault,
       ...defaultSiteConfig,
@@ -1364,7 +1368,7 @@ configRouter.get("/system/admin", requireAdmin, async (c) => {
       config: adminSys,
     });
   } catch (err: any) {
-    return c.json({ success: true, data: defaultSystemConfig, config: defaultSystemConfig });
+    return c.json({ success: false, error: "System settings are temporarily unavailable" }, 503);
   }
 });
 

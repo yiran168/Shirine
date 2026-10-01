@@ -1,5 +1,5 @@
 import { defineMiddleware } from "astro:middleware";
-import { setSiteLang } from "./i18n/translation";
+import { withRequestLanguage } from "./utils/request-language";
 import { getDynamicSiteConfig } from "./utils/dynamic-config";
 
 export const onRequest = defineMiddleware(async (context, next) => {
@@ -39,8 +39,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     } catch {}
   }
 
-  setSiteLang(lang);
   context.locals.lang = lang;
+  return withRequestLanguage(lang, async () => {
   const response = await next();
   if (response.headers.get("Content-Type")?.includes("text/html")) {
     // HTML embeds permission state and can change immediately after publishing
@@ -49,4 +49,5 @@ export const onRequest = defineMiddleware(async (context, next) => {
     response.headers.append("Vary", "Cookie");
   }
   return response;
+  });
 });

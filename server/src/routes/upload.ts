@@ -146,12 +146,15 @@ function validateImageMagicBytes(buffer: ArrayBuffer, mime: string): boolean {
     );
   }
   if (mime === "image/avif") {
-    return (
-      bytes[4] === 0x66 &&
-      bytes[5] === 0x74 &&
-      bytes[6] === 0x79 &&
-      bytes[7] === 0x70
-    );
+    if (String.fromCharCode(...bytes.slice(4, 8)) !== "ftyp") return false;
+    const boxSize = new DataView(buffer).getUint32(0);
+    if (boxSize < 16 || boxSize > buffer.byteLength || boxSize > 4096) return false;
+    const brands = new Uint8Array(buffer, 8, boxSize - 8);
+    for (let i = 0; i + 4 <= brands.length; i += 4) {
+      if (i === 4) continue; // minor version, not a compatible brand
+      if (["avif", "avis"].includes(String.fromCharCode(...brands.slice(i, i + 4)))) return true;
+    }
+    return false;
   }
   return false;
 }
@@ -166,20 +169,20 @@ function validateAudioMagicBytes(buffer: ArrayBuffer, mime: string): boolean {
     return bytes[0] === 0x4f && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53;
   }
   if (mime.includes("wav")) {
-    return bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46;
+    return bytes.length >= 12 && String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" && String.fromCharCode(...bytes.slice(8, 12)) === "WAVE";
   }
   if (mime.includes("mp3") || mime.includes("mpeg")) {
     if (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33) return true; // ID3
     if (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) return true; // MPEG frame sync
-    return true;
+    return false;
   }
-  if (mime.includes("m4a") || mime.includes("mp4") || mime.includes("aac")) {
-    if (bytes.length >= 8 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
-      return true; // ftyp
-    }
-    return true;
+  if (mime.includes("aac")) {
+    return bytes[0] === 0xff && (bytes[1] & 0xf6) === 0xf0; // ADTS sync and layer
   }
-  return true;
+  if (mime.includes("m4a") || mime.includes("mp4")) {
+    return bytes.length >= 12 && String.fromCharCode(...bytes.slice(4, 8)) === "ftyp";
+  }
+  return false;
 }
 
 // GET /api/upload (List files in R2 storage for Media Library)
@@ -188,7 +191,7 @@ uploadRouter.get("/", requireAdmin, async (c) => {
     return c.json({ success: true, objects: [] });
   }
   try {
-    const listed = await c.env.STORAGE.list({ limit: 100 });
+    const listed = await c.env.STORAGE.list({ limit: 100, cursor: c.req.query("cursor") || undefined });
     const publicUrlBase = await getPublicR2Url(c.env);
     const objects = listed.objects.map((obj) => ({
       key: obj.key,
@@ -197,7 +200,7 @@ uploadRouter.get("/", requireAdmin, async (c) => {
       httpMetadata: obj.httpMetadata,
       url: `${publicUrlBase}/${obj.key}`,
     }));
-    return c.json({ success: true, objects });
+    return c.json({ success: true, objects, cursor: listed.truncated ? listed.cursor : null });
   } catch (err: any) {
     return c.json({ success: false, error: err.message || "Failed to list media" }, 500);
   }
@@ -226,7 +229,7 @@ uploadRouter.post("/", requireAdmin, async (c) => {
     const body = await c.req.parseBody();
     const file = body.file as File | undefined;
 
-    if (!file) {
+    if (!(file instanceof File)) {
       return c.json({ success: false, error: "No file provided" }, 400);
     }
 

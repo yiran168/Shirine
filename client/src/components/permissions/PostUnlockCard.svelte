@@ -74,6 +74,7 @@
     try {
       if (itemType === "album") {
         const res = await albumsApi.get(Number(postId) || (postId as any));
+        if (res.success && !res.data?.isUnlocked) lockReason = res.data?.lockReason;
         if (res.success && res.data?.isUnlocked) {
           unlockedPhotos = res.data?.photos || [];
           notifyUnlocked(undefined, unlockedPhotos);
@@ -140,6 +141,10 @@
           ? await albumsApi.verifyPassword(postId, inputPassword.trim())
           : await postsApi.verifyPassword(postId, inputPassword.trim());
       if (res.success) {
+        if (res.isUnlocked === false) {
+          lockReason = res.lockReason;
+          return;
+        }
         if (typeof window !== "undefined") {
           try {
             const confetti = (await import("canvas-confetti")).default;

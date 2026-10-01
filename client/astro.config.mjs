@@ -143,8 +143,9 @@ export default defineConfig({
 		platformProxy: {
 			enabled: !(isDevCommand && process.env.SHIRINE_LOCAL_API === "1"),
 		},
-		imageService: "passthrough",
+		imageService: "custom",
 	}),
+	image: { service: { entrypoint: "./src/utils/static-image-service.ts" } },
 	trailingSlash: "ignore",
 	integrations: [
 		swup({

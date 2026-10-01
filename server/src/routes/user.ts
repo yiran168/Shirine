@@ -94,7 +94,6 @@ userRouter.post("/checkin", requireAuth, async (c) => {
 
     // Calculate streak
     const newStreak = user.lastCheckinDate === yesterday ? user.checkinStreak + 1 : 1;
-    const newPoints = user.points + awarded;
     const idempotencyKey = `checkin_${user.id}_${today}`;
 
     // Atomic execution using D1 batch (#102, P0-14, V8-P0-01)
@@ -106,9 +105,12 @@ userRouter.post("/checkin", requireAuth, async (c) => {
         "UPDATE users SET points = points + ?, last_checkin_date = ?, checkin_streak = ?, updated_at = unixepoch() WHERE id = ?"
       ).bind(awarded, today, newStreak, user.id),
       c.env.DB.prepare(
-        "INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at) VALUES (?, 'checkin', ?, ?, NULL, ?, ?, unixepoch())"
-      ).bind(user.id, awarded, newPoints, idempotencyKey, `Daily check-in streak: ${newStreak} days`),
+        "INSERT INTO point_transactions (user_id, type, amount, balance_after, target_id, idempotency_key, description, created_at) SELECT id, 'checkin', ?, points, NULL, ?, ?, unixepoch() FROM users WHERE id = ?"
+      ).bind(awarded, idempotencyKey, `Daily check-in streak: ${newStreak} days`, user.id),
     ]);
+
+    const committed = await db.query.users.findFirst({ where: eq(schema.users.id, user.id), columns: { points: true } });
+    const newPoints = committed?.points ?? 0;
 
     return c.json({
       success: true,
@@ -248,11 +250,11 @@ userRouter.put("/profile", requireAuth, async (c) => {
 
     // Password change
     if (newPassword) {
-      if (!oldPassword) {
+      if (typeof oldPassword !== "string" || !oldPassword || oldPassword.length > 128) {
         return c.json({ success: false, error: "Current password is required to set a new password" }, 400);
       }
-      if (typeof newPassword !== "string" || newPassword.length < 6) {
-        return c.json({ success: false, error: "New password must be at least 6 characters" }, 400);
+      if (typeof newPassword !== "string" || newPassword.length < 6 || newPassword.length > 128) {
+        return c.json({ success: false, error: "New password must be between 6 and 128 characters" }, 400);
       }
 
       const isOldMatch = await verifyPassword(oldPassword, user.salt, user.passwordHash);

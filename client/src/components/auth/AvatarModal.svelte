@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import presetAvatars from "../../../public/assets/avatars/avatars.json";
+  import presetAvatars from "../../data/avatar-presets.json";
   import { authStore } from "../../stores/auth";
   import { userApi } from "../../services/api";
   import { getUserMenuText } from "../../i18n/userMenu";

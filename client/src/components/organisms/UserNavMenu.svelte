@@ -103,9 +103,10 @@
 
   async function handleLogout() {
     menuOpen = false;
-    await authStore.logout();
-    if (typeof window !== "undefined") {
-      window.location.reload();
+    try {
+      await authStore.logout();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "退出登录失败，请重试");
     }
   }
 </script>

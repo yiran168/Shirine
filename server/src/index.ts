@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { bodyLimit } from "hono/body-limit";
 import type { Env, Variables } from "./types";
-import { authMiddleware } from "./core/middleware";
+import { authMiddleware, requireAdmin } from "./core/middleware";
 import { handleBlobStream } from "./core/blob-handler";
 import { authRouter } from "./routes/auth";
 import { userRouter } from "./routes/user";
@@ -49,19 +49,11 @@ app.use(
   })
 );
 
-// Global Request Body Size Limit (10MB for uploads, protected against DoS: V10-P0-24)
-app.use(
-  "/api/*",
-  bodyLimit({
-    maxSize: 10 * 1024 * 1024,
-    onError: (c) => c.json({ success: false, error: "Payload Too Large: Request body exceeds maximum allowed size" }, 413),
-  })
-);
-
 // Unified Configuration & Environment Guard (V10 Item 16)
 app.use("/api/*", async (c, next) => {
-  if (!c.env.JWT_SECRET) {
-    if (c.env.ENVIRONMENT === "production") {
+  if (!c.env.JWT_SECRET || c.env.JWT_SECRET === "dev_fallback_jwt_secret_please_set_in_wrangler_secrets" || c.env.JWT_SECRET === "shirine-dev-local-jwt-secret-key-32bytes-min") {
+    const local = ["localhost", "127.0.0.1", "[::1]"].includes(new URL(c.req.url).hostname);
+    if (c.env.ENVIRONMENT === "production" || !local) {
       console.error("[CRITICAL] JWT_SECRET environment secret is not configured in production!");
       return c.json(
         { success: false, error: "Server configuration error: JWT_SECRET secret must be configured" },
@@ -76,6 +68,21 @@ app.use("/api/*", async (c, next) => {
 
 // Global JWT Extraction Middleware
 app.use("/api/*", authMiddleware);
+
+// Only authenticated administrators may submit the larger multipart upload body.
+app.use("/api/*", async (c, next) => {
+  const upload = c.req.method === "POST" && c.req.path === "/api/upload";
+  const limit = bodyLimit({
+    maxSize: upload ? 51 * 1024 * 1024 : 10 * 1024 * 1024,
+    onError: c => c.json({ success: false, error: "Payload Too Large" }, 413),
+  });
+  if (upload) return requireAdmin(c, async () => {
+    const response = await limit(c, next);
+    if (response instanceof Response) c.res = response;
+  });
+  return limit(c, next);
+});
+
 
 app.use("/api/*", async (c, next) => {
   if (["POST", "PUT", "PATCH"].includes(c.req.method) && c.req.header("Content-Type")?.includes("application/json")) {

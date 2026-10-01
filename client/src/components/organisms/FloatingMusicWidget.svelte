@@ -53,19 +53,6 @@ onMount(() => {
 	let unsubscribe = () => {};
 	let active = true;
 
-	const onFirstGesture = () => {
-		if (runtime && snapshot.status !== "playing") {
-			void runtime.play();
-		}
-		cleanupGestureListeners();
-	};
-
-	const cleanupGestureListeners = () => {
-		window.removeEventListener("click", onFirstGesture, true);
-		window.removeEventListener("touchstart", onFirstGesture, true);
-		window.removeEventListener("keydown", onFirstGesture, true);
-		window.removeEventListener("scroll", onFirstGesture, true);
-	};
 
 	void import("@utils/music").then(({ getMusicRuntime }) => {
 		if (!active) return;
@@ -73,25 +60,15 @@ onMount(() => {
 		runtime = rt;
 		unsubscribe = rt.subscribe((next) => {
 			snapshot = next;
-			if (next.status === "playing") {
-				cleanupGestureListeners();
-			}
 		});
 
-		// 自动播放启动与浏览器策略兜底处理
-		if (options.autoplay !== false) {
-			void rt.play();
-			// 立即监听全站手势：点击/触摸/按键/滚动，在浏览器策略拦截时用户首次交互即刻播放
-			window.addEventListener("click", onFirstGesture, { once: true, capture: true, passive: true });
-			window.addEventListener("touchstart", onFirstGesture, { once: true, capture: true, passive: true });
-			window.addEventListener("keydown", onFirstGesture, { once: true, capture: true, passive: true });
-			window.addEventListener("scroll", onFirstGesture, { once: true, capture: true, passive: true });
-		}
+		// Only the initial idle player attempts autoplay. Navigating must preserve a deliberate pause.
+		if (options.autoplay !== false && ["idle", "loading"].includes(rt.getSnapshot().status)) void rt.play();
+
 	});
 
 	return () => {
 		active = false;
-		cleanupGestureListeners();
 		unsubscribe();
 	};
 });
@@ -105,7 +82,7 @@ onMount(() => {
 	<!-- 悬浮曲目信息与扩展控制按钮（展开时显示） -->
 	{#if showControls}
 		<div
-			class="music-info-pill flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--surface-container-high)] text-[var(--on-surface)] shadow-lg border border-[var(--outline-variant)]/30 backdrop-blur-md animate-fade-in text-xs"
+			class="music-info-pill absolute right-0 bottom-full flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--surface-container-high)] text-[var(--on-surface)] shadow-lg border border-[var(--outline-variant)]/30 backdrop-blur-md animate-fade-in text-xs"
 		>
 			<button
 				type="button"
@@ -134,7 +111,7 @@ onMount(() => {
 				<Icon icon="material-symbols:skip-next-rounded" class="text-base" />
 			</button>
 		</div>
-	{:else}
+	{/if}
 		<!-- 紧凑模式下的快捷切换下一首按钮 -->
 		<button
 			type="button"
@@ -145,15 +122,14 @@ onMount(() => {
 		>
 			<Icon icon="material-symbols:skip-next-rounded" class="text-lg" />
 		</button>
-	{/if}
 
 	<!-- 主悬浮音乐控制按钮（含播放状态、跳动动效） -->
 	<button
 		type="button"
 		onclick={togglePlay}
 		class="floating-music-btn w-11 h-11 sm:w-12 sm:h-12 rounded-full shadow-lg border border-[var(--outline-variant)]/30 flex items-center justify-center transition-all duration-300 relative overflow-hidden group active:scale-95 {playing ? 'bg-primary text-on-primary shadow-primary/30' : 'bg-[var(--surface-container-high)] text-[var(--on-surface)] hover:bg-[var(--surface-container-highest)]'}"
-		title={playing ? `正在播放: ${currentTitle} (点击停止播放)` : `音乐播放器 (点击播放)`}
-		aria-label={playing ? "停止音乐播放" : "播放音乐"}
+		title={playing ? `正在播放: ${currentTitle} (点击暂停)` : `音乐播放器 (点击播放)`}
+		aria-label={playing ? "暂停音乐" : "播放音乐"}
 	>
 		{#if playing}
 			<!-- 音乐播放中的跳动动效：4 条声波跳跃波柱 -->

@@ -158,7 +158,7 @@
       <!-- Logout button -->
       <div class="pt-4 border-t border-outline/10">
         <button
-          onclick={() => authStore.logout()}
+          onclick={() => authStore.logout().catch(err => window.alert(err.message))}
           class="w-full py-2.5 rounded-xl border border-error/20 text-error hover:bg-error/10 font-medium text-sm transition-all flex items-center justify-center gap-2"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

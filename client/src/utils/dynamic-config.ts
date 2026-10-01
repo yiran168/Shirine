@@ -4,7 +4,6 @@ import { musicConfig } from "@/config/musicConfig";
 import { announcementConfig } from "@/config/announcementConfig";
 import { footerConfig } from "@/config/footerConfig";
 import type { TrackDescriptor } from "@/types/musicConfig";
-import { setSiteLang } from "@/i18n/translation";
 import { fetchApi } from "./content-utils";
 
 function deepMerge<T extends Record<string, any>>(target: T, source: any): T {
@@ -71,9 +70,6 @@ export async function getDynamicSiteConfig(request?: Request): Promise<DynamicSi
             if (!mergedSite.banner.homeText) mergedSite.banner.homeText = {} as any;
             mergedSite.banner.homeText.title = mergedSite.title;
           }
-          if (mergedSite.lang) {
-            setSiteLang(mergedSite.lang);
-          }
           return {
             site: mergedSite,
             profile: deepMerge(profileConfig, data.profile || {}),
@@ -86,11 +82,11 @@ export async function getDynamicSiteConfig(request?: Request): Promise<DynamicSi
     } catch {}
 
     return {
-      site: siteConfig,
-      profile: profileConfig,
-      music: musicConfig,
-      announcement: announcementConfig,
-      footer: footerConfig,
+      site: structuredClone(siteConfig),
+      profile: structuredClone(profileConfig),
+      music: structuredClone(musicConfig),
+      announcement: structuredClone(announcementConfig),
+      footer: structuredClone(footerConfig),
     };
   };
 

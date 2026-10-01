@@ -158,18 +158,14 @@ export const authApi = {
   },
   me: () => request("/auth/me", { method: "GET" }),
   logout: async () => {
-    try {
-      return await request("/auth/logout", { method: "POST" });
-    } finally {
-      removeToken();
-    }
+    const res = await request("/auth/logout", { method: "POST" });
+    if (res.success) removeToken();
+    return res;
   },
   logoutAll: async () => {
-    try {
-      return await request("/auth/logout-all", { method: "POST" });
-    } finally {
-      removeToken();
-    }
+    const res = await request("/auth/logout-all", { method: "POST" });
+    if (res.success) removeToken();
+    return res;
   },
 };
 
@@ -299,7 +295,7 @@ export const adminApi = {
 // Media Library API (R2)
 // -------------------------------------------------------------
 export const mediaApi = {
-  list: () => request("/upload"),
+  list: (cursor?: string) => request(`/upload${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),
   delete: (key: string) => request(`/upload/${encodeURIComponent(key)}`, { method: "DELETE" }),
 };
 
