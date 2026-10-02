@@ -1,6 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import TurnstileGate from "@components/auth/TurnstileGate.svelte";
+  import OAuthSettings from "./OAuthSettings.svelte";
+  import SmsSettings from "./SmsSettings.svelte";
+  import EmailSettings from "./EmailSettings.svelte";
+  import OAuthButtons from "@components/auth/OAuthButtons.svelte";
   import { authStore } from "../../stores/auth";
   import {
     adminApi,
@@ -63,6 +67,7 @@
   let loginUsername = $state("");
   let loginPassword = $state("");
   let loginLoading = $state(false);
+  let oauthLoginBusy = $state(false);
   let loginVerificationReady = $state(false);
   let loginVerificationToken = $state("");
   let loginVerificationReset = $state(0);
@@ -510,6 +515,7 @@
   }
 
   async function handleAdminLogin() {
+    if (loginLoading || oauthLoginBusy) return;
     if (!loginVerificationReady) { showMessage("请先完成人机验证", true); return; }
     loginLoading = true;
     errorMsg = "";
@@ -2408,31 +2414,32 @@
   {/if}
 
   <!-- Admin Header -->
-  <header class="h-16 shrink-0 px-6 border-b border-[var(--outline-variant)]/20 bg-[var(--surface)]/80 backdrop-blur-md flex items-center justify-between z-30">
-    <div class="flex items-center gap-4">
-      <a href="/" class="flex items-center gap-2 text-primary font-bold text-lg hover:opacity-80 transition-opacity">
-        <span class="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">S</span>
-        <span>{at.adminTitle}</span>
+  <header class="h-16 shrink-0 px-3 sm:px-6 border-b border-[var(--outline-variant)]/20 bg-[var(--surface)]/80 backdrop-blur-md flex items-center justify-between gap-2 z-30">
+    <div class="flex items-center gap-4 min-w-0">
+      <a href="/" aria-label={at.adminTitle} class="flex items-center gap-2 whitespace-nowrap text-primary font-bold text-lg hover:opacity-80 transition-opacity">
+        <span class="w-8 h-8 shrink-0 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">S</span>
+        <span class="hidden sm:inline">{at.adminTitle}</span><span class="sm:hidden">Shirine</span>
       </a>
       <span class="text-xs px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium hidden sm:inline-block">
         {at.adminConsole}
       </span>
     </div>
 
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-1 sm:gap-3 shrink-0">
       <!-- Admin Language Switcher -->
       <div id="shirine-admin-lang-container" class="relative inline-block text-left">
         <button
           type="button"
           onclick={(e) => { e.stopPropagation(); adminLangOpen = !adminLangOpen; }}
-          class="text-xs font-medium px-3 py-1.5 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] transition-all flex items-center gap-1.5"
+          class="text-xs font-medium min-w-11 min-h-11 sm:min-h-0 px-3 py-1.5 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] transition-all flex items-center justify-center gap-1.5"
           title="Switch Language / 切换语言"
+          aria-label={currentAdminLangOption.name}
         >
           <svg class="w-3.5 h-3.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
           </svg>
-          <span class="font-semibold">{currentAdminLangOption.name}</span>
-          <svg class="w-3 h-3 opacity-60 transition-transform duration-200 {adminLangOpen ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <span class="font-semibold hidden sm:inline whitespace-nowrap">{currentAdminLangOption.name}</span>
+          <svg class="hidden sm:block w-3 h-3 opacity-60 transition-transform duration-200 {adminLangOpen ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
@@ -2458,14 +2465,16 @@
 
       <a
         href="/"
-        class="text-xs font-medium px-3.5 py-1.5 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] transition-all flex items-center gap-1.5"
+        aria-label={at.backToSite}
+        title={at.backToSite}
+        class="text-xs font-medium min-w-11 min-h-11 sm:min-h-0 px-3 sm:px-3.5 py-1.5 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] transition-all flex items-center justify-center gap-1.5"
       >
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-        <span>{at.backToSite}</span>
+        <span class="hidden sm:inline whitespace-nowrap">{at.backToSite}</span>
       </a>
 
       {#if authStore.user}
-        <div class="flex items-center gap-2 pl-2 border-l border-[var(--outline-variant)]/20">
+        <div class="flex items-center gap-1 sm:gap-2 pl-1 sm:pl-2 border-l border-[var(--outline-variant)]/20">
           <img src={authStore.user.avatar || "/assets/avatars/frieren.webp"} alt="Admin" class="w-8 h-8 rounded-full ring-2 ring-primary/20 object-cover" />
           <div class="hidden md:flex flex-col text-left">
             <span class="text-xs font-semibold">{authStore.user.nickname || authStore.user.username}</span>
@@ -2473,7 +2482,7 @@
           </div>
           <button
             onclick={() => authStore.logout().catch(err => window.alert(err.message))}
-            class="text-xs text-[var(--on-surface-variant)] hover:text-error ml-2 p-1.5 rounded-lg hover:bg-[var(--surface-container)]"
+            class="text-xs text-[var(--on-surface-variant)] hover:text-error sm:ml-2 min-w-11 min-h-11 p-1.5 rounded-lg hover:bg-[var(--surface-container)] flex items-center justify-center"
             title={at.signOut}
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
@@ -2591,9 +2600,10 @@
               />
             </div>
             <TurnstileGate bind:token={loginVerificationToken} bind:ready={loginVerificationReady} resetKey={loginVerificationReset} />
+            <OAuthButtons ready={loginVerificationReady && !loginLoading} token={loginVerificationToken} bind:busy={oauthLoginBusy} onfailure={() => { loginVerificationReset++; }} />
             <button
               type="submit"
-              disabled={loginLoading || !loginVerificationReady}
+              disabled={loginLoading || oauthLoginBusy || !loginVerificationReady}
               class="w-full py-3 rounded-full bg-primary text-on-primary font-semibold text-sm shadow-md hover:brightness-105 active:scale-98 transition-all disabled:opacity-50 mt-4"
             >
               {loginLoading ? "验证中..." : "进入管理面板"}
@@ -4539,6 +4549,9 @@
           </div>
 
           <div class="space-y-6 max-w-3xl">
+            <OAuthSettings />
+            <EmailSettings />
+            <SmsSettings />
             <!-- Check-in Points Policy -->
             <div class="p-6 rounded-3xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm">
               <h2 class="text-lg font-bold mb-1 flex items-center gap-2">

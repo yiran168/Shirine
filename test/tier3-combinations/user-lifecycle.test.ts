@@ -10,6 +10,7 @@ describe("Tier 3 - Combination: Complete User Lifecycle", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        email: "lifecycle_hero@example.com",
         username: "lifecycle_hero",
         password: "heropassword123",
       }),

@@ -5,6 +5,10 @@ import { getDb, schema } from "../db";
 import { hashPassword, verifyPassword, generateSalt, signToken } from "../core/auth";
 import { verifyTurnstile } from "../core/turnstile";
 import { requireAuth } from "../core/middleware";
+import { registerWithSms, SmsError, smsHash, verifyRegistrationSms } from "../core/sms-registration";
+import { normalizePhone } from "../core/sms-config";
+import { registerWithEmail, verifyRegistrationEmail } from "../core/email-registration";
+import { normalizeEmail } from "../core/email-config";
 
 export const authRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -33,6 +37,8 @@ authRouter.post("/register", async (c) => {
 
     const body = await c.req.json();
     const { username, password, email, nickname, turnstileToken } = body;
+    const registrationMethod = body.registrationMethod ?? "email";
+    if (registrationMethod !== "email" && registrationMethod !== "phone") return c.json({success:false,error:"请选择邮箱注册或手机号注册"},400);
 
     // V10-P0-24: Strict length and charset limits
     if (!username || typeof username !== "string" || username.trim().length < 3 || username.trim().length > 32) {
@@ -42,7 +48,11 @@ authRouter.post("/register", async (c) => {
       return c.json({ success: false, error: "Username can only contain alphanumeric characters, underscores, hyphens, and dots" }, 400);
     }
 
-    const trimmedEmail = typeof email === "string" ? email.trim() : "";
+    let trimmedEmail = "";
+    if (registrationMethod === "email") {
+      try { trimmedEmail = normalizeEmail(email); }
+      catch { return c.json({success:false,error:"Invalid email address format: 请输入有效邮箱地址"},400); }
+    }
     if (trimmedEmail) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
         return c.json({ success: false, error: "Invalid email address format" }, 400);
@@ -98,15 +108,22 @@ authRouter.post("/register", async (c) => {
 
     const role = "user";
     const points = 0;
+    let smsProof = null, emailProof = null;
+    try {
+      if (registrationMethod === "phone") smsProof = await verifyRegistrationSms(c, body);
+      else emailProof = await verifyRegistrationEmail(c, body);
+    }
+    catch (err) { return c.json({ success: false, error: err instanceof Error ? err.message : "注册验证暂不可用" }, err instanceof SmsError ? err.status : 400); }
 
     const salt = generateSalt();
     const passwordHash = await hashPassword(password, salt);
 
     // A single guarded insert also prevents concurrent case/email duplicates.
-    const inserted = await c.env.DB.prepare(
+    const registrationUser = { username: username.trim(), email: trimmedEmail.toLowerCase(), nickname: nickname?.trim() || username.trim(), passwordHash, salt };
+    const inserted = smsProof ? await registerWithSms(c.env, smsProof, registrationUser) : emailProof ? await registerWithEmail(c.env, emailProof, registrationUser) : await c.env.DB.prepare(
       "INSERT INTO users (username, email, nickname, password_hash, salt, role, points, status) SELECT ?, ?, ?, ?, ?, 'user', 0, 'active' WHERE NOT EXISTS (SELECT 1 FROM users WHERE lower(username) = lower(?) OR (? != '' AND lower(email) = lower(?))) RETURNING id"
     ).bind(username.trim(), trimmedEmail.toLowerCase(), nickname?.trim() || username.trim(), passwordHash, salt, username.trim(), trimmedEmail, trimmedEmail).first<{ id: number }>();
-    if (!inserted) return c.json({ success: false, error: "Username or email is already registered" }, 400);
+    if (!inserted) return c.json({ success: false, error: smsProof || emailProof ? "账号或联系方式已注册，或验证码已失效" : "Username or email is already registered" }, 400);
     const newUser = (await db.query.users.findFirst({ where: eq(schema.users.id, inserted.id) }))!;
     const token = await signToken(
       { id: newUser.id, username: newUser.username, role: newUser.role, sessionVersion: newUser.sessionVersion },
@@ -353,6 +370,14 @@ authRouter.post("/login", async (c) => {
     let user = await db.query.users.findFirst({
       where: sql`lower(${schema.users.username}) = lower(${trimmedUsername}) OR (coalesce(${schema.users.email}, '') != '' AND lower(${schema.users.email}) = lower(${trimmedUsername}))`,
     });
+    if (!user && /^\+?[\d -]{8,32}$/.test(trimmedUsername)) {
+      let phone = "";
+      try { phone = normalizePhone(trimmedUsername, ["1","2","3","4","5","6","7","8","9"]); } catch {}
+      if (phone) {
+        const owner = await c.env.DB.prepare("SELECT user_id FROM user_phones WHERE phone_hash=?").bind(await smsHash(c.env,"phone",phone)).first<{user_id:number}>();
+        if (owner) user = await db.query.users.findFirst({where:eq(schema.users.id,owner.user_id)});
+      }
+    }
 
     const isEnvAdminMatch = Boolean(
       envAdminPassword &&

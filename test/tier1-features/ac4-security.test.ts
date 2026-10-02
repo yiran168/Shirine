@@ -13,6 +13,7 @@ describe("Tier 1 - AC 4: Security Standards & Content Protection", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        email: "turnstile_bypass_user@example.com",
         username: "turnstile_bypass_user",
         password: "securepassword123",
       }),
@@ -35,6 +36,7 @@ describe("Tier 1 - AC 4: Security Standards & Content Protection", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        email: "turnstile_fail_user@example.com",
         username: "turnstile_fail_user",
         password: "securepassword123",
       }),
@@ -58,6 +60,7 @@ describe("Tier 1 - AC 4: Security Standards & Content Protection", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        email: "turnstile_disabled_user@example.com",
         username: "turnstile_disabled_user",
         password: "securepassword123",
       }),

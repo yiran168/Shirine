@@ -63,7 +63,7 @@ const showCover = $derived(Boolean(project.cover) && !coverFailed);
 	<div class="project-card__badges" aria-hidden="true">
 		{#if project.pinned}
 			<span class="project-card__badge project-card__badge--pinned">
-				<Icon icon="material-symbols:push-pin-rounded" />
+				<Icon icon="material-symbols:keep-rounded" />
 				<span>{i18n(I18nKey.pinned)}</span>
 			</span>
 		{/if}
@@ -114,7 +114,7 @@ const showCover = $derived(Boolean(project.cover) && !coverFailed);
 						<h2 class="project-card__title">{project.title}</h2>
 						{#if project.pinned && !showCover}
 							<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-bold bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/20">
-								<Icon icon="material-symbols:push-pin-rounded" class="w-3 h-3" />
+								<Icon icon="material-symbols:keep-rounded" class="w-3 h-3" />
 								<span>{i18n(I18nKey.pinned)}</span>
 							</span>
 						{/if}

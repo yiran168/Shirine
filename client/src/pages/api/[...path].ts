@@ -101,7 +101,8 @@ export const ALL: APIRoute = async ({ request, params, locals }) => {
     // @ts-ignore Node/Cloudflare duplex streaming support
     init.duplex = "half";
   }
-  const timeout = cleanPath === "admin/ai/generate" || cleanPath === "upload" ? 180000 : 15000;
+  const timeout = cleanPath === "admin/ai/generate" || cleanPath === "upload" ? 180000
+    : /^auth\/oauth\/[a-z]+\/callback$/.test(cleanPath) ? 60000 : cleanPath === "auth/email/send" ? 25000 : 15000;
   init.signal = AbortSignal.any([request.signal, AbortSignal.timeout(timeout)]);
 
   try {

@@ -844,6 +844,7 @@ describe("Adversarial: Security & API Stress Verification", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+        email: "turnstile_user_1@example.com",
           username: "turnstile_user_1",
           password: "password123456",
         }),
@@ -856,6 +857,7 @@ describe("Adversarial: Security & API Stress Verification", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+        email: "turnstile_user_2@example.com",
           username: "turnstile_user_2",
           password: "password123456",
           turnstileToken: "",
@@ -884,6 +886,7 @@ describe("Adversarial: Security & API Stress Verification", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+        email: "forged_turnstile_user@example.com",
           username: "forged_turnstile_user",
           password: "password123456",
           turnstileToken: "forged_dummy_token_xyz_12345",
@@ -916,6 +919,7 @@ describe("Adversarial: Security & API Stress Verification", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+        email: "no_secret_user@example.com",
           username: "no_secret_user",
           password: "password123456",
           turnstileToken: "any_token_value",
@@ -944,6 +948,7 @@ describe("Adversarial: Security & API Stress Verification", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+        email: "injection_hacker@example.com",
           username: "injection_hacker",
           password: "password123456",
           turnstilePassed: true,

@@ -46,6 +46,7 @@ describe("Tier 2 - Boundary: Authentication & Session Gateways", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        email: "existing_user@example.com",
         username: "existing_user",
         password: "another_pass_123",
       }),
@@ -65,6 +66,7 @@ describe("Tier 2 - Boundary: Authentication & Session Gateways", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        email: "valid_name@example.com",
         username: "valid_name",
         password: "123",
       }),
@@ -77,6 +79,7 @@ describe("Tier 2 - Boundary: Authentication & Session Gateways", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        email: "___@example.com",
         username: "   ",
         password: "validpassword123",
       }),

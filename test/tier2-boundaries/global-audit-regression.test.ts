@@ -112,7 +112,8 @@ test("password verification cannot expose protected article content", async () =
 });
 
 test("registration treats case variants as one username even during concurrent requests", async () => {
-  const register = (username: string) => env.requestJson("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password: "password123" }) });
+  let registrationIndex = 0;
+  const register = (username: string) => env.requestJson("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, email: `case-${++registrationIndex}@example.com`, password: "password123" }) });
   const res = await Promise.all([register("CaseName"), register("casename")]);
   expect(res.filter(r => r.status === 201)).toHaveLength(1);
   expect(res.filter(r => r.status === 400)).toHaveLength(1);

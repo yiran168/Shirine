@@ -20,6 +20,30 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS users_username_idx ON users(username);
 CREATE INDEX IF NOT EXISTS users_email_idx ON users(email);
 
+CREATE TABLE IF NOT EXISTS oauth_accounts (
+  provider TEXT NOT NULL,
+  client_id TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  PRIMARY KEY (provider, client_id, subject)
+);
+CREATE INDEX IF NOT EXISTS oauth_accounts_user_idx ON oauth_accounts(user_id);
+CREATE TABLE IF NOT EXISTS oauth_states (
+  state_hash TEXT PRIMARY KEY NOT NULL,
+  provider TEXT NOT NULL,
+  browser_hash TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS oauth_states_expiry_idx ON oauth_states(expires_at);
+CREATE TABLE IF NOT EXISTS oauth_rate_limits (
+  bucket TEXT PRIMARY KEY NOT NULL,
+  attempts INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS oauth_rate_expiry_idx ON oauth_rate_limits(expires_at);
+
 CREATE TABLE IF NOT EXISTS checkin_records (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -212,3 +236,41 @@ CREATE TABLE IF NOT EXISTS revoked_tokens (
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 CREATE INDEX IF NOT EXISTS revoked_tokens_jti_idx ON revoked_tokens(jti);
+-- Registration SMS: hashes for lookup, encrypted phone numbers, no plaintext codes.
+CREATE TABLE IF NOT EXISTS sms_challenges (
+  id TEXT PRIMARY KEY,
+  phone_hash TEXT NOT NULL,
+  browser_hash TEXT NOT NULL,
+  code_hash TEXT NOT NULL,
+  phone_encrypted TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  issued INTEGER NOT NULL DEFAULT 0,
+  used_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS sms_challenges_phone_idx ON sms_challenges(phone_hash);
+CREATE INDEX IF NOT EXISTS sms_challenges_expiry_idx ON sms_challenges(expires_at);
+CREATE TABLE IF NOT EXISTS sms_rate_limits (
+  bucket TEXT PRIMARY KEY,
+  attempts INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS sms_rate_expiry_idx ON sms_rate_limits(expires_at);
+CREATE TABLE IF NOT EXISTS user_phones (
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  phone_hash TEXT NOT NULL UNIQUE,
+  phone_encrypted TEXT NOT NULL,
+  verified_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS email_challenges (
+  id TEXT PRIMARY KEY,
+  recipient_hash TEXT NOT NULL,
+  browser_hash TEXT NOT NULL,
+  code_hash TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  issued INTEGER NOT NULL DEFAULT 0,
+  used_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS email_challenges_recipient_idx ON email_challenges(recipient_hash);
+CREATE INDEX IF NOT EXISTS email_challenges_expiry_idx ON email_challenges(expires_at);

@@ -5,13 +5,18 @@ import { fileURLToPath } from "node:url";
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const allIcons = new Map<string, Set<string>>();
+const legacyIconNames: Record<string, Record<string, string>> = {
+	"material-symbols": { "push-pin-rounded": "keep-rounded", "smartphone-rounded": "smartphone" },
+	"simple-icons": { java: "openjdk" },
+};
 
 function addIcon(iconStr: string) {
 	if (!iconStr || typeof iconStr !== "string") return;
 	const cleaned = iconStr.trim();
 	const match = cleaned.match(/^([a-zA-Z0-9_-]+):([a-zA-Z0-9_-]+)$/);
 	if (!match) return;
-	const [, set, name] = match;
+	const [, set, originalName] = match;
+	const name = legacyIconNames[set]?.[originalName] ?? originalName;
 	const validSets = [
 		"material-symbols",
 		"fa6-brands",
@@ -280,7 +285,13 @@ for (const set of sets) {
 		),
 	);
 	const names = manifest[set] || [];
+	const missing = names.filter(name => !fullPkg.icons[name] && !fullPkg.aliases?.[name]);
+	if (missing.length) throw new Error(`Unknown ${set} icons: ${missing.join(", ")}`);
 	const subset = getIconsSubset(fullPkg, names);
+	// Keep saved database settings using older names visible through the offline renderer.
+	for (const [oldName, currentName] of Object.entries(legacyIconNames[set] ?? {})) {
+		if (subset.icons[currentName] || subset.aliases?.[currentName]) (subset.aliases ??= {})[oldName] = { parent: currentName };
+	}
 	const varName = varNames[set];
 	collectionsObj[varName] = subset;
 }

@@ -1,5 +1,9 @@
 <script lang="ts">
   import TurnstileGate from "./TurnstileGate.svelte";
+  import OAuthButtons from "./OAuthButtons.svelte";
+  import SmsVerification from "./SmsVerification.svelte";
+  import EmailVerification from "./EmailVerification.svelte";
+  import { smsApi } from "../../services/sms";
   import { authStore } from "../../stores/auth";
   import { authApi, setToken } from "../../services/api";
 
@@ -8,6 +12,24 @@
   let password = $state("");
   let nickname = $state("");
   let loading = $state(false);
+  let oauthBusy = $state(false);
+  let smsBusy = $state(false);
+  let smsReady = $state(false);
+  let phone = $state("");
+  let smsCode = $state("");
+  let smsChallengeId = $state("");
+  let emailCode = $state("");
+  let emailChallengeId = $state("");
+  let emailReady = $state(false);
+  let emailBusy = $state(false);
+  let registrationMethod = $state<"email"|"phone">("email");
+  let phoneAvailable = $state(false);
+  $effect(() => {
+    if (!authStore.authModalOpen || authStore.authModalTab !== "register") return;
+    let active = true;
+    void smsApi.config().then(config => { if (active) { phoneAvailable = config.enabled; if (!config.enabled) registrationMethod = "email"; } }).catch(() => { if (active) { phoneAvailable = false; registrationMethod = "email"; } });
+    return () => { active = false; };
+  });
   let errorMsg = $state("");
 
   let turnstileToken = $state("");
@@ -17,7 +39,9 @@
 
   async function handleSubmit(e: Event) {
     e.preventDefault();
+    if (loading || oauthBusy || smsBusy || emailBusy) return;
     if (!verificationReady) { errorMsg = "请先完成人机验证"; return; }
+    if (authStore.authModalTab === "register" && !(registrationMethod === "phone" ? smsReady : emailReady)) { errorMsg = "请先完成验证码验证或等待验证设置加载"; return; }
     loading = true;
     errorMsg = "";
 
@@ -41,9 +65,10 @@
       } else {
         const res = await authApi.register({
           username: username.trim(),
-          email: email.trim(),
+          email: registrationMethod === "email" ? email.trim() : undefined,
           password,
           nickname: nickname.trim() || undefined,
+          registrationMethod, phone, smsCode, smsChallengeId, emailCode, emailChallengeId,
           turnstileToken: turnstileToken || undefined,
         });
 
@@ -70,6 +95,8 @@
     email = "";
     password = "";
     nickname = "";
+    phone = ""; smsCode = ""; smsChallengeId = ""; smsBusy = false; smsReady = false;
+    emailCode = ""; emailChallengeId = ""; emailBusy = false; emailReady = false; registrationMethod = "email";
     errorMsg = "";
     resetTurnstile();
   }
@@ -78,7 +105,7 @@
 {#if authStore.authModalOpen}
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md transition-all animate-fade-in">
     <!-- Modal Card with semi-transparent frosted glass -->
-    <div class="relative w-full max-w-md bg-white/90 dark:bg-zinc-900/90 border border-black/10 dark:border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl backdrop-blur-2xl text-[var(--on-surface)]">
+    <div class="relative w-full max-w-md max-h-[90dvh] overflow-y-auto bg-white/90 dark:bg-zinc-900/90 border border-black/10 dark:border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl backdrop-blur-2xl text-[var(--on-surface)]">
       <!-- Close button -->
       <button
         type="button"
@@ -125,14 +152,20 @@
 
       <!-- Form -->
       <form onsubmit={handleSubmit} class="space-y-4">
+        {#if authStore.authModalTab === "register" && phoneAvailable}
+          <div class="flex gap-2" aria-label="注册方式">
+            <button type="button" class="flex-1 rounded-xl min-h-11 border border-[var(--outline-variant)] text-sm" class:font-bold={registrationMethod === "email"} aria-pressed={registrationMethod === "email"} disabled={loading || oauthBusy || smsBusy || emailBusy} onclick={() => { registrationMethod = "email"; errorMsg = ""; }}>邮箱注册</button>
+            <button type="button" class="flex-1 rounded-xl min-h-11 border border-[var(--outline-variant)] text-sm" class:font-bold={registrationMethod === "phone"} aria-pressed={registrationMethod === "phone"} disabled={loading || oauthBusy || smsBusy || emailBusy} onclick={() => { registrationMethod = "phone"; errorMsg = ""; }}>手机号注册</button>
+          </div>
+        {/if}
         {#if authStore.authModalTab === "login"}
           <div>
-            <label class="block text-xs font-bold text-[var(--on-surface)] mb-1.5">用户名或邮箱</label>
+            <label class="block text-xs font-bold text-[var(--on-surface)] mb-1.5">用户名、邮箱或手机号</label>
             <input
               type="text"
               required
               bind:value={username}
-              placeholder="请输入用户名或邮箱"
+              placeholder="请输入用户名、邮箱或手机号"
               class="w-full px-4 py-2.5 rounded-xl border border-black/15 dark:border-white/15 bg-black/5 dark:bg-white/5 text-[var(--on-surface)] text-sm focus:outline-none focus:border-[var(--primary)] focus:bg-white dark:focus:bg-zinc-800 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-[var(--on-surface-variant)]/60"
             />
           </div>
@@ -159,16 +192,17 @@
             />
           </div>
 
-          <div>
+          {#if registrationMethod === "email"}<div>
             <label class="block text-xs font-bold text-[var(--on-surface)] mb-1.5">邮箱</label>
             <input
               type="email"
               required
               bind:value={email}
               placeholder="请输入电子邮箱"
+              disabled={emailBusy || loading || oauthBusy}
               class="w-full px-4 py-2.5 rounded-xl border border-black/15 dark:border-white/15 bg-black/5 dark:bg-white/5 text-[var(--on-surface)] text-sm focus:outline-none focus:border-[var(--primary)] focus:bg-white dark:focus:bg-zinc-800 focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-[var(--on-surface-variant)]/60"
             />
-          </div>
+          </div>{/if}
 
           <div>
             <label class="block text-xs font-bold text-[var(--on-surface)] mb-1.5">密码</label>
@@ -193,10 +227,18 @@
         {/if}
 
         <TurnstileGate bind:token={turnstileToken} bind:ready={verificationReady} resetKey={verificationReset} />
+        {#if authStore.authModalTab === "register"}
+          {#if registrationMethod === "phone"}
+          <SmsVerification bind:phone bind:code={smsCode} bind:challengeId={smsChallengeId} bind:ready={smsReady} bind:busy={smsBusy} turnstileReady={verificationReady} {turnstileToken} disabled={loading || oauthBusy} onverifiedrequest={resetTurnstile} />
+          {:else}
+          <EmailVerification {email} bind:code={emailCode} bind:challengeId={emailChallengeId} bind:ready={emailReady} bind:busy={emailBusy} turnstileReady={verificationReady} {turnstileToken} disabled={loading || oauthBusy} onverifiedrequest={resetTurnstile} />
+          {/if}
+        {/if}
+        <OAuthButtons ready={verificationReady && !loading && !smsBusy && !emailBusy} token={turnstileToken} bind:busy={oauthBusy} onfailure={resetTurnstile} mode={authStore.authModalTab} />
 
         <button
           type="submit"
-          disabled={loading || !verificationReady}
+          disabled={loading || oauthBusy || smsBusy || emailBusy || !verificationReady || (authStore.authModalTab === "register" && !(registrationMethod === "phone" ? smsReady : emailReady))}
           class="w-full mt-4 py-3 rounded-xl bg-primary text-on-primary font-bold text-sm shadow-md hover:shadow-lg hover:brightness-105 active:scale-98 transition-all disabled:opacity-50"
         >
           {loading ? "提交处理中..." : (authStore.authModalTab === "login" ? "立即登录" : "注册新账号")}

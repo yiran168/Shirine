@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import type { Env, Variables } from "../types";
 import { verifyToken } from "./auth";
 import { getDb, schema } from "../db";
+import { readOAuthConfig } from "./oauth-config";
 
 export async function authMiddleware(
   c: Context<{ Bindings: Env; Variables: Variables }>,
@@ -78,7 +79,9 @@ export async function authMiddleware(
   }
 
   // CSRF Protection for Cookie-authenticated mutating requests
-  if (authenticatedSource === "cookie" && ["POST", "PUT", "DELETE", "PATCH"].includes(c.req.method.toUpperCase())) {
+  // Apple's cross-site form_post is protected by its one-use state + browser cookie.
+  const appleCallback = c.req.method === "POST" && c.req.path === "/api/auth/oauth/apple/callback";
+  if (!appleCallback && authenticatedSource === "cookie" && ["POST", "PUT", "DELETE", "PATCH"].includes(c.req.method.toUpperCase())) {
     const origin = c.req.header("Origin") || c.req.header("Referer");
     if (origin) {
       try {
@@ -88,7 +91,13 @@ export async function authMiddleware(
         const allowedOrigins = c.env.ALLOWED_ORIGINS
           ? c.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim())
           : [];
-        const isAllowed = isSameOrigin || allowedOrigins.includes(originUrl.origin);
+        let isAllowed = isSameOrigin || allowedOrigins.includes(originUrl.origin);
+        // The Pages HTTP proxy keeps Origin but targets the Worker URL. OAuth
+        // sessions use HttpOnly cookies, so trust only the admin-configured
+        // frontend origin as an additional exact match, never forwarded headers.
+        if (!isAllowed) {
+          try { isAllowed = (await readOAuthConfig(c.env)).origin === originUrl.origin; } catch {}
+        }
         if (!isAllowed) {
           return c.json({ success: false, error: "Forbidden: CSRF check failed" }, 403);
         }

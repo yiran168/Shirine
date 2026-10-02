@@ -44,6 +44,7 @@ describe("Tier 4 - Scenario: Visitor to Active Member End-to-End Journey", () =>
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        email: "sakura_reader@example.com",
         username: "sakura_reader",
         password: "readerpassword123",
       }),

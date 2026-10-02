@@ -6,6 +6,9 @@ import type { Env, Variables } from "./types";
 import { authMiddleware, requireAdmin } from "./core/middleware";
 import { handleBlobStream } from "./core/blob-handler";
 import { authRouter } from "./routes/auth";
+import { oauthRouter } from "./routes/oauth";
+import { smsRouter } from "./routes/sms";
+import { emailRouter } from "./routes/email";
 import { userRouter } from "./routes/user";
 import { postsRouter } from "./routes/posts";
 import { albumsRouter } from "./routes/albums";
@@ -23,7 +26,11 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // Global Middlewares
 app.use(trimTrailingSlash());
-app.use("*", logger());
+app.use("*", async (c, next) => {
+  // Authorization callbacks contain one-time codes; never include them in logs.
+  if (c.req.path.startsWith("/api/auth/oauth/")) return next();
+  return logger()(c, next);
+});
 app.use(
   "*",
   cors({
@@ -112,6 +119,9 @@ app.get("/api/health", (c) => {
 
 // Mount Routes
 app.route("/api/auth", authRouter);
+app.route("/api/auth/oauth", oauthRouter);
+app.route("/api/auth/sms", smsRouter);
+app.route("/api/auth/email", emailRouter);
 app.route("/api/user", userRouter);
 app.route("/api/posts", postsRouter);
 app.route("/api/albums", albumsRouter);

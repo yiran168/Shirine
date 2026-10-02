@@ -14,6 +14,7 @@ describe("Tier 3 - Combination: Turnstile Human Verification Lifecycle", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        email: "turnstile_phase1_user@example.com",
         username: "turnstile_phase1_user",
         password: "password123",
       }),
@@ -36,6 +37,7 @@ describe("Tier 3 - Combination: Turnstile Human Verification Lifecycle", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        email: "turnstile_phase2_user@example.com",
         username: "turnstile_phase2_user",
         password: "password123",
       }),
@@ -59,6 +61,7 @@ describe("Tier 3 - Combination: Turnstile Human Verification Lifecycle", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        email: "turnstile_phase3_user@example.com",
         username: "turnstile_phase3_user",
         password: "password123",
       }),

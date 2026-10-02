@@ -156,6 +156,7 @@ describe("Adversarial: Boundary & Injection (Points & Roles)", () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        email: "fake_admin_reg@example.com",
         username: "fake_admin_reg",
         password: "securepassword123",
         role: "superadmin",

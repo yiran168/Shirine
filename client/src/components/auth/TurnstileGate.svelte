@@ -12,7 +12,8 @@
   let widget: string | undefined;
   let alive = false;
   let generation = 0;
-  function remove() { if (widget !== undefined) { client?.remove(widget); widget = undefined; } }
+  let sizeObserver: ResizeObserver | undefined;
+  function remove() { sizeObserver?.disconnect(); sizeObserver = undefined; if (widget !== undefined) { client?.remove(widget); widget = undefined; } }
   async function initialize() {
     const attempt = ++generation;
     ready = false; token = ""; error = ""; busy = true;
@@ -28,12 +29,17 @@
       await tick();
       client = await loadTurnstile();
       if (!alive || attempt !== generation) return;
+      const compact = container.clientWidth < 300;
       widget = client.render(container, {
-        sitekey: config.turnstileSiteKey, theme: "auto", size: "flexible",
+        sitekey: config.turnstileSiteKey, theme: "auto", size: compact ? "compact" : "flexible",
         callback: (value: string) => { if (alive && attempt === generation) { token = value; ready = true; error = ""; } },
         "expired-callback": () => { if (alive && attempt === generation) { token = ""; ready = false; } },
         "error-callback": () => { if (alive && attempt === generation) { token = ""; ready = false; error = "人机验证未完成，请重试；如持续失败，请核对站点域名配置"; } },
       });
+      sizeObserver = new ResizeObserver(() => {
+        if (alive && attempt === generation && (container.clientWidth < 300) !== compact) void initialize();
+      });
+      sizeObserver.observe(container);
     } catch (err) { if (alive && attempt === generation) error = err instanceof Error ? err.message : "人机验证加载失败"; }
     finally { if (alive && attempt === generation) busy = false; }
   }

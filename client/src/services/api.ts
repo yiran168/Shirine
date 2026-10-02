@@ -142,7 +142,7 @@ export const authApi = {
     }
     return res;
   },
-  register: async (body: { username: string; password: string; email?: string; nickname?: string; turnstileToken?: string }) => {
+  register: async (body: { username: string; password: string; email?: string; nickname?: string; turnstileToken?: string; registrationMethod?: "email"|"phone"; phone?: string; smsCode?: string; smsChallengeId?: string; emailCode?:string;emailChallengeId?:string }) => {
     const res = await request("/auth/register", { method: "POST", body: JSON.stringify(body) });
     if (res.success && res.token) {
       setToken(res.token);

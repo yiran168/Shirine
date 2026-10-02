@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { check, index, integer, primaryKey, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
 const createdAt = integer("created_at", { mode: "timestamp" })
   .default(sql`(unixepoch())`)
@@ -31,6 +31,27 @@ export const users = sqliteTable("users", {
   emailIdx: index("users_email_idx").on(table.email),
   pointsCheck: check("users_points_check", sql`${table.points} >= 0`),
 }));
+
+// Third-party identities are scoped to the provider application, never to email.
+export const oauthAccounts = sqliteTable("oauth_accounts", {
+  provider: text("provider").notNull(),
+  clientId: text("client_id").notNull(),
+  subject: text("subject").notNull(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  createdAt,
+}, table => ({ pk: primaryKey({ columns: [table.provider, table.clientId, table.subject] }), userIdx: index("oauth_accounts_user_idx").on(table.userId) }));
+export const oauthStates = sqliteTable("oauth_states", {
+  stateHash: text("state_hash").primaryKey().notNull(),
+  provider: text("provider").notNull(),
+  browserHash: text("browser_hash").notNull(),
+  payload: text("payload").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+}, table => ({ expiryIdx: index("oauth_states_expiry_idx").on(table.expiresAt) }));
+export const oauthRateLimits = sqliteTable("oauth_rate_limits", {
+  bucket: text("bucket").primaryKey().notNull(),
+  attempts: integer("attempts").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+}, table => ({ expiryIdx: index("oauth_rate_expiry_idx").on(table.expiresAt) }));
 
 // Check-in Records
 export const checkinRecords = sqliteTable("checkin_records", {
@@ -260,3 +281,25 @@ export const revokedTokens = sqliteTable("revoked_tokens", {
 }, (table) => ({
   jtiIdx: index("revoked_tokens_jti_idx").on(table.jti),
 }));
+export const smsChallenges = sqliteTable("sms_challenges", {
+  id: text("id").primaryKey(),
+  phoneHash: text("phone_hash").notNull(),
+  browserHash: text("browser_hash").notNull(),
+  codeHash: text("code_hash").notNull(),
+  phoneEncrypted: text("phone_encrypted").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  issued: integer("issued").notNull().default(0),
+  usedAt: integer("used_at"),
+}, table => ({ phoneIdx: index("sms_challenges_phone_idx").on(table.phoneHash), expiryIdx: index("sms_challenges_expiry_idx").on(table.expiresAt) }));
+export const smsRateLimits = sqliteTable("sms_rate_limits", {
+  bucket: text("bucket").primaryKey(), attempts: integer("attempts").notNull(), expiresAt: integer("expires_at").notNull(),
+}, table => ({ expiryIdx: index("sms_rate_expiry_idx").on(table.expiresAt) }));
+export const userPhones = sqliteTable("user_phones", {
+  userId: integer("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  phoneHash: text("phone_hash").notNull().unique(), phoneEncrypted: text("phone_encrypted").notNull(), verifiedAt: integer("verified_at").notNull(),
+});
+export const emailChallenges = sqliteTable("email_challenges", {
+  id:text("id").primaryKey(), recipientHash:text("recipient_hash").notNull(), browserHash:text("browser_hash").notNull(), codeHash:text("code_hash").notNull(),
+  expiresAt:integer("expires_at").notNull(), attempts:integer("attempts").notNull().default(0), issued:integer("issued").notNull().default(0), usedAt:integer("used_at"),
+}, table=>({recipientIdx:index("email_challenges_recipient_idx").on(table.recipientHash),expiryIdx:index("email_challenges_expiry_idx").on(table.expiresAt)}));
