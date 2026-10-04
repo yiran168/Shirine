@@ -17,13 +17,14 @@ export class MockR2ObjectBody {
   constructor(
     key: string,
     data: Uint8Array,
-    metadata?: MockR2ObjectMetadata
+    metadata?: MockR2ObjectMetadata,
+    uploaded = new Date(),
   ) {
     this.key = key;
     this.data = data;
     this.size = data.byteLength;
     this.httpEtag = `"${crypto.randomUUID()}"`;
-    this.uploaded = new Date();
+    this.uploaded = uploaded;
     this.customMetadata = metadata?.customMetadata || {};
     this.httpMetadata = metadata || {};
   }
@@ -63,12 +64,12 @@ export class MockR2ObjectBody {
 }
 
 export class MockR2Bucket {
-  private storage = new Map<string, { data: Uint8Array; metadata?: MockR2ObjectMetadata }>();
+  private storage = new Map<string, { data: Uint8Array; metadata?: MockR2ObjectMetadata; uploaded: Date }>();
 
   async get(key: string): Promise<MockR2ObjectBody | null> {
     const item = this.storage.get(key);
     if (!item) return null;
-    return new MockR2ObjectBody(key, item.data, item.metadata);
+    return new MockR2ObjectBody(key, item.data, item.metadata, item.uploaded);
   }
 
   async put(
@@ -108,8 +109,9 @@ export class MockR2Bucket {
       customMetadata: options?.customMetadata,
     };
 
-    this.storage.set(key, { data: bytes, metadata });
-    return new MockR2ObjectBody(key, bytes, metadata);
+    const uploaded = new Date();
+    this.storage.set(key, { data: bytes, metadata, uploaded });
+    return new MockR2ObjectBody(key, bytes, metadata, uploaded);
   }
 
   async delete(keys: string | string[]): Promise<void> {
@@ -123,7 +125,7 @@ export class MockR2Bucket {
     return this.get(key);
   }
 
-  async list(options?: { limit?: number; prefix?: string; cursor?: string }): Promise<{
+  async list(options?: { limit?: number; prefix?: string; cursor?: string; include?: string[] }): Promise<{
     objects: MockR2ObjectBody[];
     truncated: boolean;
     cursor?: string;
@@ -132,7 +134,13 @@ export class MockR2Bucket {
     const limit = options?.limit || 1000;
     const entries = [...this.storage.entries()].filter(([key]) => key.startsWith(prefix)).sort(([a], [b]) => a.localeCompare(b));
     const start = Number(options?.cursor || 0);
-    const objects = entries.slice(start, start + limit).map(([key, item]) => new MockR2ObjectBody(key, item.data, item.metadata));
+    const objects = entries.slice(start, start + limit).map(([key, item]) => {
+      const metadata = {
+        ...(options?.include?.includes("httpMetadata") ? item.metadata : {}),
+        customMetadata: options?.include?.includes("customMetadata") ? item.metadata?.customMetadata : undefined,
+      };
+      return new MockR2ObjectBody(key, item.data, metadata, item.uploaded);
+    });
     const truncated = start + limit < entries.length;
     return {
       objects,

@@ -1,6 +1,7 @@
 <script lang="ts">
 import { browserStorage } from "@utils/browser-storage";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
+  import { collectMediaPages, mergeMediaFiles, type MediaFile } from "@utils/media-library";
   import TurnstileGate from "@components/auth/TurnstileGate.svelte";
   import OAuthSettings from "./OAuthSettings.svelte";
   import SmsSettings from "./SmsSettings.svelte";
@@ -18,7 +19,7 @@ import { browserStorage } from "@utils/browser-storage";
     configApi,
     mediaApi,
     aiApi,
-    uploadFile,
+    uploadFile as uploadMediaFile,
     setToken,
   } from "../../services/api";
   import { SUPPORTED_LANGUAGES, getAdminText, type AdminLang, type LanguageOption } from "../../i18n/adminI18n";
@@ -431,7 +432,8 @@ import { browserStorage } from "@utils/browser-storage";
     { key: "anime/cmmn.webp", size: 330000, uploaded: "2026-01-01T00:00:00.000Z", url: `${R2_PUBLIC_BASE}/anime/cmmn.webp`, fallbackUrl: "/assets/anime/cmmn.webp", isPreset: true },
   ];
 
-  let mediaFiles = $state<Array<{ key: string; size: number; uploaded: string; url: string; fallbackUrl?: string; isPreset?: boolean; httpMetadata?: any }>>([]);
+  let mediaFiles = $state<MediaFile[]>([]);
+  let mediaVisibleCount = $state(100);
   let mediaFilter = $state<"all" | "image" | "audio" | "preset" | "uploaded">("all");
   let mediaSearch = $state("");
   let mediaUploading = $state(false);
@@ -446,23 +448,6 @@ import { browserStorage } from "@utils/browser-storage";
         browserStorage.setItem("shirine_media_custom_names", JSON.stringify(customMediaNames));
       } catch {}
     }
-  }
-
-  function probeAudioDuration(key: string, url: string) {
-    if (audioDurations[key] !== undefined) return;
-    try {
-      const a = new Audio();
-      a.preload = "metadata";
-      const onDuration = () => {
-        if (a.duration && isFinite(a.duration) && a.duration > 0) {
-          audioDurations = { ...audioDurations, [key]: Math.round(a.duration) };
-        }
-      };
-      a.onloadedmetadata = onDuration;
-      a.ondurationchange = onDuration;
-      a.src = url;
-      a.load();
-    } catch {}
   }
 
   function formatAudioDurationBadge(sec?: number): string {
@@ -485,13 +470,13 @@ import { browserStorage } from "@utils/browser-storage";
     }
     if (mediaSearch.trim()) {
       const q = mediaSearch.trim().toLowerCase();
-      list = list.filter((f) => f.key.toLowerCase().includes(q) || (f.url && f.url.toLowerCase().includes(q)));
+      list = list.filter((f) => [f.key, f.originalName, customMediaNames[f.key], f.url].some(value => value?.toLowerCase().includes(q)));
     }
     return list;
   });
 
   const totalMediaStorageBytes = $derived(
-    mediaFiles.reduce((acc, f) => acc + (f.size || 0), 0)
+    mediaFiles.filter(f => !f.isPreset).reduce((acc, f) => acc + (f.size || 0), 0)
   );
 
   // AI Writing Assistant state
@@ -1806,6 +1791,22 @@ import { browserStorage } from "@utils/browser-storage";
   }
 
   // --- Clipboard & Upload Helpers ---
+  let uploadsDuringMediaLoad = new Map<string, MediaFile>();
+  async function uploadFile(file: File) {
+    const result = await uploadMediaFile(file);
+    if (result.success && result.url && result.key) {
+      const uploaded: MediaFile = {
+        key: result.key, url: result.url, size: result.size ?? file.size,
+        uploaded: result.uploaded || new Date().toISOString(),
+        originalName: result.originalName || file.name,
+        httpMetadata: { contentType: result.type || file.type },
+      };
+      uploadsDuringMediaLoad.set(uploaded.key, uploaded);
+      mediaFiles = mergeMediaFiles([...mediaFiles.filter(f => !f.isPreset), uploaded], PRESET_MEDIA);
+    }
+    return result;
+  }
+
   async function copyToClipboard(text: string) {
     if (!text) return;
     try {
@@ -1851,46 +1852,26 @@ import { browserStorage } from "@utils/browser-storage";
   }
 
   // --- Media Library Operations ---
-  let mediaCursor = $state<string | null>(null);
   let mediaLoading = $state(false);
-  async function loadMediaLibrary(append = false) {
-    if (mediaLoading) return;
+  let mediaLoadError = $state("");
+  let mediaLoadController: AbortController | undefined;
+  onDestroy(() => mediaLoadController?.abort());
+  async function loadMediaLibrary() {
+    mediaLoadController?.abort();
+    const controller = new AbortController();
+    mediaLoadController = controller;
+    const previousUploads = mediaFiles.filter(f => !f.isPreset);
+    uploadsDuringMediaLoad = new Map();
+    mediaVisibleCount = 100;
+    mediaLoadError = "";
     mediaLoading = true;
     try {
-      try {
-        const siteRes = await configApi.getSite();
-        if (siteRes.success && siteRes.data) {
-          const customUrl = siteRes.data.publicR2Url || "";
-          if (customUrl) {
-            systemConfigState.publicR2Url = customUrl;
-            siteConfigState.publicR2Url = customUrl;
-          }
-          if (siteRes.data.fallbackR2Url) {
-            fallbackR2Url = siteRes.data.fallbackR2Url;
-            effectiveR2Base = siteRes.data.fallbackR2Url;
-          } else if (siteRes.data.effectivePublicR2Url) {
-            effectiveR2Base = siteRes.data.effectivePublicR2Url;
-          }
-        }
-      } catch {}
-      const res = await mediaApi.list(append ? mediaCursor || undefined : undefined);
-      if (!res.success) throw new Error(res.error || "媒体列表加载失败");
-      const rawList = res.objects || res.data || [];
-      mediaCursor = res.cursor || null;
-      const uploadedList = rawList.map((f: any) => ({
-        ...f,
-        url: f.url || `/api/blob/${f.key.split("/").map(encodeURIComponent).join("/")}`,
-        isPreset: false,
-      }));
-      const mergedUploads = [...new Map([
-        ...(append ? mediaFiles.filter(f => !f.isPreset) : []), ...uploadedList,
-      ].map(f => [f.key, f])).values()];
-      const uploadedKeys = new Set(mergedUploads.map((f: any) => f.key));
-      const presets = PRESET_MEDIA.filter((p) => !uploadedKeys.has(p.key)).map((p) => ({
-        ...p,
-        url: p.fallbackUrl || `/api/blob/${p.key.split("/").map(encodeURIComponent).join("/")}`,
-      }));
-      mediaFiles = [...mergedUploads, ...presets];
+      await collectMediaPages(mediaApi.list, (files, complete) => {
+        mediaFiles = mergeMediaFiles([
+          ...(complete ? [] : previousUploads), ...files, ...uploadsDuringMediaLoad.values(),
+        ], PRESET_MEDIA);
+      }, controller.signal);
+      if (controller.signal.aborted) return;
       if (typeof window !== "undefined") {
         try {
           const savedNames = browserStorage.getItem("shirine_media_custom_names");
@@ -1909,19 +1890,16 @@ import { browserStorage } from "@utils/browser-storage";
         "audio/Zako.wav": 1,
       };
       audioDurations = { ...presetDurations, ...audioDurations };
-      for (const file of mediaFiles) {
-        if (/\.(mp3|flac|wav|ogg|m4a|aac)$/i.test(file.key) && !audioDurations[file.key]) {
-          probeAudioDuration(file.key, file.url);
-        }
-      }
     } catch (err: any) {
+      if (controller.signal.aborted) return;
       console.error(err);
-      showMessage(err.message || "媒体列表加载失败", true);
+      mediaLoadError = err.message || "媒体列表加载失败";
+      showMessage(mediaLoadError, true);
       if (!mediaFiles.length) mediaFiles = PRESET_MEDIA.map((p) => ({
         ...p,
         url: p.fallbackUrl || `/api/blob/${p.key.split("/").map(encodeURIComponent).join("/")}`,
       }));
-    } finally { mediaLoading = false; }
+    } finally { if (!controller.signal.aborted) mediaLoading = false; }
   }
 
   async function deleteMediaFile(key: string) {
@@ -1930,6 +1908,8 @@ import { browserStorage } from "@utils/browser-storage";
       const res = await mediaApi.delete(key);
       if (res.success) {
         showMessage("文件已成功从 R2 删除！");
+        mediaFiles = mediaFiles.filter(file => file.key !== key);
+        uploadsDuringMediaLoad.delete(key);
         await loadMediaLibrary();
       } else {
         showMessage(res.error || "删除失败", true);
@@ -2282,7 +2262,7 @@ import { browserStorage } from "@utils/browser-storage";
       if (siteRes.success && sysRes.success) {
         showMessage("全站外观设定、存储配置、音乐曲目、背景图与系统设置已保存生效！");
         window.dispatchEvent(new CustomEvent("shirine-config-updated"));
-        await loadMediaLibrary();
+        if (currentTab === "media") await loadMediaLibrary();
       } else {
         showMessage(siteRes.error || sysRes.error || "保存失败", true);
       }
@@ -2305,7 +2285,7 @@ import { browserStorage } from "@utils/browser-storage";
       ]);
       if (siteRes.success && sysRes.success) {
         showMessage("R2 存储桶自定义域名已保存并即刻生效！");
-        await loadMediaLibrary();
+        if (currentTab === "media") await loadMediaLibrary();
       } else {
         showMessage(siteRes.error || sysRes.error || "保存失败", true);
       }
@@ -2331,6 +2311,7 @@ import { browserStorage } from "@utils/browser-storage";
     } else {
       showMessage(res.error || "上传失败", true);
     }
+    input.value = "";
   }
 
   async function handleAlbumPhotoUpload(e: Event) {
@@ -2353,7 +2334,7 @@ import { browserStorage } from "@utils/browser-storage";
         }
       }
       if (count > 0) {
-        showMessage(`成功上传 ${count} 张相片到 R2！`);
+        showMessage(count === files.length ? `成功上传 ${count} 张相片到 R2！` : `成功上传 ${count} 张，${files.length - count} 张失败，请重试。`, count < files.length);
       } else {
         showMessage("上传失败", true);
       }
@@ -3048,7 +3029,7 @@ import { browserStorage } from "@utils/browser-storage";
                 <label class="text-xs px-3 py-1.5 rounded-xl border border-[var(--outline-variant)]/30 hover:bg-[var(--surface-container)] cursor-pointer flex items-center gap-1.5">
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                   <span>上传图片</span>
-                  <input type="file" accept="image/*" class="hidden" onchange={(e) => handleFileUpload(e, "momentPhoto")} />
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" class="hidden" onchange={(e) => handleFileUpload(e, "momentPhoto")} />
                 </label>
                 <div class="flex items-center gap-1">
                   <input
@@ -4749,12 +4730,6 @@ import { browserStorage } from "@utils/browser-storage";
                 <div class="flex items-center justify-between">
                   <span class="text-xs font-bold text-primary">Live2D 多模型库管理</span>
                   <div class="flex items-center gap-2">
-                    <label class="cursor-pointer px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors flex items-center gap-1">
-                      <span>📤 上传模型文件</span>
-                      <input type="file" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => {
-                        systemConfigState.live2dModels = [...systemConfigState.live2dModels, { name: "上传模型", url }];
-                      })} />
-                    </label>
                     <button
                       type="button"
                       onclick={addLive2dModelEntry}
@@ -4765,6 +4740,7 @@ import { browserStorage } from "@utils/browser-storage";
                   </div>
                 </div>
 
+                <p class="text-xs text-[var(--on-surface-variant)]">请填写已部署模型的 JSON 地址。模型需要配套的贴图、动作等完整资源，仅上传一个文件无法使用；媒体库仅支持图片和音频。</p>
                 <div class="space-y-2">
                   {#each systemConfigState.live2dModels as model, idx}
                     <div class="flex items-center gap-2 p-2 rounded-xl bg-[var(--surface)] border border-[var(--outline-variant)]/20 text-xs">
@@ -4974,7 +4950,7 @@ import { browserStorage } from "@utils/browser-storage";
                       <label class="text-xs font-semibold block">桌面端横幅图片 URL（支持多图，每行一张）</label>
                       <label class="cursor-pointer text-[10px] px-2 py-0.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium flex items-center gap-1">
                         <span>📤 上传到 R2</span>
-                        <input type="file" accept="image/*" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => {
+                        <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => {
                           siteConfigState.bannerDesktop = siteConfigState.bannerDesktop ? `${siteConfigState.bannerDesktop}\n${url}` : url;
                         })} />
                       </label>
@@ -4991,7 +4967,7 @@ import { browserStorage } from "@utils/browser-storage";
                       <label class="text-xs font-semibold block">移动端横幅图片 URL（支持多图，每行一张）</label>
                       <label class="cursor-pointer text-[10px] px-2 py-0.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium flex items-center gap-1">
                         <span>📤 上传到 R2</span>
-                        <input type="file" accept="image/*" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => {
+                        <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => {
                           siteConfigState.bannerMobile = siteConfigState.bannerMobile ? `${siteConfigState.bannerMobile}\n${url}` : url;
                         })} />
                       </label>
@@ -5090,7 +5066,7 @@ import { browserStorage } from "@utils/browser-storage";
                     <label class="text-xs font-semibold block">头像图片 URL</label>
                     <label class="cursor-pointer text-[10px] px-2 py-0.5 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium flex items-center gap-1">
                       <span>📤 上传新头像</span>
-                      <input type="file" accept="image/*" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => { siteConfigState.avatar = url; })} />
+                      <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => { siteConfigState.avatar = url; })} />
                     </label>
                   </div>
                   <div class="flex items-center gap-2">
@@ -5502,7 +5478,7 @@ import { browserStorage } from "@utils/browser-storage";
                                 />
                                 <label class="cursor-pointer p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-[10px] shrink-0 font-medium" title="上传封面图片">
                                   <span>🖼️ 上传</span>
-                                  <input type="file" accept="image/*" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => { track.cover = url; })} />
+                                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" class="hidden" onchange={(e) => handleGenericUpload(e, (url) => { track.cover = url; })} />
                                 </label>
                                 {#if track.cover}
                                   <button type="button" onclick={() => copyToClipboard(track.cover)} class="p-1.5 rounded-lg border border-[var(--outline-variant)]/20 hover:bg-[var(--surface-container)] text-[var(--on-surface-variant)] text-[10px] shrink-0" title="复制封面链接">
@@ -5825,10 +5801,10 @@ import { browserStorage } from "@utils/browser-storage";
               <h1 class="text-2xl font-bold">🖼️ 媒体库 (R2 Cloud Storage)</h1>
               <p class="text-xs text-[var(--on-surface-variant)] mt-1">查看并管理存储在 Cloudflare R2 中的图片、音频与附件资源，支持一键上传、复制 URL 及彻底删除</p>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-3 whitespace-nowrap">
               <button
                 type="button"
-                onclick={loadMediaLibrary}
+                onclick={() => loadMediaLibrary()}
                 class="px-4 py-2 rounded-full border border-[var(--outline-variant)]/40 hover:bg-[var(--surface-container)] text-xs font-semibold flex items-center gap-1.5 transition-all"
               >
                 <span>🔄 刷新</span>
@@ -5848,7 +5824,7 @@ import { browserStorage } from "@utils/browser-storage";
                 <input
                   type="file"
                   multiple
-                  accept="image/*,audio/*,.mp3,.flac,.wav,.ogg,.m4a,.aac,.pdf"
+                  accept="image/jpeg,image/png,image/webp,image/gif,image/avif,audio/*,.mp3,.flac,.wav,.ogg,.m4a,.aac"
                   disabled={mediaUploading}
                   class="hidden"
                   onchange={handleMediaLibraryUpload}
@@ -5859,18 +5835,18 @@ import { browserStorage } from "@utils/browser-storage";
 
           <!-- Stats & Filter Bar -->
           <div class="p-4 rounded-2xl bg-[var(--surface)] border border-[var(--outline-variant)]/30 shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div class="flex items-center gap-4">
+            <div class="flex flex-wrap items-center gap-4">
               <span class="text-xs font-semibold text-[var(--on-surface)]">
                 已加载文件数: <strong class="text-primary">{mediaFiles.length}</strong>
               </span>
               <span class="text-xs font-semibold text-[var(--on-surface-variant)]">
-                占用存储: <strong class="text-[var(--on-surface)]">{formatFileSize(totalMediaStorageBytes)}</strong>
+                R2 文件容量: <strong class="text-[var(--on-surface)]">{formatFileSize(totalMediaStorageBytes)}</strong>（不含内置预设）
               </span>
             </div>
 
-            <div class="flex items-center gap-3 flex-1 sm:flex-initial justify-end">
+            <div class="flex flex-wrap items-center gap-3 w-full min-w-0 lg:w-auto lg:justify-end">
               <!-- Filter tabs -->
-              <div class="flex items-center rounded-xl bg-[var(--surface-container)] p-0.5 text-xs font-medium border border-[var(--outline-variant)]/20">
+              <div class="flex flex-wrap items-center rounded-xl bg-[var(--surface-container)] p-0.5 text-xs font-medium whitespace-nowrap border border-[var(--outline-variant)]/20">
                 <button
                   type="button"
                   onclick={() => (mediaFilter = "all")}
@@ -5909,7 +5885,7 @@ import { browserStorage } from "@utils/browser-storage";
               </div>
 
               <!-- Search -->
-              <div class="relative w-48 sm:w-64">
+              <div class="relative w-full sm:w-64">
                 <input
                   type="text"
                   bind:value={mediaSearch}
@@ -5922,9 +5898,12 @@ import { browserStorage } from "@utils/browser-storage";
           </div>
 
           <!-- Media Files Grid -->
+          <p class="mb-4 text-xs text-[var(--on-surface-variant)]" aria-live="polite">
+            {mediaLoading ? "正在读取全部云端文件，列表将持续更新…" : mediaLoadError ? `列表未完整加载：${mediaLoadError}。请点击刷新重试。` : "云端文件已全部读取，新上传的文件排在前面。外站链接和内置预设不会自动上传到 R2。"}
+          </p>
           {#if filteredMediaFiles.length > 0}
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {#each filteredMediaFiles as file}
+              {#each filteredMediaFiles.slice(0, mediaVisibleCount) as file (file.key)}
                 {@const isImage = /\.(png|jpe?g|webp|gif|svg|avif|ico)$/i.test(file.key) || file.httpMetadata?.contentType?.startsWith("image/")}
                 {@const isAudio = /\.(mp3|flac|wav|ogg|m4a|aac)$/i.test(file.key) || file.httpMetadata?.contentType?.startsWith("audio/")}
                 <div class="rounded-2xl border border-[var(--outline-variant)]/30 bg-[var(--surface)] overflow-hidden shadow-sm flex flex-col group hover:shadow-md transition-shadow">
@@ -5938,7 +5917,7 @@ import { browserStorage } from "@utils/browser-storage";
                       >
                         <img
                           src={file.url}
-                          alt={customMediaNames[file.key] || file.key}
+                          alt={customMediaNames[file.key] || file.originalName || file.key}
                           onerror={(e) => {
                             const target = e.currentTarget as HTMLImageElement;
                             if (file.fallbackUrl && target.src !== file.fallbackUrl) {
@@ -5974,13 +5953,13 @@ import { browserStorage } from "@utils/browser-storage";
                   <div class="p-3 flex-1 flex flex-col justify-between">
                     <div>
                       <div class="flex items-center justify-between gap-1 mb-1">
-                        <p class="text-xs font-semibold text-[var(--on-surface)] truncate" title={customMediaNames[file.key] || file.key.split("/").pop() || file.key}>
-                          {customMediaNames[file.key] || file.key.split("/").pop() || file.key}
+                        <p class="text-xs font-semibold text-[var(--on-surface)] truncate" title={customMediaNames[file.key] || file.originalName || file.key.split("/").pop() || file.key}>
+                          {customMediaNames[file.key] || file.originalName || file.key.split("/").pop() || file.key}
                         </p>
                         <button
                           type="button"
                           onclick={() => {
-                            const cur = customMediaNames[file.key] || file.key.split("/").pop() || file.key;
+                            const cur = customMediaNames[file.key] || file.originalName || file.key.split("/").pop() || file.key;
                             const next = prompt("为此媒体自定义显示名称：", cur);
                             if (next !== null && next.trim()) {
                               setMediaCustomName(file.key, next.trim());
@@ -5996,7 +5975,7 @@ import { browserStorage } from "@utils/browser-storage";
                       {#if isAudio}
                         <audio
                           controls
-                          preload="metadata"
+                          preload="none"
                           class="w-full mt-2 h-7 rounded"
                           onloadedmetadata={(e) => {
                             const d = (e.currentTarget as HTMLAudioElement).duration;
@@ -6047,9 +6026,9 @@ import { browserStorage } from "@utils/browser-storage";
             </div>
           {/if}
 
-          {#if mediaCursor}
-            <button type="button" disabled={mediaLoading} onclick={() => loadMediaLibrary(true)} class="min-h-11 px-5 py-2 rounded-xl bg-primary/10 text-primary disabled:opacity-50">
-              {mediaLoading ? "加载中…" : "加载更多媒体文件"}
+          {#if filteredMediaFiles.length > mediaVisibleCount}
+            <button type="button" onclick={() => mediaVisibleCount += 100} class="min-h-11 px-5 py-2 rounded-xl bg-primary/10 text-primary">
+              显示更多（还有 {filteredMediaFiles.length - mediaVisibleCount} 个）
             </button>
           {/if}
 
@@ -7421,7 +7400,7 @@ sequenceDiagram
               <label class="px-4 py-2 rounded-xl bg-[var(--surface-container)] hover:bg-[var(--surface-container-high)] text-xs font-medium cursor-pointer flex items-center gap-1.5 shrink-0">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                 <span>上传到 R2</span>
-                <input type="file" accept="image/*" class="hidden" onchange={(e) => handleFileUpload(e, "postCover")} />
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" class="hidden" onchange={(e) => handleFileUpload(e, "postCover")} />
               </label>
             </div>
             {#if postForm.image}
@@ -7528,7 +7507,7 @@ sequenceDiagram
               <label class="px-4 py-2 rounded-xl bg-[var(--surface-container)] hover:bg-[var(--surface-container-high)] text-xs font-medium cursor-pointer flex items-center gap-1.5 shrink-0">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                 <span>上传封面</span>
-                <input type="file" accept="image/*" class="hidden" onchange={(e) => handleFileUpload(e, "albumCover")} />
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" class="hidden" onchange={(e) => handleFileUpload(e, "albumCover")} />
               </label>
             </div>
             {#if albumForm.cover}
@@ -7586,7 +7565,7 @@ sequenceDiagram
               <label class="px-3 py-1.5 rounded-xl bg-[var(--surface-container)] hover:bg-[var(--surface-container-high)] text-xs font-medium cursor-pointer flex items-center gap-1.5 transition-colors">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                 <span>上传相片到 R2</span>
-                <input type="file" accept="image/*" multiple class="hidden" onchange={handleAlbumPhotoUpload} />
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" multiple class="hidden" onchange={handleAlbumPhotoUpload} />
               </label>
             </div>
             <textarea
@@ -7719,7 +7698,7 @@ sequenceDiagram
                 <label class="text-xs px-3 py-1.5 rounded-xl bg-[var(--surface-container)] hover:bg-[var(--surface-container-high)] text-xs font-medium cursor-pointer flex items-center gap-1.5">
                   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                   <span>上传新图片</span>
-                  <input type="file" accept="image/*" class="hidden" onchange={(e) => handleFileUpload(e, "editMomentPhoto")} />
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" class="hidden" onchange={(e) => handleFileUpload(e, "editMomentPhoto")} />
                 </label>
               </div>
             </div>

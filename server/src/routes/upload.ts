@@ -117,17 +117,21 @@ function validateAudioMagicBytes(buffer: ArrayBuffer, mime: string): boolean {
 // GET /api/upload (List files in R2 storage for Media Library)
 uploadRouter.get("/", requireAdmin, async (c) => {
   if (!c.env.STORAGE) {
-    return c.json({ success: true, objects: [] });
+    return c.json({ success: false, error: "R2 存储未配置，无法读取媒体库" }, 503);
   }
   try {
-    const listed = await c.env.STORAGE.list({ limit: 100, cursor: c.req.query("cursor") || undefined });
+    const options: R2ListOptions & { include: ("httpMetadata" | "customMetadata")[] } = {
+      limit: 100, cursor: c.req.query("cursor") || undefined, include: ["httpMetadata", "customMetadata"],
+    };
+    const listed = await c.env.STORAGE.list(options);
     const publicUrlBase = await getPublicR2Url(c.env);
     const objects = listed.objects.map((obj) => ({
       key: obj.key,
       size: obj.size,
       uploaded: obj.uploaded ? new Date(obj.uploaded).toISOString() : new Date().toISOString(),
       httpMetadata: obj.httpMetadata,
-      url: `${publicUrlBase}/${obj.key}`,
+      originalName: obj.customMetadata?.originalName || obj.key.split("/").pop() || obj.key,
+      url: `${publicUrlBase}/${obj.key.split("/").map(encodeURIComponent).join("/")}`,
     }));
     return c.json({ success: true, objects, cursor: listed.truncated ? listed.cursor : null });
   } catch (err: any) {
@@ -142,7 +146,7 @@ uploadRouter.delete("/:key{.+$}", requireAdmin, async (c) => {
     return c.json({ success: false, error: "Key is required" }, 400);
   }
   if (!c.env.STORAGE) {
-    return c.json({ success: true, message: "Storage not configured" });
+    return c.json({ success: false, error: "R2 存储未配置，无法删除文件" }, 503);
   }
   try {
     await c.env.STORAGE.delete(key);
@@ -154,6 +158,7 @@ uploadRouter.delete("/:key{.+$}", requireAdmin, async (c) => {
 
 // POST /api/upload (Upload image/audio to R2 with MIME, magic-byte & size validation)
 uploadRouter.post("/", requireAdmin, async (c) => {
+  if (!c.env.STORAGE) return c.json({ success: false, error: "R2 存储未配置，文件未上传，请先配置存储绑定" }, 503);
   try {
     const body = await c.req.parseBody();
     const file = body.file as File | undefined;
@@ -212,43 +217,25 @@ uploadRouter.post("/", requireAdmin, async (c) => {
     const prefix = isAudio ? "audio" : "uploads";
     const key = `${prefix}/${hash}-${entropy}.${safeExt}`;
 
-    if (c.env.STORAGE) {
-      await c.env.STORAGE.put(key, fileBuffer, {
-        httpMetadata: {
-          contentType: mime,
-        },
-      });
+    const originalName = (file.name.split(/[\\/]/).pop() || `file.${safeExt}`).replace(/[\x00-\x1f\x7f]/g, "").slice(0, 200);
+    const stored = await c.env.STORAGE.put(key, fileBuffer, {
+      httpMetadata: { contentType: mime },
+      customMetadata: { originalName },
+    });
+    if (!stored) return c.json({ success: false, error: "文件未能写入 R2，请重试" }, 503);
 
-      const publicUrlBase = await getPublicR2Url(c.env);
-      const publicUrl = `${publicUrlBase}/${key}`;
+    const publicUrlBase = await getPublicR2Url(c.env);
+    const publicUrl = `${publicUrlBase}/${key}`;
 
-      return c.json({
-        success: true,
-        url: publicUrl,
-        key,
-        size: fileBuffer.byteLength,
-        type: mime,
-      });
-    } else {
-      // Safe base64 encoding without spreading large array into function arguments (#133)
-      const bytes = new Uint8Array(fileBuffer);
-      let binary = "";
-      const len = bytes.byteLength;
-      for (let i = 0; i < len; i += 8192) {
-        binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, len)));
-      }
-      const base64 = btoa(binary);
-      const dataUrl = `data:${mime};base64,${base64}`;
-
-      return c.json({
-        success: true,
-        url: dataUrl,
-        key,
-        size: fileBuffer.byteLength,
-        type: mime,
-        note: "R2 binding not detected, returned preview data URI.",
-      });
-    }
+    return c.json({
+      success: true,
+      url: publicUrl,
+      key,
+      size: fileBuffer.byteLength,
+      type: mime,
+      originalName,
+      uploaded: stored.uploaded.toISOString(),
+    });
   } catch (err: any) {
     console.error("Upload error:", err);
     return c.json({ success: false, error: err.message || "Failed to upload file" }, 500);

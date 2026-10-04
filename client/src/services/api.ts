@@ -296,7 +296,7 @@ export const adminApi = {
 // Media Library API (R2)
 // -------------------------------------------------------------
 export const mediaApi = {
-  list: (cursor?: string) => request(`/upload${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),
+  list: (cursor?: string, signal?: AbortSignal) => request(`/upload${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`, { signal }),
   delete: (key: string) => request(`/upload/${encodeURIComponent(key)}`, { method: "DELETE" }),
 };
 
@@ -313,7 +313,7 @@ export const aiApi = {
 // -------------------------------------------------------------
 // Upload API (R2)
 // -------------------------------------------------------------
-export async function uploadFile(file: File): Promise<{ success: boolean; url?: string; error?: string }> {
+export async function uploadFile(file: File): Promise<{ success: boolean; url?: string; key?: string; size?: number; type?: string; uploaded?: string; originalName?: string; error?: string }> {
   const token = getToken();
   const formData = new FormData();
   formData.append("file", file);
