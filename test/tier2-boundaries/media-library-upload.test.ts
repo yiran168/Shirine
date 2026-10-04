@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, setSystemTime, test } from "bun:test";
 import { TestEnvironment } from "../helpers/test-env";
 import { collectMediaPages, mergeMediaFiles, type MediaFile } from "../../client/src/utils/media-library";
 
@@ -55,7 +55,10 @@ test("missing or failed R2 storage never reports a successful upload, list or de
 
 test("media catalog follows every page, preserves original names and puts the newest upload first", async () => {
   const admin = await env.createSuperadmin();
-  for (let i=0;i<205;i++) await env.storage.put(`archive/${String(i).padStart(3,"0")}.png`,png,{httpMetadata:{contentType:"image/png"},customMetadata:{originalName:`旧照片${i}.png`}});
+  setSystemTime(new Date("2020-01-01T00:00:00Z"));
+  try {
+    for (let i=0;i<205;i++) await env.storage.put(`archive/${String(i).padStart(3,"0")}.png`,png,{httpMetadata:{contentType:"image/png"},customMetadata:{originalName:`旧照片${i}.png`}});
+  } finally { setSystemTime(); }
   const uploaded = (await upload("最新博文照片.png",admin.cookie)).data;
   const visited: (string|undefined)[] = [];
   let catalog: MediaFile[] = [];
