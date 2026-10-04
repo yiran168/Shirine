@@ -110,6 +110,7 @@ const closeDuration = Number((config as any).closeDuration ?? 86400);
 )}
 
 <script>
+import { browserStorage } from "@utils/browser-storage";
 	const STORAGE_KEY_CLOSED = "announcementClosed";
 	const STORAGE_KEY_TIME = "announcementClosedTime";
 
@@ -117,7 +118,7 @@ const closeDuration = Number((config as any).closeDuration ?? 86400);
 		if (Number.isNaN(durationSeconds) || durationSeconds <= 0) {
 			return false;
 		}
-		const closedTime = localStorage.getItem(STORAGE_KEY_TIME);
+		const closedTime = browserStorage.getItem(STORAGE_KEY_TIME);
 		if (!closedTime) {
 			return true;
 		}
@@ -134,8 +135,8 @@ const closeDuration = Number((config as any).closeDuration ?? 86400);
 				const container = widget.closest<HTMLElement>(".sidebar-widget") || widget;
 				container.style.display = "none";
 			});
-			localStorage.setItem(STORAGE_KEY_CLOSED, "true");
-			localStorage.setItem(STORAGE_KEY_TIME, Date.now().toString());
+			browserStorage.setItem(STORAGE_KEY_CLOSED, "true");
+			browserStorage.setItem(STORAGE_KEY_TIME, Date.now().toString());
 		}
 	}
 
@@ -149,7 +150,7 @@ const closeDuration = Number((config as any).closeDuration ?? 86400);
 		const durationAttr = wrapper?.getAttribute("data-close-duration");
 		const durationSeconds = durationAttr ? Number.parseFloat(durationAttr) : 86400;
 
-		const isClosed = localStorage.getItem(STORAGE_KEY_CLOSED) === "true";
+		const isClosed = browserStorage.getItem(STORAGE_KEY_CLOSED) === "true";
 		if (!isClosed) {
 			widgetLayouts.forEach((widget) => {
 				const container = widget.closest<HTMLElement>(".sidebar-widget") || widget;
@@ -160,8 +161,8 @@ const closeDuration = Number((config as any).closeDuration ?? 86400);
 		}
 
 		if (isAnnouncementExpired(durationSeconds)) {
-			localStorage.removeItem(STORAGE_KEY_CLOSED);
-			localStorage.removeItem(STORAGE_KEY_TIME);
+			browserStorage.removeItem(STORAGE_KEY_CLOSED);
+			browserStorage.removeItem(STORAGE_KEY_TIME);
 			widgetLayouts.forEach((widget) => {
 				const container = widget.closest<HTMLElement>(".sidebar-widget") || widget;
 				container.style.display = "";

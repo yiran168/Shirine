@@ -25,6 +25,8 @@
   let speechTimer: ReturnType<typeof setTimeout>;
   let stopDrag = () => {};
   const width = 280;
+  // Keep the character above page content, below navigation and account dialogs.
+  const layer = $derived(mode === "admin" ? 25 : 45);
   const characterTop = $derived(viewport.height - y - height + bounds.y);
   const actionsLeft = $derived(x + bounds.x + bounds.width + 50 <= viewport.width
     ? bounds.x + bounds.width : bounds.x - 50);
@@ -206,13 +208,13 @@
 </script>
 
 {#if enabled}
-  <button type="button" class="mascot-toggle" onclick={toggle}
+  <button type="button" class="mascot-toggle" onclick={toggle} style:z-index={layer + 1}
     aria-expanded={visible} aria-controls="shirine-mascot" aria-label={failed ? labels.retry : visible ? labels.hide : labels.show}
     title={failed ? labels.retry : visible ? labels.hide : labels.show}>
     <span aria-hidden="true">✦</span>
   </button>
   {#if started}
-    <div id="shirine-mascot" class="mascot" class:mascot-hidden={!visible} style:left={x + "px"} style:bottom={y + "px"} aria-hidden={!visible}>
+    <div id="shirine-mascot" class="mascot" class:mascot-hidden={!visible} style:z-index={layer} style:left={x + "px"} style:bottom={y + "px"} aria-hidden={!visible}>
       <iframe bind:this={frame} src="/pio/live2d-host.html" onload={() => init()} title="Shirine Live2D" tabindex="-1"
         style:width={width + "px"} style:height={height + "px"} style:opacity={loaded ? 1 : 0}></iframe>
       {#if !loaded}<p role="status">{failed ? labels.retry : labels.loading}</p>{/if}
@@ -230,6 +232,7 @@
     </div>
     {#if speech && visible && loaded}
       <div class="mascot-speech" class:speech-visible={speechVisible} role="status"
+        style:z-index={layer + 1}
         bind:clientHeight={speechHeight} style:left={speechLeft + "px"} style:top={speechTop + "px"} style:width={speechWidth + "px"}>{speech}</div>
     {/if}
   {/if}

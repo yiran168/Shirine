@@ -97,7 +97,8 @@ activate-post-grid()
 (function () {
 	var el = document.getElementById("post-list");
 	if (!el) return;
-	var m = localStorage.getItem("post-list-mode");
+	var m = null;
+	try { const fallback = window[Symbol.for('shirine.browser.preferences')]; m = fallback?.has('post-list-mode') ? fallback.get('post-list-mode') : localStorage.getItem("post-list-mode"); } catch {}
 	if (m !== "list" && m !== "grid") return;
 	if (m !== el.getAttribute("data-layout-mode")) {
 		el.classList.remove("m3e-post-list--list", "m3e-post-list--grid");

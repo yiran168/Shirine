@@ -9,11 +9,13 @@ import { registerWithSms, SmsError, smsHash, verifyRegistrationSms } from "../co
 import { normalizePhone } from "../core/sms-config";
 import { registerWithEmail, verifyRegistrationEmail } from "../core/email-registration";
 import { normalizeEmail } from "../core/email-config";
+import { getCheckinCalendar } from "../core/checkin-calendar";
+import { authAttemptBudget } from "../core/auth-attempt-budget";
 
 export const authRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 // Register
-authRouter.post("/register", async (c) => {
+authRouter.post("/register", authAttemptBudget(10, 600), async (c) => {
   try {
     const db = getDb(c.env.DB);
 
@@ -343,13 +345,13 @@ authRouter.post("/setup/admin", async (c) => {
 });
 
 // Login
-authRouter.post("/login", async (c) => {
+authRouter.post("/login", authAttemptBudget(20, 60), async (c) => {
   try {
     const body = await c.req.json();
     const { username, password, turnstileToken } = body;
 
-    if (!username || typeof username !== "string" || username.trim().length > 64) {
-      return c.json({ success: false, error: "Username is required and cannot exceed 64 characters" }, 400);
+    if (!username || typeof username !== "string" || !username.trim() || username.trim().length > 254) {
+      return c.json({ success: false, error: "Login identifier is required and cannot exceed 254 characters" }, 400);
     }
     if (!password || typeof password !== "string" || password.length > 128) {
       return c.json({ success: false, error: "Password is required and cannot exceed 128 characters" }, 400);
@@ -514,13 +516,7 @@ authRouter.get("/me", requireAuth, async (c) => {
     return c.json({ success: false, error: "User not found" }, 404);
   }
 
-  // Check if today is already checked in (using Shanghai timezone)
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+  const { today } = await getCheckinCalendar(c.env);
   const checkedInToday = user.lastCheckinDate === today;
 
   return c.json({

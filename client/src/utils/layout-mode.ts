@@ -1,3 +1,4 @@
+import { browserStorage } from "@utils/browser-storage";
 /**
  * 文章列表布局模式（list/grid）：访客偏好的存取、应用与 FLIP 切换动效。
  *
@@ -32,12 +33,12 @@ export function defaultMode(): PostListMode {
 /** 访客偏好：localStorage 无有效值时回退站点默认 */
 export function getStoredMode(): PostListMode {
 	const value =
-		typeof localStorage === "undefined" ? null : localStorage.getItem(MODE_KEY);
+		browserStorage.getItem(MODE_KEY);
 	return value === "list" || value === "grid" ? value : defaultMode();
 }
 
 export function storeMode(mode: PostListMode): void {
-	localStorage.setItem(MODE_KEY, mode);
+	browserStorage.setItem(MODE_KEY, mode);
 }
 
 function setModeClasses(container: HTMLElement, mode: PostListMode): void {

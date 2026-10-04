@@ -1,4 +1,5 @@
 <script lang="ts">
+import { browserStorage } from "@utils/browser-storage";
   import { onMount } from "svelte";
   import TurnstileGate from "@components/auth/TurnstileGate.svelte";
   import OAuthSettings from "./OAuthSettings.svelte";
@@ -48,8 +49,8 @@
     adminLang = langCode;
     adminLangOpen = false;
     if (typeof window !== "undefined") {
-      localStorage.setItem("shirine_admin_lang", langCode);
-      localStorage.setItem("shirine_lang", langCode);
+      browserStorage.setItem("shirine_admin_lang", langCode);
+      browserStorage.setItem("shirine_lang", langCode);
       document.cookie = `shirine_admin_lang=${langCode}; path=/; max-age=31536000; SameSite=Lax`;
       document.cookie = `shirine_lang=${langCode}; path=/; max-age=31536000; SameSite=Lax`;
       document.documentElement.lang = langCode.replace("_", "-");
@@ -442,7 +443,7 @@
     customMediaNames = { ...customMediaNames, [key]: name.trim() };
     if (typeof window !== "undefined") {
       try {
-        localStorage.setItem("shirine_media_custom_names", JSON.stringify(customMediaNames));
+        browserStorage.setItem("shirine_media_custom_names", JSON.stringify(customMediaNames));
       } catch {}
     }
   }
@@ -1892,7 +1893,7 @@
       mediaFiles = [...mergedUploads, ...presets];
       if (typeof window !== "undefined") {
         try {
-          const savedNames = localStorage.getItem("shirine_media_custom_names");
+          const savedNames = browserStorage.getItem("shirine_media_custom_names");
           if (savedNames) customMediaNames = JSON.parse(savedNames);
         } catch {}
       }
@@ -2044,7 +2045,7 @@
         ? `文章标题: ${postForm.title}\n文章分类: ${postForm.category}\n已有正文:\n${postForm.content.slice(0, 2500)}`
         : `已有动态内容:\n${(momentModalOpen ? editMomentForm.content : momentContent).slice(0, 1000)}`;
 
-      const token = localStorage.getItem("shirine_token") || "";
+      const token = browserStorage.getItem("shirine_token") || "";
       const abortController = new AbortController();
       let activityTimeout = setTimeout(() => abortController.abort(), 180000);
       const resetActivityTimeout = () => {
@@ -2366,7 +2367,7 @@
   onMount(async () => {
     if (typeof window !== "undefined") {
       const urlLang = new URL(window.location.href).searchParams.get("lang");
-      const savedAdminLang = urlLang || localStorage.getItem("shirine_admin_lang") || localStorage.getItem("shirine_lang");
+      const savedAdminLang = urlLang || browserStorage.getItem("shirine_admin_lang") || browserStorage.getItem("shirine_lang");
       if (savedAdminLang) adminLang = savedAdminLang;
       const onDocClick = (e: MouseEvent) => {
         const target = e.target as HTMLElement;

@@ -78,7 +78,7 @@ postsRouter.get("/", async (c) => {
       );
       let isUnlocked = true;
       let lockReason: PostListDto["lockReason"] = "";
-      const hasPassword = post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
+      const hasPassword = post.permissionType === "password" || post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
 
       if (post.permissionType === "login_required") {
         isUnlocked = !!user;
@@ -170,7 +170,7 @@ async function resolvePostAccess(
   const draftPassed = post.draft === 0 || Boolean(isAdmin);
 
   // 2. Password Gate
-  const hasPassword = post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
+  const hasPassword = post.permissionType === "password" || post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
   let passwordPassed = true;
   if (hasPassword && !isPrivileged) {
     if (grant) {
@@ -368,7 +368,7 @@ async function getPostDetailResponse(c: any, slugOrId: string) {
       parsedTags = [];
     }
 
-    const hasPassword = post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
+    const hasPassword = post.permissionType === "password" || post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
 
     const postDetail: PostDetailDto = {
       id: post.id,
@@ -461,7 +461,7 @@ postsRouter.post("/:id/password/verify", async (c) => {
       return c.json({ success: false, error: "Post not published" }, 404);
     }
 
-    const hasPassword = post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
+    const hasPassword = post.permissionType === "password" || post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
     if (!hasPassword) {
       const access = await resolvePostAccess(post, user, undefined, db, c.env.JWT_SECRET);
       return c.json({
@@ -772,6 +772,9 @@ postsRouter.post("/", requireAdmin, async (c) => {
     }
 
     const hasPassword = Boolean(password && String(password).trim().length > 0);
+    if ((permissionType === "password" || encrypted) && !hasPassword) {
+      return c.json({ success: false, error: "启用密码保护时必须设置非空密码" }, 400);
+    }
 
     const resolvedPermission =
       permissionType === "login_required" || permissionType === "points_required" || permissionType === "password"
@@ -898,6 +901,9 @@ postsRouter.put("/:id", requireAdmin, async (c) => {
     }
     if (updates.password && updates.password.length > 0) {
       updates.encrypted = 1;
+    }
+    if (((updates.permissionType ?? existing.permissionType) === "password" || (updates.encrypted ?? existing.encrypted) === 1) && !(updates.password ?? existing.password)?.trim()) {
+      return c.json({ success: false, error: "启用密码保护时必须设置非空密码；取消保护请同时切换访问权限" }, 400);
     }
     if (passwordChanged) {
       updates.passwordVersion = (existing.passwordVersion || 1) + 1;

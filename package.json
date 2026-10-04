@@ -28,6 +28,9 @@
     "tsc": "bun run --cwd server tsc",
     "check": "bun run --cwd server tsc --noEmit && bun run --cwd client astro check"
   },
+  "patchedDependencies": {
+    "http-cache-semantics@4.2.0": "patches/http-cache-semantics@4.2.0.patch"
+  },
   "keywords": [
     "shirine",
     "blog",
@@ -48,6 +51,7 @@
     "serialize-javascript": "^7.1.2",
     "sharp": "^0.35.4",
     "undici": "^7.29.1",
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "devalue": "5.9.4"
   }
 }

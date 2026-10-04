@@ -4,6 +4,7 @@ import { getDb, schema } from "../db";
 import { and, eq, like, or } from "drizzle-orm";
 import { verifyPostGrant, verifyAlbumGrant } from "./auth";
 import { verifyMediaSignature } from "./media-access";
+import { getPublicR2Url, LEGACY_R2_ORIGIN } from "./r2-config";
 
 // A substring (or a SQL LIKE wildcard) is not evidence that an object was
 // published. Match complete media paths after extracting URLs from Markdown/JSON.
@@ -11,13 +12,17 @@ function objectCandidates(column: Parameters<typeof like>[0], key: string) {
   return or(like(column, `%${key}%`), like(column, `%${key.split("/").map(encodeURIComponent).join("/")}%`));
 }
 
-function referencesObject(value: string | null | undefined, key: string): boolean {
+function matchesObject(value: string | null | undefined, key: string, storageBases: string[], proxyOrigins: string[]): boolean {
   if (!value) return false;
   const urls = value.match(/(?:https?:\/\/[^\s"'<>()[\]\\]+|\/api\/(?:upload\/)?blob\/[^\s"'<>()[\]\\]+)/g) || [];
   return urls.some(source => {
     try {
-      const pathname = decodeURIComponent(new URL(source, "https://shirine.invalid").pathname);
-      return pathname.replace(/^\/(?:api\/(?:upload\/)?blob\/)?/, "") === key;
+      const base = storageBases.find(base => source.startsWith(base + "/"));
+      if (base) return decodeURIComponent(source.slice(base.length + 1).split(/[?#]/)[0]) === key;
+      const url = new URL(source, proxyOrigins[0]);
+      if (!source.startsWith("/api/") && !proxyOrigins.includes(url.origin)) return false;
+      if (!/^\/api\/(?:upload\/)?blob\//.test(url.pathname)) return false;
+      return decodeURIComponent(url.pathname.replace(/^\/api\/(?:upload\/)?blob\//, "")) === key;
     } catch { return false; }
   });
 }
@@ -51,6 +56,10 @@ export async function handleBlobStream(
     const adminPreview = currentUser?.role === "admin" || currentUser?.role === "superadmin";
     if (!adminPreview && !await verifyMediaSignature(decodedKey, new URL(c.req.url), c.env)) return c.text("Media link expired or invalid", 403);
     if (!c.env.DB) return c.text("Media authorization unavailable", 503);
+
+    const storageBases = [await getPublicR2Url(c.env), c.env.PUBLIC_R2_URL || "", LEGACY_R2_ORIGIN].filter(Boolean).map(base => base.replace(/\/+$/, ""));
+    const proxyOrigins = [new URL(c.req.url).origin, ...(c.env.ALLOWED_ORIGINS || "").split(",").map(origin => origin.trim()).filter(Boolean)];
+    const referencesObject = (value: string | null | undefined, objectKey: string) => matchesObject(value, objectKey, storageBases, proxyOrigins);
 
     // 1. Pre-R2 ACL Authorization Check (Fail-closed)
     let isProtected = false;
@@ -123,7 +132,7 @@ export async function handleBlobStream(
 
         for (const post of postMatches) {
           if (!referencesObject(post.image, decodedKey) && !referencesObject(post.content, decodedKey)) continue;
-          const hasPassword = post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
+          const hasPassword = post.permissionType === "password" || post.encrypted === 1 || Boolean(post.password && post.password.length > 0);
           const isPostProtected = post.draft === 1 || post.permissionType !== "public" || hasPassword;
 
           if (isPostProtected) {

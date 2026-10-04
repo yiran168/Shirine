@@ -32,7 +32,8 @@ export async function protectMediaUrls(value: unknown, bases: string[], env: Env
     if (Array.isArray(item)) return Promise.all(item.map(x => visit(x)));
     if (item && typeof item === "object") return Object.fromEntries(await Promise.all(Object.entries(item).map(async ([key, val]) => [key, await visit(val, key)])));
     if (typeof item !== "string") return item;
-    item = normalizeLegacyAvatar(item);
+    if (field === "avatar") item = normalizeLegacyAvatar(item);
+    if (/(?:password|secret|token|credential|api.?key)$/i.test(field)) return item;
     const matches = [...item.matchAll(/(?:https?:\/\/[^\s"'<>()[\]\\]+|\/api\/(?:upload\/)?blob\/[^\s"'<>()[\]\\]+)/g)];
     for (const match of matches) {
       const url = match[0];
@@ -50,10 +51,13 @@ export async function protectMediaUrls(value: unknown, bases: string[], env: Env
   return visit(value);
 }
 
-/** Persist stable keys, not ten-minute presentation signatures. */
-export function canonicalizeMediaInput(value: any): any {
-  if (Array.isArray(value)) return value.map(canonicalizeMediaInput);
-  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, val]) => [key, canonicalizeMediaInput(val)]));
-  if (typeof value !== "string") return value;
-  return normalizeLegacyAvatar(value).replace(/(\/api\/(?:upload\/)?blob\/[^\s"'<>()[\]\\?]+)\?expires=\d+(?:&|&amp;)signature=[a-f0-9]{64}/g, "$1");
+const MEDIA_FIELDS = new Set(["avatar", "image", "images", "cover", "coverUrl", "coverImage", "thumbnail", "poster", "url", "src", "source", "audio", "audioUrl", "background", "banner", "favicon", "logo", "content", "description"]);
+
+/** Only media/content fields contain presentation signatures; account data is opaque. */
+export function canonicalizeMediaInput(value: any, field = ""): any {
+  if (Array.isArray(value)) return value.map(item => canonicalizeMediaInput(item, field));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, val]) => [key, canonicalizeMediaInput(val, field === "src" && ["desktop", "mobile", "light", "dark"].includes(key) ? "src" : key)]));
+  if (typeof value !== "string" || !MEDIA_FIELDS.has(field)) return value;
+  const media = field === "avatar" ? normalizeLegacyAvatar(value) : value;
+  return media.replace(/(\/api\/(?:upload\/)?blob\/[^\s"'<>()[\]\\?]+)\?expires=\d+(?:&|&amp;)signature=[a-f0-9]{64}/g, "$1");
 }

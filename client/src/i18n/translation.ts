@@ -55,7 +55,8 @@ export function setSiteLang(lang: string) {
 
 export function getCurrentLang(): string {
 	if (typeof window !== "undefined") {
-		const stored = localStorage.getItem("shirine_lang");
+		let stored: string | null = null;
+		try { stored = localStorage.getItem("shirine_lang"); } catch {}
 		if (stored) return stored;
 		const htmlLang = document.documentElement.lang?.replace("-", "_");
 		if (htmlLang) return htmlLang;

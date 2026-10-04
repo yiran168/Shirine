@@ -52,6 +52,13 @@ function isAutoplayError(error: unknown): boolean {
 	);
 }
 
+function needsMediaRenewal(source: string): boolean {
+	if (!/^\/api\/(?:upload\/)?blob\//.test(source)) return false;
+	const query = new URLSearchParams(source.split("?")[1] || "");
+	return /^[a-f0-9]{64}$/.test(query.get("signature") || "") &&
+		Number(query.get("expires")) <= Math.floor(Date.now() / 1000) + 30;
+}
+
 export function createMusicRuntime(
 	options: ResolvedMusicOptions,
 	dependencies: MusicRuntimeDependencies = {},
@@ -94,6 +101,7 @@ export function createMusicRuntime(
 	const knownDurations = new Map<string, number>();
 	let metingFetched = false;
 	let loadTimeout: ReturnType<typeof setTimeout> | undefined;
+	let cancelAutoplayResume = () => {};
 
 	function snapshot(): MusicSnapshot {
 		return Object.freeze({
@@ -150,7 +158,7 @@ export function createMusicRuntime(
 		mediaListeners = null;
 	}
 
-	function bindMediaListeners(generation: number): void {
+	function bindMediaListeners(generation: number, resumeTime = 0): void {
 		if (!audio) return;
 		const isCurrent = () => generation === sourceGeneration && audio !== null;
 		mediaListeners = {
@@ -158,6 +166,7 @@ export function createMusicRuntime(
 			loadedmetadata: () => {
 				if (!isCurrent() || !audio) return;
 				const duration = finiteMediaValue(audio.duration);
+				if (resumeTime > 0) { audio.currentTime = duration > 0 ? Math.min(resumeTime, duration) : resumeTime; resumeTime = 0; }
 				const track = currentPlaylist[state.currentIndex];
 				if (track && duration > 0) knownDurations.set(track.id, duration);
 				patch({
@@ -329,9 +338,11 @@ export function createMusicRuntime(
 			return null;
 		}
 		if (!audio) return null;
-		if (loadedIndex === state.currentIndex && audio.getAttribute("src")) {
+		const loadedSource = audio.getAttribute("src");
+		if (loadedIndex === state.currentIndex && loadedSource && !needsMediaRenewal(loadedSource)) {
 			return sourceGeneration;
 		}
+		const resumeTime = loadedIndex === state.currentIndex ? audio.currentTime : 0;
 
 		sourceGeneration += 1;
 		const generation = sourceGeneration;
@@ -341,6 +352,21 @@ export function createMusicRuntime(
 		loadedIndex = state.currentIndex;
 		const track = currentPlaylist[state.currentIndex];
 		let source = track.source;
+    if (needsMediaRenewal(source) && customFetch) {
+      patch({ status: "loading", error: null });
+      try {
+        const response = await customFetch(`/api/media/refresh?url=${encodeURIComponent(source)}`, {
+          method: "POST", credentials: "same-origin", signal: AbortSignal.timeout(12000),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success || typeof data.url !== "string") throw new Error("Media access expired");
+        source = data.url;
+      } catch {
+        if (generation === sourceGeneration) await recoverFromSourceError();
+        return null;
+      }
+      if (generation !== sourceGeneration || !audio) return null;
+    }
     if (source.startsWith("/api/music/url?") && customFetch) {
       patch({ status: "loading", error: null });
       try {
@@ -355,12 +381,12 @@ export function createMusicRuntime(
       if (generation !== sourceGeneration || !audio) return null;
     }
     audio.src = source;
-		bindMediaListeners(generation);
+		bindMediaListeners(generation, resumeTime);
 		audio.load();
 		loadTimeout = setTimeout(() => { if (generation === sourceGeneration) void recoverFromSourceError(); }, 15000);
 		patch({
 			status: "loading",
-			currentTime: 0,
+			currentTime: resumeTime,
 			duration:
 				(track.duration && track.duration > 0
 					? track.duration
@@ -371,6 +397,7 @@ export function createMusicRuntime(
 	}
 
 	async function playLoadedSource(): Promise<void> {
+		cancelAutoplayResume();
 		playbackRequested = true;
 		const attempt = ++playbackAttemptGeneration;
 		const generation = await ensureSource();
@@ -401,10 +428,13 @@ export function createMusicRuntime(
 			if (isAutoplayError(error)) {
 				patch({ status: "error", error: "autoplay-blocked" });
 				if (typeof document !== "undefined") {
+					const target = document;
+					cancelAutoplayResume = () => {
+						["pointerdown", "keydown", "touchstart", "click"].forEach(evt => target.removeEventListener(evt, resumeOnFirstInteraction, { capture: true }));
+						cancelAutoplayResume = () => {};
+					};
 					const resumeOnFirstInteraction = () => {
-						["pointerdown", "keydown", "touchstart", "click"].forEach((evt) => {
-							document.removeEventListener(evt, resumeOnFirstInteraction, { capture: true });
-						});
+						cancelAutoplayResume();
 						if (state.status === "error" && state.error === "autoplay-blocked") {
 							playLoadedSource().catch(() => {});
 						}
@@ -499,6 +529,7 @@ export function createMusicRuntime(
 			await playLoadedSource();
 		},
 		pause() {
+			cancelAutoplayResume();
 			playbackRequested = false;
 			playbackAttemptGeneration += 1;
 			if (!audio) return;
@@ -570,6 +601,7 @@ export function createMusicRuntime(
 			patch({ mode });
 		},
 		destroy() {
+			cancelAutoplayResume();
 			lifecycleGeneration += 1;
 			sourceGeneration += 1;
 			playbackAttemptGeneration += 1;

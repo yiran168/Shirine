@@ -1,4 +1,5 @@
 <script lang="ts">
+import { browserStorage } from "@utils/browser-storage";
   import { onMount } from "svelte";
   import { authStore } from "../../stores/auth";
   import { getPermissionText } from "../../i18n/permission";
@@ -39,7 +40,7 @@
       window.addEventListener("shirine-content-unlocked", onUnlockEvent);
 
       if (!propLang) {
-        currentLang = localStorage.getItem("shirine_lang") || document.documentElement.lang?.replace("-", "_") || siteConfig.lang || "zh_CN";
+        currentLang = browserStorage.getItem("shirine_lang") || document.documentElement.lang?.replace("-", "_") || siteConfig.lang || "zh_CN";
         const onStorage = (e: StorageEvent) => {
           if (e.key === "shirine_lang" && e.newValue) {
             currentLang = e.newValue;

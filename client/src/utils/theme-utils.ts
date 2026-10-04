@@ -1,3 +1,4 @@
+import { browserStorage } from "@utils/browser-storage";
 import {
 	MC_SPECS,
 	MC_STYLES,
@@ -74,22 +75,22 @@ export function isMcSpec(v: string): v is McSpec {
 }
 
 export function getStyle(): McStyle {
-	const stored = localStorage.getItem(STYLE_KEY);
+	const stored = browserStorage.getItem(STYLE_KEY);
 	return stored && isMcStyle(stored) ? stored : (getDefaultStyle() as McStyle);
 }
 
 export function getSpec(): McSpec {
-	const stored = localStorage.getItem(SPEC_KEY);
+	const stored = browserStorage.getItem(SPEC_KEY);
 	return stored && isMcSpec(stored) ? stored : (getDefaultSpec() as McSpec);
 }
 
 export function setStyle(style: McStyle): void {
-	localStorage.setItem(STYLE_KEY, style);
+	browserStorage.setItem(STYLE_KEY, style);
 	applyCurrentScheme();
 }
 
 export function setSpec(spec: McSpec): void {
-	localStorage.setItem(SPEC_KEY, spec);
+	browserStorage.setItem(SPEC_KEY, spec);
 	applyCurrentScheme();
 }
 

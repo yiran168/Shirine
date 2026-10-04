@@ -1,4 +1,5 @@
 <script lang="ts">
+import { browserStorage } from "@utils/browser-storage";
   import { onMount } from "svelte";
   import presetAvatars from "../../data/avatar-presets.json";
   import { authStore } from "../../stores/auth";
@@ -18,7 +19,7 @@
   let error = $state("");
   let currentLang = $state("zh_CN");
   onMount(() => {
-    const sync = () => { currentLang = localStorage.getItem("shirine_lang") || document.documentElement.lang || "zh_CN"; };
+    const sync = () => { currentLang = browserStorage.getItem("shirine_lang") || document.documentElement.lang || "zh_CN"; };
     sync();
     window.addEventListener("shirine-lang-change", sync);
     return () => window.removeEventListener("shirine-lang-change", sync);

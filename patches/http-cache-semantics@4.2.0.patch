@@ -1,0 +1,20 @@
+diff --git a/index.js b/index.js
+--- a/index.js
++++ b/index.js
+@@ -398,3 +398,16 @@
++        // Security-zeroed entries cannot become reusable via max-stale or
++        // stale-while-revalidate (GHSA-ch52-4w7c-c8xp).
++        if (
++            !this.storable() ||
++            this._rescc['no-cache'] ||
++            (this._isShared && (
++                this._rescc['proxy-revalidate'] ||
++                (this._resHeaders['set-cookie'] && !this._rescc.public && !this._rescc.immutable)
++            ))
++        ) {
++            return this._evaluateRequestMissResult(req);
++        }
++
+         // In all circumstances, a cache MUST NOT ignore the must-revalidate directive
+         if (this._rescc['must-revalidate']) {
+             return this._evaluateRequestMissResult(req);

@@ -42,12 +42,13 @@ export const API_BASE = getApiBase();
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("shirine_token");
+  try { return localStorage.getItem("shirine_token"); } catch { return null; }
 }
 
 export function setToken(token: string) {
   if (typeof window !== "undefined") {
-    localStorage.setItem("shirine_token", token);
+    // Storage can be blocked independently of cookies. Keep the server session usable.
+    try { localStorage.setItem("shirine_token", token); } catch {}
     try {
       document.cookie = `shirine_token=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
     } catch {}
@@ -56,7 +57,7 @@ export function setToken(token: string) {
 
 export function removeToken() {
   if (typeof window !== "undefined") {
-    localStorage.removeItem("shirine_token");
+    try { localStorage.removeItem("shirine_token"); } catch {}
     try {
       document.cookie = "shirine_token=; path=/; max-age=0; SameSite=Lax";
     } catch {}

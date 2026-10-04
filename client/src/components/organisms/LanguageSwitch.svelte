@@ -1,4 +1,5 @@
 <script lang="ts">
+import { browserStorage } from "@utils/browser-storage";
   import { onMount } from "svelte";
   import { SUPPORTED_LANGUAGES, type LanguageOption } from "../../i18n/adminI18n";
   import { setSiteLang } from "../../i18n/translation";
@@ -9,7 +10,7 @@
   onMount(() => {
     if (typeof window !== "undefined") {
       const urlLang = new URL(window.location.href).searchParams.get("lang");
-      const stored = urlLang || localStorage.getItem("shirine_lang");
+      const stored = urlLang || browserStorage.getItem("shirine_lang");
       if (stored) {
         currentLang = stored;
       } else {
@@ -55,7 +56,7 @@
 
     if (typeof window !== "undefined") {
       // 1. LocalStorage persistence
-      localStorage.setItem("shirine_lang", option.code);
+      browserStorage.setItem("shirine_lang", option.code);
 
       // 2. Cookie persistence for SSR
       document.cookie = `shirine_lang=${option.code}; path=/; max-age=31536000; SameSite=Lax`;

@@ -54,6 +54,53 @@ function runtime(audio: FakeAudio, fetcher: typeof fetch) {
   return createMusicRuntime({provider:"custom",playlist:tracks,defaultVolume:0.7,defaultMode:"sequence"}, {createAudio:()=>audio as any,getStorage:()=>null,fetch:fetcher});
 }
 describe("Music playback recovery", () => {
+  it("renews expired R2 audio before playing and does not retry an authorization failure", async () => {
+    const audio = new FakeAudio();
+    const expired = `/api/blob/music/one.mp3?expires=1&signature=${"a".repeat(64)}`;
+    const renewed = expired.replace("expires=1&", `expires=${Math.floor(Date.now()/1000)+600}&`);
+    let allowed = true, renewals = 0;
+    const player = createMusicRuntime({provider:"custom",playlist:[{id:"one",title:"One",source:expired}],defaultVolume:.7,defaultMode:"sequence"}, {
+      createAudio:()=>audio as any, getStorage:()=>null,
+      fetch: (async (url: any, options: any) => {
+        renewals++;
+        expect(String(url)).toContain("/api/media/refresh?url=");
+        expect(options.method).toBe("POST");
+        expect(options.credentials).toBe("same-origin");
+        return Response.json(allowed ? {success:true,url:renewed} : {success:false}, {status:allowed?200:403});
+      }) as typeof fetch,
+    });
+    try {
+      await player.play();
+      expect(renewals).toBe(1);
+      expect(audio.src).toBe(renewed);
+      expect(player.getSnapshot().status).toBe("playing");
+      audio.dispatchEvent(new Event("error"));
+      allowed = false;
+      await player.play();
+      expect(renewals).toBe(2);
+      expect(audio.src).toBe("");
+      expect(player.getSnapshot().error).toBe("source-unavailable");
+    } finally { player.destroy(); }
+  });
+  it("destroying an autoplay-blocked player removes its document interaction handlers", async () => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, "document");
+    const doc = new EventTarget();
+    const remove = spyOn(doc, "removeEventListener");
+    Object.defineProperty(globalThis, "document", { configurable: true, value: doc });
+    const audio = new FakeAudio();
+    audio.play = async () => { throw new DOMException("Gesture required", "NotAllowedError"); };
+    const player = runtime(audio, (async()=>Response.json({success:true,url:"https://audio.example.test/one.mp3"})) as typeof fetch);
+    try {
+      await player.play();
+      expect(player.getSnapshot().error).toBe("autoplay-blocked");
+      remove.mockClear();
+      player.destroy();
+      expect(remove.mock.calls.map(call=>call[0])).toEqual(["pointerdown","keydown","touchstart","click"]);
+    } finally {
+      player.destroy(); remove.mockRestore();
+      if (original) Object.defineProperty(globalThis, "document", original); else Reflect.deleteProperty(globalThis,"document");
+    }
+  });
   it("both controls share playback when cover metadata or signed URLs differ, including after playlist replacement", async () => {
     const audios: FakeAudio[] = [];
     const shared = createMusicController({ createAudio: () => { const audio = new FakeAudio(); audios.push(audio); return audio as any; }, getStorage: () => null });

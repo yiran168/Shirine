@@ -25,13 +25,14 @@ const htmlLang = currentAdminLang.replace("_", "-");
 		<link rel="icon" href={url("/logo/icon.webp")} />
 		<link rel="preload" href={url("/assets/images/furina-loading.svg")} as="image" type="image/svg+xml" fetchpriority="high" />
 		<script is:inline>
-			const theme = localStorage.getItem('theme') || 'auto';
+			function readPreference(key) { try { const fallback = window[Symbol.for('shirine.browser.preferences')]; return fallback?.has(key) ? fallback.get(key) : localStorage.getItem(key); } catch { return null; } }
+			const theme = readPreference('theme') || 'auto';
 			if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
 				document.documentElement.classList.add('dark');
 			} else {
 				document.documentElement.classList.remove('dark');
 			}
-			const hue = localStorage.getItem('hue') || '260';
+			const hue = readPreference('hue') || '260';
 			document.documentElement.style.setProperty('--hue', hue);
 		</script>
 	</head>

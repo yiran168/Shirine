@@ -1,4 +1,5 @@
 <script lang="ts">
+import { browserStorage } from "@utils/browser-storage";
   import { onMount } from "svelte";
   import { authStore } from "../../stores/auth";
   import { userApi } from "../../services/api";
@@ -13,7 +14,7 @@
 
   onMount(() => {
     if (typeof window !== "undefined") {
-      currentLang = localStorage.getItem("shirine_lang") || "zh_CN";
+      currentLang = browserStorage.getItem("shirine_lang") || "zh_CN";
       const onDocClick = (e: MouseEvent) => {
         const target = e.target as HTMLElement;
         if (!target.closest("#shirine-user-nav-container")) {

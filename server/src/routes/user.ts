@@ -5,23 +5,9 @@ import { getDb, schema } from "../db";
 import { requireAuth } from "../core/middleware";
 import { hashPassword, generateSalt, verifyPassword, signToken } from "../core/auth";
 import { isPresetAvatar } from "../core/avatar-presets";
+import { getCheckinCalendar } from "../core/checkin-calendar";
 
 export const userRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
-
-function getLocalDateString(date: Date, timeZone = "Asia/Shanghai"): string {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  return formatter.format(date); // YYYY-MM-DD
-}
-
-function getYesterdayDateString(date: Date, timeZone = "Asia/Shanghai"): string {
-  const yesterday = new Date(date.getTime() - 24 * 60 * 60 * 1000);
-  return getLocalDateString(yesterday, timeZone);
-}
 
 // Daily Check-in (Timezone-aware with Asia/Shanghai #103, atomic execution #102)
 userRouter.post("/checkin", requireAuth, async (c) => {
@@ -39,21 +25,7 @@ userRouter.post("/checkin", requireAuth, async (c) => {
       return c.json({ success: false, error: "User not found" }, 404);
     }
 
-    // Read timezone from site config if configured
-    let siteTimeZone = "Asia/Shanghai";
-    try {
-      const siteConfigRow = await db.query.siteConfigs.findFirst({
-        where: eq(schema.siteConfigs.key, "site"),
-      });
-      if (siteConfigRow) {
-        const parsed = JSON.parse(siteConfigRow.value);
-        if (parsed.timeZone) siteTimeZone = parsed.timeZone;
-      }
-    } catch {}
-
-    const now = new Date();
-    const today = getLocalDateString(now, siteTimeZone);
-    const yesterday = getYesterdayDateString(now, siteTimeZone);
+    const { today, yesterday } = await getCheckinCalendar(c.env);
 
     // Check if already checked in today
     const existingCheckin = await db.query.checkinRecords.findFirst({
@@ -179,18 +151,7 @@ userRouter.get("/profile", requireAuth, async (c) => {
       return c.json({ success: false, error: "User not found" }, 404);
     }
 
-    let siteTimeZone = "Asia/Shanghai";
-    try {
-      const siteConfigRow = await db.query.siteConfigs.findFirst({
-        where: eq(schema.siteConfigs.key, "site"),
-      });
-      if (siteConfigRow) {
-        const parsed = JSON.parse(siteConfigRow.value);
-        if (parsed.timeZone) siteTimeZone = parsed.timeZone;
-      }
-    } catch {}
-
-    const today = getLocalDateString(new Date(), siteTimeZone);
+    const { today } = await getCheckinCalendar(c.env);
     const checkedInToday = user.lastCheckinDate === today;
 
     const userData = {

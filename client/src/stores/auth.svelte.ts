@@ -21,6 +21,7 @@ class StoreManager {
   authModalTab = $state<"login" | "register">("login");
   userDrawerOpen = $state(false);
   listeners: Set<() => void> = new Set();
+  private sessionRevision = 0;
 
   subscribe(listener: () => void) {
     this.listeners.add(listener);
@@ -37,13 +38,16 @@ class StoreManager {
 
   async init() {
     if (typeof window === "undefined") return;
+    const revision = ++this.sessionRevision;
     try {
       const token = localStorage.getItem("shirine_token");
       if (token && !document.cookie.includes("shirine_token=")) {
         document.cookie = `shirine_token=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
       }
+    } catch {}
+    try {
       const res = await authApi.me();
-      if (res.success && res.user) {
+      if (revision === this.sessionRevision && res.success && res.user) {
         this.user = res.user as UserState;
         this.notify();
       }
@@ -51,6 +55,7 @@ class StoreManager {
   }
 
   setUser(user: UserState | null) {
+    this.sessionRevision++;
     this.user = user;
     this.notify();
   }
@@ -79,6 +84,7 @@ class StoreManager {
   async logout() {
     const res = await authApi.logout();
     if (!res.success) throw new Error(res.error || "退出登录失败，请重试");
+    this.sessionRevision++;
     this.user = null;
     this.userDrawerOpen = false;
     this.notify();
@@ -93,6 +99,7 @@ class StoreManager {
   async logoutAll() {
     const res = await authApi.logoutAll();
     if (!res.success) throw new Error(res.error || "退出登录失败，请重试");
+    this.sessionRevision++;
     this.user = null;
     this.userDrawerOpen = false;
     this.notify();

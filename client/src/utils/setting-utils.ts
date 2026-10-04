@@ -1,3 +1,4 @@
+import { browserStorage } from "@utils/browser-storage";
 import {
 	AUTO_MODE,
 	DARK_MODE,
@@ -33,12 +34,12 @@ export function getDefaultTexturePreset(): TexturePreset {
 }
 
 export function getStoredTexturePreset(): TexturePreset {
-	const value = localStorage.getItem(TEXTURE_PRESET_KEY);
+	const value = browserStorage.getItem(TEXTURE_PRESET_KEY);
 	return isTexturePreset(value) ? value : getDefaultTexturePreset();
 }
 
 export function setTexturePreset(preset: TexturePreset): void {
-	localStorage.setItem(TEXTURE_PRESET_KEY, preset);
+	browserStorage.setItem(TEXTURE_PRESET_KEY, preset);
 	document.documentElement.dataset.texturePreset = preset;
 	window.dispatchEvent(
 		new CustomEvent(TEXTURE_CHANGE_EVENT, {
@@ -63,7 +64,7 @@ export function getDefaultTextureOpacity(): number {
 }
 
 export function getStoredTextureOpacity(): number {
-	const value = localStorage.getItem(TEXTURE_OPACITY_KEY);
+	const value = browserStorage.getItem(TEXTURE_OPACITY_KEY);
 	if (value) {
 		const parsed = Number.parseFloat(value);
 		if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 1) {
@@ -75,7 +76,7 @@ export function getStoredTextureOpacity(): number {
 
 export function setTextureOpacity(opacity: number): void {
 	const clamped = Math.min(Math.max(opacity, 0), 1);
-	localStorage.setItem(TEXTURE_OPACITY_KEY, String(clamped));
+	browserStorage.setItem(TEXTURE_OPACITY_KEY, String(clamped));
 	document.documentElement.style.setProperty(
 		"--texture-opacity",
 		String(clamped),
@@ -98,12 +99,12 @@ export function getDefaultWallpaperMode(): WallpaperMode {
 }
 
 export function getStoredWallpaperMode(): WallpaperMode {
-	const value = localStorage.getItem(WALLPAPER_MODE_KEY);
+	const value = browserStorage.getItem(WALLPAPER_MODE_KEY);
 	return isWallpaperMode(value) ? value : getDefaultWallpaperMode();
 }
 
 export function setWallpaperMode(mode: WallpaperMode): void {
-	localStorage.setItem(WALLPAPER_MODE_KEY, mode);
+	browserStorage.setItem(WALLPAPER_MODE_KEY, mode);
 	document.documentElement.dataset.wallpaperMode = mode;
 	window.dispatchEvent(
 		new CustomEvent(WALLPAPER_MODE_CHANGE_EVENT, { detail: { mode } }),
@@ -117,12 +118,12 @@ export function getDefaultHue(): number {
 }
 
 export function getHue(): number {
-	const stored = localStorage.getItem("hue");
+	const stored = browserStorage.getItem("hue");
 	return stored ? Number.parseInt(stored, 10) : getDefaultHue();
 }
 
 export function setHue(hue: number): void {
-	localStorage.setItem("hue", String(hue));
+	browserStorage.setItem("hue", String(hue));
 	const r = document.querySelector(":root") as HTMLElement;
 	if (!r) {
 		return;
@@ -171,19 +172,19 @@ export function applyThemeToDocument(theme: LIGHT_DARK_MODE) {
 }
 
 export function setTheme(theme: LIGHT_DARK_MODE): void {
-	localStorage.setItem("theme", theme);
+	browserStorage.setItem("theme", theme);
 	applyThemeToDocument(theme);
 }
 
 export function getStoredTheme(): LIGHT_DARK_MODE {
-	return (localStorage.getItem("theme") as LIGHT_DARK_MODE) || DEFAULT_THEME;
+	return (browserStorage.getItem("theme") as LIGHT_DARK_MODE) || DEFAULT_THEME;
 }
 
 const MOTION_KEY = "mc-motion";
 
 /** 是否开启「减少动态效果」（手动覆盖 prefers-reduced-motion） */
 export function getMotionPreference(): boolean {
-	return localStorage.getItem(MOTION_KEY) === "reduced";
+	return browserStorage.getItem(MOTION_KEY) === "reduced";
 }
 
 export function applyMotionPreference(reduced: boolean): void {
@@ -191,6 +192,6 @@ export function applyMotionPreference(reduced: boolean): void {
 }
 
 export function setMotionPreference(reduced: boolean): void {
-	localStorage.setItem(MOTION_KEY, reduced ? "reduced" : "full");
+	browserStorage.setItem(MOTION_KEY, reduced ? "reduced" : "full");
 	applyMotionPreference(reduced);
 }
