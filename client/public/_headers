@@ -1,0 +1,16 @@
+# Public mascot assets only. Authentication, R2 proxy and page responses keep
+# their existing private/no-store policies. Unversioned files have bounded TTLs.
+/pio/l2d-widget.min.js
+  Cache-Control: public, max-age=86400
+
+/pio/models/*.moc3
+  Cache-Control: public, max-age=86400
+
+/pio/models/*.webp
+  Cache-Control: public, max-age=86400
+
+/pio/models/*.png
+  Cache-Control: public, max-age=86400
+
+/pio/models/*.json
+  Cache-Control: public, max-age=300

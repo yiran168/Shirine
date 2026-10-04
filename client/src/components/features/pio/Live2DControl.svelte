@@ -2,16 +2,18 @@
   import { onMount, tick } from "svelte";
   import { configApi } from "../../../services/api";
   import { clampMascotPosition } from "../../../utils/mascot-position";
+  import { isMascotEnabled, readMascotVisibility, saveMascotVisibility } from "../../../utils/mascot-visibility";
   import type { PublicSystemConfig } from "../../../utils/system-config";
 
   let { mode = "guest", initialConfig = null }: { mode?: "guest" | "admin"; initialConfig?: PublicSystemConfig | null } = $props();
-  let enabled = $state(false);
-  let visible = $state(false);
-  let started = $state(false);
+  // Render the frame in the server HTML so downloads don't wait for Svelte hydration.
+  let enabled = $state(isMascotEnabled(initialConfig, mode));
+  let visible = $state(true);
+  let started = $state(isMascotEnabled(initialConfig, mode));
   let loaded = $state(false);
   let failed = $state(false);
   let frame: HTMLIFrameElement | undefined = $state();
-  let model = $state("/pio/models/NOIR/noir.model3.json");
+  let model = $state(initialConfig?.live2dModel || "/pio/models/NOIR/noir.model3.json");
   let lang = $state("zh_CN");
   let quotes: string[] = [];
   let height = $state(400);
@@ -63,7 +65,7 @@
     ({ x, y } = clampMascotPosition({ x, y }, bounds, height, viewport));
   }
   function persist() {
-    try { localStorage.setItem("shirine_live2d_visible", String(visible)); } catch {}
+    saveMascotVisibility(mode, visible);
   }
   async function toggle() {
     if (failed) {
@@ -127,9 +129,8 @@
   }
   onMount(() => {
     let alive = true;
+    visible = readMascotVisibility(mode);
     try {
-      visible = localStorage.getItem("shirine_live2d_visible") === "true" ||
-        (localStorage.getItem("shirine_live2d_visible") === null && window.innerWidth >= 768);
       const pos = JSON.parse(localStorage.getItem("shirine_live2d_pos") || "null");
       if (Number.isFinite(pos?.x) && Number.isFinite(pos?.y)) { x = pos.x; y = pos.y; }
     } catch {}
@@ -137,9 +138,7 @@
     clampPosition();
     const applyConfig = async (conf: PublicSystemConfig) => {
       if (!alive) return;
-      enabled = mode === "admin"
-        ? conf.live2dAdminEnabled !== false
-        : conf.live2dGuestEnabled !== false;
+      enabled = isMascotEnabled(conf, mode);
       model = conf.live2dModel || model;
       const configuredQuotes = conf.live2dQuotes;
       // Hydrated props may be Svelte proxies; postMessage needs a plain array.
@@ -215,7 +214,7 @@
   </button>
   {#if started}
     <div id="shirine-mascot" class="mascot" class:mascot-hidden={!visible} style:z-index={layer} style:left={x + "px"} style:bottom={y + "px"} aria-hidden={!visible}>
-      <iframe bind:this={frame} src="/pio/live2d-host.html" onload={() => init()} title="Shirine Live2D" tabindex="-1"
+      <iframe bind:this={frame} src="/pio/live2d-host.html" loading="eager" onload={() => init()} title="Shirine Live2D" tabindex="-1"
         style:width={width + "px"} style:height={height + "px"} style:opacity={loaded ? 1 : 0}></iframe>
       {#if !loaded}<p role="status">{failed ? labels.retry : labels.loading}</p>{/if}
       {#if loaded}
